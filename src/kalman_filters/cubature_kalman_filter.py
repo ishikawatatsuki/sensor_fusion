@@ -1,0 +1,389 @@
+import os
+import sys
+if __name__ == "__main__":
+    sys.path.append('../../src')
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import sys
+from tqdm import tqdm
+from utils.error_report import get_error_report
+from configs import MeasurementDataEnum, SetupEnum, FilterEnum, NoiseTypeEnum
+from scipy.linalg import cholesky
+from ahrs import Quaternion
+
+if __name__ == "__main__":
+    from base_filter import BaseFilter
+else:
+    from .base_filter import BaseFilter
+
+
+np.random.seed(777)
+
+# https://kalman-filter.com/cubature-kalman-filter/
+class CubatureKalmanFilter(BaseFilter):
+
+    x = None
+    P = None
+    sigma_points = None
+    
+    def __init__(self, x, P, H, q, r_vo, r_gps, setup=SetupEnum.SETUP_1):
+        """ 
+        Args:
+            x (numpy.array): state to estimate: 
+                setup1 or setup2: [px, py, pz, vx, vy, vz, q1, q2, q3, q4] 
+                setup3          : [px, py, theta]
+            P (numpy.array): state error covariance matrix
+            H (numpy.array): transition matrix from predicted state vector to measurement space
+            q (numpy.array): process noise vector
+            r_vo (numpy.array): measurement noise vector for VO
+            r_gps (numpy.array): measurement noise vector for GPS
+            setup (SetupEnum): filter setup
+        """
+        self.N = len(x)
+        self.x = x
+        self.P = P
+        self.H = H
+        self.m = self.N * 2
+        self.W = 1 / self.m
+        self.setup = setup
+        self.dimension=self.H.shape[0]
+        self.Q = self.get_diagonal_matrix(q)
+        self.R_vo = self.get_diagonal_matrix(r_vo)
+        self.R_gps = self.get_diagonal_matrix(r_gps)
+
+    def compute_sigma_points(self):
+        L = cholesky(self.P)
+        coef = L * np.sqrt(self.N)
+        mean = self.x.flatten()
+        sigma_plus = [mean + coef[i] for i in range(self.N)]
+        sigma_minus = [mean - coef[i] for i in range(self.N)]
+        return np.concatenate([sigma_plus, sigma_minus])
+
+    def predict_setup1_2(self, u, dt, Q):
+
+        sigma_points = self.compute_sigma_points()
+        p = sigma_points[:, :3]
+        v = sigma_points[:, 3:6]
+        q = sigma_points[:, 6:]
+        a = u[:3]
+        w = u[3:]
+        a = a.reshape(-1, 1)
+        w = w.reshape(-1, 1)
+        g = np.array([[0],[0],[9.81]])
+        R = np.array([self.get_rotation_matrix(q_.reshape(-1, 1)) for q_ in q]) #20x3x3
+        Omega = self.get_quaternion_update_matrix(w)
+        norm_w = self.compute_norm_w(w)
+
+        A = np.cos(norm_w*dt/2) * np.eye(4)
+        B = (1/norm_w)*np.sin(norm_w*dt/2) * Omega
+
+        acc_val = (R @ a - g)
+        acc_val_reshaped = acc_val.reshape(acc_val.shape[0], acc_val.shape[1])
+        p_k = p + v * dt + acc_val_reshaped*dt**2 / 2 # 20x3
+        v_k = v + acc_val_reshaped * dt # 20x3
+        q_k = q @ np.array(A + B) # 20x4
+        q_k = np.array([q_ / np.linalg.norm(q_) if np.linalg.norm(q_) > 0 else q_  for q_ in q_k])
+        
+        self.sigma_points = np.concatenate([
+            p_k,
+            v_k,
+            q_k,
+        ], axis=1) # 20x10
+        
+        # compute mean value of sigma points
+        self.x = np.sum(self.W * self.sigma_points, axis=0).reshape(-1, 1) # 10x1
+
+        # compute covariance matrix for sigma points
+        P = np.zeros((self.N, self.N)) # 10x10
+        for i, sigma_point in enumerate(self.sigma_points):
+            # x = sigma_point.reshape(-1, 1)
+            # P += self.W * (np.outer(x, x.T) - np.outer(self.x, self.x.T))
+            var = sigma_point.reshape(-1, 1) - self.x
+            P += self.W * (var @ var.T)
+        
+        self.P = P + Q # 10x10 additive process noise
+
+    def predict_setup3(self, u, dt, Q):
+        sigma_points = self.compute_sigma_points() # 7x3
+        x, y, theta = sigma_points.T
+        x = x.reshape(-1, 1)
+        y = y.reshape(-1, 1)
+        theta = theta.reshape(-1, 1)
+        v, omega = u
+        r = v / omega  # turning radius
+
+        dtheta = omega * dt
+        dx = - r * np.sin(theta) + r * np.sin(theta + dtheta)
+        dy = + r * np.cos(theta) - r * np.cos(theta + dtheta)
+        x += dx
+        y += dy
+        theta += dtheta
+        
+        self.sigma_points = np.concatenate([x, y, theta], axis=1)
+
+        self.x = np.sum(self.W * self.sigma_points, axis=0).reshape(-1, 1) # 3x1
+
+        P = np.zeros((self.N, self.N)) # 3x3
+        for i, sigma_point in enumerate(self.sigma_points):
+            # x = sigma_point.reshape(-1, 1)
+            # P += self.W * (np.outer(x, x.T) - np.outer(self.x, self.x.T))
+            P += self.W * ((sigma_point.reshape(-1, 1) - self.x) @ (sigma_point.reshape(-1, 1) - self.x).T)
+        self.P = P + Q # 10x10 additive process noise
+
+    def update(self, z, R):
+        sigma_points = self.compute_sigma_points()
+        # traject sigma points into the measurement space
+        y_sigma_points = sigma_points @ self.H.T # 20x2
+        # compute expected measurement value
+        y_hat = np.sum(self.W * y_sigma_points, axis=0).reshape(-1, 1) # 2x1
+
+        x_dim = sigma_points.shape[1]
+        z_dim = y_sigma_points.shape[1]
+
+        # compute covariance matrix for residuals
+        P_y = np.zeros((z_dim, z_dim)) # 2x2
+        for i, y_sigma_point in enumerate(y_sigma_points):
+            # y = y_sigma_point.reshape(-1, 1)
+            # P_y += self.W * (np.outer(y, y.T) - np.outer(y_hat, y_hat.T))
+            var_y = y_sigma_point.reshape(-1, 1) - y_hat
+            P_y += self.W * (var_y @ var_y.T)
+
+        P_y += R # additive measurement noise
+        
+        # compute cross-covariance matrix 
+        P_xy = np.zeros((x_dim, z_dim)) # 10x2
+        for idx in range(self.N):
+            var_x = sigma_points[idx].reshape(-1, 1) - self.x
+            var_y = y_sigma_points[idx].reshape(-1, 1) - y_hat
+            # P_xy += self.W * (np.outer(x, y.T) - np.outer(self.x, y_hat.T))
+            P_xy += self.W * (var_x @ var_y.T)
+        
+        # compute kalman gain
+        K = P_xy @ np.linalg.inv(P_y)
+
+        # compute residual
+        residual = z.reshape(-1, 1) - y_hat
+        # update state vector and error covariance matrix
+        self.x = self.x + K @ residual
+        self.P = self.P - K @ P_y @ K.T
+        
+        self.errors.append(np.sqrt(np.sum(residual**2)))
+        
+    def _time_update_step(self, data, t_idx, dt, Q):
+        if self.setup is SetupEnum.SETUP_1 or self.setup is SetupEnum.SETUP_2:
+            ax, ay, az = data.IMU_acc_with_noise[t_idx]
+            wx, wy, wz = data.IMU_angular_velocity_with_noise[t_idx]
+            u = np.array([
+                ax,
+                ay,
+                az,
+                wx,
+                wy,
+                wz
+            ])
+            self.predict_setup1_2(u=u, dt=dt, Q=Q)
+        else: #SetupEnum.SETUP_3
+            u = np.array([
+                data.INS_velocities_with_noise[t_idx, 0],
+                data.IMU_angular_velocity_with_noise[t_idx, 2]
+            ])
+            self.predict_setup3(u=u, dt=dt, Q=Q)
+            
+    def _measurement_update_step(self, data, t_idx, R_vo, R_gps, measurement_type):
+        z_vo, _R_vo = data.get_vo_measurement_by_index(
+            index=t_idx, 
+            measurement_type=measurement_type)
+        z_gps, _R_gps = data.get_gps_measurement_by_index(
+            index=t_idx, 
+            setup=self.setup, 
+            measurement_type=measurement_type)
+        
+        if measurement_type is MeasurementDataEnum.COVARIANCE:
+            R_vo = _R_vo
+            R_gps = _R_gps
+        
+        if z_vo is not None:
+            self.update(z=z_vo, R=R_vo)
+        
+        if z_gps is not None:
+            self.update(z=z_gps, R=R_gps)
+            
+        # if measurement_type is MeasurementDataEnum.ALL_DATA:
+        #     z_vo = data.VO_measurements_with_noise[t_idx, :self.dimension].reshape(-1, 1)
+        #     self.update(z=z_vo, R=R_vo)
+            
+        #     if self.setup is SetupEnum.SETUP_2 or self.setup is SetupEnum.SETUP_3:
+        #         z_gps = data.GPS_mesurement_in_meter_with_noise[t_idx, :self.dimension].reshape(-1, 1)
+        #         self.update(z=z_gps, R=R_gps)
+
+        # elif measurement_type is MeasurementDataEnum.DROPOUT:
+        #     z_vo = data.get_vo_measurement(t_idx)
+        #     if z_vo is not None:
+        #         self.update(z=z_vo, R=R_vo)
+            
+        #     if self.setup is SetupEnum.SETUP_2 or self.setup is SetupEnum.SETUP_3:
+        #         z_gps = data.get_gps_measurement(t_idx)
+        #         if z_gps is not None:
+        #             self.update(z=z_gps, R=R_gps)
+        
+        # else: # MeasurementDataEnum.COVARIANCE
+        #     z_vo, vo_noise = data.get_vo_measurement_with_noise_cov(t_idx)
+        #     R_vo = np.array([
+        #             [vo_noise ** 2., 0.],
+        #             [0., vo_noise ** 2.],
+        #         ])
+        #     self.update(z=z_vo, R=R_vo)
+
+        #     if self.setup is SetupEnum.SETUP_2 or self.setup is SetupEnum.SETUP_3:
+        #         z_gps, gps_noise = data.get_gps_measurement_with_noise_cov(t_idx)
+        #         R_gps = np.array([
+        #                 [gps_noise ** 2., 0.],
+        #                 [0., gps_noise ** 2.],
+        #             ])
+        #         self.update(z=z_gps, R=R_gps)
+
+    def run(self, 
+            data, 
+            measurement_type=MeasurementDataEnum.ALL_DATA, 
+            debug_mode=False,
+            show_graph=False):
+
+        # measurement noise
+        R_vo = self.R_vo
+        R_gps = self.R_gps
+        # process noise
+        Q = self.Q
+
+        mu_x = [self.x[0, 0],]
+        mu_y = [self.x[1, 0],]
+        mu_z = [self.x[2, 0],]
+        
+        t_last = 0.
+        if debug_mode is True:
+            print("[CKF] start.")
+        for t_idx in tqdm(range(1, data.N), disable=not debug_mode):
+            t = data.ts[t_idx]
+            dt = t - t_last
+
+            # prediction step(time update)
+            self._time_update_step(data, t_idx, dt, Q)
+            
+            x_hat = self.x.copy()
+            mu_x.append(x_hat[0, 0])
+            mu_y.append(x_hat[1, 0])
+            mu_z.append(x_hat[2, 0])
+
+            # correction step(measurement update)
+            self._measurement_update_step(data, t_idx, R_vo, R_gps, measurement_type)
+
+            t_last = t
+            
+        error = \
+            get_error_report(
+                    data.GPS_measurements_in_meter.T[:2, :len(mu_x)], 
+                    np.array([mu_x, mu_y]))\
+            if self.H.shape[0] == 2 else\
+            get_error_report(
+                data.GPS_measurements_in_meter.T[:3, :len(mu_x)], 
+                np.array([mu_x, mu_y, mu_z])) 
+
+        if debug_mode:
+            print(f"[CKF] errors: {error}")
+
+        if show_graph is True:
+            fig, ax1 = plt.subplots(1, 1, figsize=(12, 9))
+            xs, ys, _ = data.GPS_measurements_in_meter.T
+            ax1.plot(xs, ys, lw=2, label='ground-truth trajectory', color='black')
+            xs, ys, _ = data.VO_measurements.T
+            ax1.plot(xs, ys, lw=2, label='VO trajectory', color='b')
+            ax1.plot(
+                mu_x, mu_y, lw=2,
+                label='estimated trajectory', color='r')
+            ax1.set_xlabel('X [m]')
+            ax1.set_ylabel('Y [m]')
+            ax1.legend()
+            ax1.grid()
+            
+        self.mu_x = mu_x
+        self.mu_y = mu_y
+        self.mu_z = mu_z
+        
+        return error
+
+if __name__ == "__main__":
+    from data_loader import DataLoader
+
+    kitti_root_dir = '../../data'
+    vo_root_dir = '../../vo_estimates'
+    noise_vector_dir = '../../exports/_noise_optimizations/noise_vectors'
+    kitti_date = '2011_09_30'
+    kitti_drive = '0033'
+    dimension = 3
+
+    data = DataLoader(sequence_nr=kitti_drive, 
+                    kitti_root_dir=kitti_root_dir, 
+                    vo_root_dir=vo_root_dir,
+                    noise_vector_dir=noise_vector_dir,
+                    vo_dropout_ratio=0.0, 
+                    gps_dropout_ratio=0.0,
+                    dimension=dimension)
+
+    x_setup1, P_setup1, H_setup1, q1, r_vo1, r_gps1 = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.CKF, noise_type=NoiseTypeEnum.CURRENT)
+    x_setup2, P_setup2, H_setup2, q2, r_vo2, r_gps2 = data.get_initial_data(setup=SetupEnum.SETUP_2, filter_type=FilterEnum.CKF, noise_type=NoiseTypeEnum.CURRENT)
+    x_setup3, P_setup3, H_setup3, q3, r_vo3, r_gps3 = data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=FilterEnum.CKF, noise_type=NoiseTypeEnum.CURRENT)
+    
+    measurement_type = MeasurementDataEnum.ALL_DATA
+    interval = 10
+
+    # ckf1_0 = CubatureKalmanFilter(
+    #     x=x_setup1.copy(), 
+    #     P=P_setup1.copy(), 
+    #     H=H_setup1.copy(),
+    #     q=q1,
+    #     r_vo=r_vo1,
+    #     r_gps=r_gps1,
+    #     setup=SetupEnum.SETUP_1,
+    # )
+    # error_ckf1_0 = ckf1_0.run(data=data, measurement_type=measurement_type, debug_mode=True)
+    
+    # estimated = ckf1_0.get_estimated_trajectory()[:, :dimension]
+    # actual = data.GPS_measurements_in_meter[:, :dimension]
+    # print(np.sum((actual - estimated) ** 2))
+
+    # ckf1_0.visualize_trajectory(data=data, dimension=dimension, interval=interval)
+
+    ckf2_0 = CubatureKalmanFilter(
+        x=x_setup2.copy(), 
+        P=P_setup2.copy(), 
+        H=H_setup2.copy(),
+        q=q2,
+        r_vo=r_vo2,
+        r_gps=r_gps2,
+        setup=SetupEnum.SETUP_2,
+    )
+    error_ckf2_0 = ckf2_0.run(data=data, measurement_type=measurement_type, debug_mode=True)
+
+    estimated = ckf2_0.get_estimated_trajectory()[:, :dimension]
+    actual = data.GPS_measurements_in_meter[:, :dimension]
+    print(np.sum((actual - estimated) ** 2))
+
+    ckf2_0.visualize_trajectory(data=data, dimension=dimension, interval=interval)
+
+    # ckf3_0 = CubatureKalmanFilter(
+    #     x=x_setup3.copy(), 
+    #     P=P_setup3.copy(), 
+    #     H=H_setup3.copy(),
+    #     q=q3,
+    #     r_vo=r_vo3,
+    #     r_gps=r_gps3,
+    #     setup=SetupEnum.SETUP_3,
+    # )
+    # error_ckf3_0 = ckf3_0.run(data=data, measurement_type=measurement_type, debug_mode=True)
+
+    # estimated = ckf3_0.get_estimated_trajectory()[:, :dimension]
+    # actual = data.GPS_measurements_in_meter[:, :dimension]
+    # print(np.sum((actual - estimated) ** 2))
+
+    # ckf3_0.visualize_trajectory(data=data, dimension=dimension, interval=interval)
