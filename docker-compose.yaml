@@ -1,0 +1,12 @@
+version:  "3.8"
+
+services:
+  runner:
+    command: sh -c "/bin/bash"
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    stdin_open: true
+    tty: true
+    volumes:
+      - .:/app:delegated
