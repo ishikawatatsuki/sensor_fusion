@@ -4,12 +4,12 @@ WORKDIR /app
 COPY . .
 
 RUN apt-get update
-RUN apt-get install -y gdal-bin libgdal-dev g++
+RUN apt-get install -y gdal-bin libgdal-dev g++ libgl1 jpeg-dev zlib-dev libjpeg make
 
-RUN python -m venv /opt/venv
-# Enable venv
-ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install -r requirements.txt
 
-# RUN pip3 install -Ur requirements.txt
+# matplotlib config (used by benchmark)
+RUN mkdir -p /root/.config/matplotlib
+RUN echo "backend : Agg" > /root/.config/matplotlib/matplotlibrc
 
-# RUN sh raw_data_downloader.sh
+EXPOSE 8888

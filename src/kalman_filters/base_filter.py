@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from ahrs.filters import Madgwick
 class BaseFilter:
@@ -111,7 +112,10 @@ class BaseFilter:
 
             fig.tight_layout()
             ax1.legend(loc='best', bbox_to_anchor=(1.1, 0., 0.2, 0.9))
-
+        
+        matplotlib.use('agg')
+        print(matplotlib.get_backend())
+        plt.show()
         plt.pause(interval=interval if interval is not None else 30)
 
     def plot_error(self):
