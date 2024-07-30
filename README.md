@@ -52,6 +52,3 @@ chmod +x raw_data_downloader.sh
 ./raw_data_downloader.sh
 ```
 You can select which sequence of Kitti dataset to download by editing the script directly.
-
-	# CONTAINER_ID := $(echo | docker compose ps --format '{{.Name}}' | grep sensor_fusion-jupyterlab)
-	# CONTAINER_ID = sensor_fusion-jupyterlab1
