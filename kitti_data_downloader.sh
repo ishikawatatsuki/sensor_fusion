@@ -20,11 +20,9 @@ LOCATION_DIR='./data'
 mkdir -p $LOCATION_DIR
 
 files=(
-2011_10_03_calib.zip
-2011_10_03_drive_0027
-# 2011_09_30_calib.zip
-# 2011_09_30_drive_0016
-# 2011_09_30_drive_0033
+        2011_09_30_calib.zip
+        2011_09_30_drive_0016
+        2011_09_30_drive_0033
 )
 
 for i in ${files[@]}; do

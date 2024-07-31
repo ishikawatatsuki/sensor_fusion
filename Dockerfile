@@ -6,10 +6,8 @@ ARG GROUP_ID
 WORKDIR /app
 COPY requirements.txt /app/
 
-# Create a user group
-# RUN groupadd -g ${GROUP_ID} lab-users
 # # Create a user
-RUN useradd -l -u ${USER_ID} -g ${GROUP_ID} user
+RUN useradd -l -u ${USER_ID}  user
 # # Chown all the files to the app user
 RUN chown -R ${USER_ID}:${GROUP_ID} /app
 
