@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LOCATION_DIR='./data/UAV2'
+LOCATION_DIR='./data/UAV'
 
 mkdir -p $LOCATION_DIR
 
