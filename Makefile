@@ -1,22 +1,16 @@
-CONTAINER_NAME := sensor_fusion-jupyterlab
+build:
+	docker build . --tag sensor_fusion:1.0 --build-arg USER_ID=$(shell id -u) --build-arg GROUP_ID=$(shell id -g)
 
-jupyterlab_start:
-	docker-compose up -d
+container_up:
+	docker run --rm --user $(shell id -u ${USER}):$(shell id -g ${USER}) -v .:/app -it sensor_fusion:1.0 /bin/bash
 
-jupyterlab_start_with_build:
-	docker-compose up --build -d
-	
-jupyterlab_run:
-	docker exec -it $(shell echo | docker compose ps --format '{{.Name}}' | grep ${CONTAINER_NAME}) /bin/bash
-
-jupyterlab_stop:
-	docker-compose down
+jupyter_up:
+	docker run --rm --user root -p 8888:8888 -v .:/app -it sensor_fusion:1.0 jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --notebook-dir=/app --allow-root
 
 help:
-	@echo  'jupyterlab_start	- Start jupyter lab server inside the container.'
-	@echo  'jupyterlab_start_with_build	- Start jupyter lab server with build. Run this whenever you change Dockerfile.'
-	@echo  'jupyterlab_stop	- Stop container that runs jupyter lab server.'
-	@echo  'jupyterlab_run	- Enter the jupyterlab container, by which you can run python script individually.'
+	@echo  'build	- Build the container.'
+	@echo  'container_up	- Start the container.'
+	@echo  'jupyter_up	- Start the container that runs jupyter lab server.'
 	@echo  ''
 
 
