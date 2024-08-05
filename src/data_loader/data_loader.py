@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import pykitti
 from ahrs.filters import AngularRate
 
-from utils import normalize_angles, lla_to_enu, get_rigid_transformation
+from utils import lla_to_enu, get_rigid_transformation
 from configs import SetupEnum, SamplingEnum, FilterEnum, NoiseTypeEnum, MeasurementDataEnum
 
 sequence_data_map = {
@@ -20,7 +20,6 @@ sequence_data_map = {
         'calib_imu_to_velo': '2011_09_30/calib_imu_to_velo.txt',
         'vo_path': 'trajectory_estimated_04.npy',
         'gt_path': 'trajectory_gt_04.npy',
-        'imu_path': 'imu_04.npy' 
     },
     '0033': { #09
         'kitti_date': '2011_09_30',
@@ -28,7 +27,13 @@ sequence_data_map = {
         'calib_imu_to_velo': '2011_09_30/calib_imu_to_velo.txt',
         'vo_path': 'trajectory_estimated_09.npy',
         'gt_path': 'trajectory_gt_09.npy',
-        'imu_path': 'imu_09.npy'
+    },
+    'example': { #example data
+        'kitti_date': '2011_09_30',
+        'calib_velo_to_cam': '2011_09_30/calib_velo_to_cam.txt',
+        'calib_imu_to_velo': '2011_09_30/calib_imu_to_velo.txt',
+        'vo_path': 'trajectory_estimated_09_example.npy',
+        'gt_path': 'trajectory_gt_09_example.npy',
     }
 }
 
@@ -44,6 +49,16 @@ noise_configs = {
         'quaternion_process_noise': [0.01, 0.002, 0.002, 0.05]
     },
     '0033': {
+        'GPS_measurement_noise_std': 1.0,
+        'VO_noise_std': 1.0,
+        'IMU_acc_noise_std': 0.02,
+        'IMU_angular_velocity_noise_std': 0.01,
+        'velocity_noise_std': 0.3,
+        'GPS_measurement_noise_std_uncertain': 2.0,
+        'VO_noise_std_uncertain': 2.0,
+        'quaternion_process_noise': [0.01, 0.002, 0.002, 0.05]
+    },
+    'example': {
         'GPS_measurement_noise_std': 1.0,
         'VO_noise_std': 1.0,
         'IMU_acc_noise_std': 0.02,
@@ -166,12 +181,12 @@ class DataLoader:
         
         self.dimension = dimension
         
+        # Setting paths
         self.config = sequence_data_map[sequence_nr].copy()
         self.config['calib_velo_to_cam'] = kitti_root_dir + '/' + self.config['calib_velo_to_cam']
         self.config['calib_imu_to_velo'] = kitti_root_dir + '/' + self.config['calib_imu_to_velo']
         self.config['vo_path'] = vo_root_dir + '/' + self.config['vo_path']
         self.config['gt_path'] = vo_root_dir + '/' + self.config['gt_path']
-        self.config['imu_path'] = vo_root_dir + '/' + self.config['imu_path']
 
         self.noise_vector_dir = noise_vector_dir
         noise = noise_configs[sequence_nr].copy()
@@ -221,6 +236,7 @@ class DataLoader:
         ins_v = []
         vo = np.load(self.config['vo_path'])
         gt = np.load(self.config['gt_path'])
+        print(vo.shape)
         self.N_original = gt.shape[1]
         for index, oxts_data in enumerate(self.dataset.oxts):
             if index < self.N_original:
@@ -250,8 +266,6 @@ class DataLoader:
                 ])
             
         
-        # self.GPS_measurements_in_meter_original = (self.z() @ self.transform_gps_data_into_imu_coord(np.array(gt).T).T).T
-        # self.VO_measurements_original = (self.z() @ self.transform_vo_data_into_imu_coord(np.array(vo)[:self.N_original]).T).T
         self.GPS_measurements_in_meter_original = self.transform_gps_data_into_imu_coord(np.array(gt).T)
         self.VO_measurements_original = self.transform_vo_data_into_imu_coord(np.array(vo)[:self.N_original])
         
@@ -269,16 +283,7 @@ class DataLoader:
         timestamps = np.array(self.dataset.timestamps[:self.N_original])
         elapsed = np.array(timestamps) - timestamps[0]
         self.ts_original = [t.total_seconds() for t in elapsed] # dt
-        
-    def z(self):
-        theta = np.pi / 6.5
-        c = np.cos(theta)
-        s = np.sin(theta)
-        return np.array([
-            [c, s, 0],
-            [-s, c, 0],
-            [0, 0, 1]
-        ])
+
     def transform_imu_into_gps(self, data):
         if self.debug_mode:
             print("Transform data in IMU space into GPS coordinate.")
@@ -982,11 +987,10 @@ class DataLoader:
 
             
 if __name__ == "__main__":
-    kitti_root_dir = '../../data'
+    kitti_root_dir = '../../example_data/kitti'
     vo_root_dir = '../../vo_estimates'
     noise_vector_dir = '../../exports/_noise_optimizations/noise_vectors'
-    kitti_date = '2011_09_30'
-    kitti_drive = '0033'
+    kitti_drive = 'example'
     data = DataLoader(sequence_nr=kitti_drive, 
                     kitti_root_dir=kitti_root_dir, 
                     vo_root_dir=vo_root_dir,
@@ -996,7 +1000,7 @@ if __name__ == "__main__":
                     upsampling_factor=10,
                     downsampling_ratio=0.8,
                     visualize_data=True,
-                    dimension=3)
+                    dimension=2)
     plt.pause(interval=5)
     # # data.set_data_sampling(sampling=SamplingEnum.UPSAMPLED_DATA)
     # data.set_data_sampling(sampling=SamplingEnum.DOWNSAMPLED_DATA)
@@ -1004,9 +1008,3 @@ if __name__ == "__main__":
     # x_setup1, P_setup1, H_setup1, q, r_vo, r_gps = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.EKF, noise_type=NoiseTypeEnum.CURRENT)
     
     x_setup1, P_setup1, H_setup1, q, r_vo, r_gps = data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=FilterEnum.UKF)
-    print(r_vo)
-    print(data.GPS_measurements_in_meter)
-
-
-
-
