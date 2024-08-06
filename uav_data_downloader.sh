@@ -5,6 +5,7 @@ LOCATION_DIR='./data/UAV'
 mkdir -p $LOCATION_DIR
 
 files=(
+  v1.zip
   log0000.zip
   log0001.zip
   log0003.zip
