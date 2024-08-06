@@ -23,7 +23,6 @@ file_path = {
             "imu0_bias": "13_07_41_estimator_sensor_bias_0.csv",
             "imu1_bias": "13_07_41_estimator_sensor_bias_1.csv"
         },
-        "export_filename": "log0000_timestamp_combined.csv",
     },
     "log0001": {
         "voxl": {
@@ -37,10 +36,9 @@ file_path = {
             "gps": "13_13_57_sensor_gps_0.csv",
             "vo": "13_13_57_vehicle_visual_odometry_0.csv",
             "vehicle_odometry": "13_13_57_vehicle_odometry_0.csv",
-            "imu0_bias":"13_13_57_estimator_sensor_bias_1.csv",
-            "imu1_bias": "13_13_57_sensor_gps_0.csv",
+            "imu0_bias":"13_13_57_estimator_sensor_bias_0.csv",
+            "imu1_bias": "13_13_57_estimator_sensor_bias_1.csv",
         },
-        "export_filename": "log0001_timestamp_combined.csv",
     },
     "log0003": {
         "voxl": {
@@ -57,7 +55,6 @@ file_path = {
             "imu0_bias": "13_16_27_estimator_sensor_bias_0.csv",
             "imu1_bias": "13_16_27_estimator_sensor_bias_1.csv",
         },
-        "export_filename": "log0003_timestamp_combined.csv",
     },
     "log0005": {
         "voxl": {
@@ -74,13 +71,12 @@ file_path = {
             "imu0_bias": "log_145_UnknownDate_estimator_sensor_bias_0.csv",
             "imu1_bias": "log_145_UnknownDate_estimator_sensor_bias_1.csv",
         },
-        "export_filename": "log0005_timestamp_combined.csv",
     }
 }
 
 class UAV_DataLoader:
     
-    time_update = ['voxl_imu0', 'voxl_imu0', 'px4_imu0', 'px4_imu1', 'px4_imu0_bias', 'px4_imu1_bias']
+    time_update = ['voxl_imu0', 'voxl_imu1', 'px4_imu0', 'px4_imu1', 'px4_imu0_bias', 'px4_imu1_bias']
     measurement_update = ['voxl_vo', 'px4_vo', 'px4_vehicle_odom', 'px4_gps']
     
     gps_pose_columns = ['lon', 'lat', 'alt']
@@ -95,14 +91,14 @@ class UAV_DataLoader:
         self,
         root_path,
         sequence_nr="log0000",
-        version="v4"
+        version="v1"
         ):
-        
-        self.file_export_path = os.path.join(root_path, "exports/UAV")
 
-        uav_root_path = os.path.join(root_path, "data/UAV", sequence_nr)
+        uav_root_path = os.path.join(root_path, "UAV", sequence_nr)
         
-        uav_reference_path = os.path.join(root_path, f"data/UAV/{version}/combined_{sequence_nr}.csv")
+        uav_reference_path = os.path.join(root_path, f"UAV/{version}/timestamp_combined_{sequence_nr}.csv")
+        
+        uav_synced_data_path = os.path.join(root_path, f"UAV/{version}/{sequence_nr}_sync.csv")
         
         sensor_path = file_path[sequence_nr]
 
@@ -139,6 +135,7 @@ class UAV_DataLoader:
         self.voxl_imu1_df = pd.read_csv(voxl_imu1_path)
         self.voxl_qvio_df = pd.read_csv(voxl_qvio_path)
         
+        self.synced_df = pd.read_csv(uav_synced_data_path)
 
     def init_gps_data(self, px4_gps_path):
         # Load csv data
@@ -174,30 +171,35 @@ class UAV_DataLoader:
             'index': 0,
             'last_timestamp': timestamp,
             'columns': ['AX(m/s2)', 'AY(m/s2)', 'AZ(m/s2)', 'GX(rad/s)', 'GY(rad/s)', 'GZ(rad/s)'],
+            'synced_columns': ['voxl_imu0_AX(m/s2)', 'voxl_imu0_AY(m/s2)', 'voxl_imu0_AZ(m/s2)', 'voxl_imu0_GX(rad/s)', 'voxl_imu0_GY(rad/s)', 'voxl_imu0_GZ(rad/s)'],
             'df': self.voxl_imu0_df,
         },
         'voxl_imu1': {
             'index': 0,
             'last_timestamp': timestamp,
             'columns': ['AX(m/s2)', 'AY(m/s2)', 'AZ(m/s2)', 'GX(rad/s)', 'GY(rad/s)', 'GZ(rad/s)'],
+            'synced_columns': ['voxl_imu1_AX(m/s2)', 'voxl_imu1_AY(m/s2)', 'voxl_imu1_AZ(m/s2)', 'voxl_imu1_GX(rad/s)', 'voxl_imu1_GY(rad/s)', 'voxl_imu1_GZ(rad/s)'],
             'df': self.voxl_imu1_df,
         },
         'px4_imu0': {
             'index': 0,
             'last_timestamp': timestamp,
             'columns': ['AX(m/s2)', 'AY(m/s2)', 'AZ(m/s2)', 'GX(rad/s)', 'GY(rad/s)', 'GZ(rad/s)'],
+            'synced_columns': ['px4_imu0_AX(m/s2)', 'px4_imu0_AY(m/s2)', 'px4_imu0_AZ(m/s2)', 'px4_imu0_GX(rad/s)', 'px4_imu0_GY(rad/s)', 'px4_imu0_GZ(rad/s)'],
             'df': self.px4_imu0_df,
         },
         'px4_imu1': {
             'index': 0,
             'last_timestamp': timestamp,
             'columns': ['AX(m/s2)', 'AY(m/s2)', 'AZ(m/s2)', 'GX(rad/s)', 'GY(rad/s)', 'GZ(rad/s)'],
+            'synced_columns': ['px4_imu1_AX(m/s2)', 'px4_imu1_AY(m/s2)', 'px4_imu1_AZ(m/s2)', 'px4_imu1_GX(rad/s)', 'px4_imu1_GY(rad/s)', 'px4_imu1_GZ(rad/s)'],
             'df': self.px4_imu1_df,
         },
         'px4_gps': {
             'index': 0,
             'last_timestamp': timestamp,
             'columns': ['lat', 'lon', 'alt', 'north', 'east', 'down', 'vel_m_s', 'vel_n_m_s', 'vel_e_m_s', 'vel_d_m_s', 'eph', 'epv'],
+            'synced_columns': ['px4_gps_lat', 'px4_gps_lon', 'px4_gps_alt', 'px4_gps_north', 'px4_gps_east', 'px4_gps_down', 'px4_gps_vel_m_s', 'px4_gps_vel_n_m_s', 'px4_gps_vel_e_m_s', 'px4_gps_vel_d_m_s', 'px4_gps_eph', 'px4_gps_epv'],
             'df': self.px4_gps_df,
         },
         'px4_vo': {
@@ -210,6 +212,13 @@ class UAV_DataLoader:
                         'position_variance[0]', 'position_variance[1]', 'position_variance[2]',
                         'orientation_variance[0]', 'orientation_variance[1]', 'orientation_variance[2]', 
                         'velocity_variance[0]', 'velocity_variance[1]', 'velocity_variance[2]'],
+            'synced_columns': ['px4_vo_position[0]', 'px4_vo_position[1]', 'px4_vo_position[2]', 
+                        'px4_vo_q[0]', 'px4_vo_q[1]', 'px4_vo_q[2]', 'px4_vo_q[3]', 
+                        'px4_vo_velocity[0]','px4_vo_velocity[1]', 'px4_vo_velocity[2]', 
+                        'px4_vo_angular_velocity[0]', 'px4_vo_angular_velocity[1]', 'px4_vo_angular_velocity[2]', 
+                        'px4_vo_position_variance[0]', 'px4_vo_position_variance[1]', 'px4_vo_position_variance[2]',
+                        'px4_vo_orientation_variance[0]', 'px4_vo_orientation_variance[1]', 'px4_vo_orientation_variance[2]', 
+                        'px4_vo_velocity_variance[0]', 'px4_vo_velocity_variance[1]', 'px4_vo_velocity_variance[2]'],
             'df': self.px4_vo_df,
         },
         'px4_vehicle_odom': {
@@ -222,30 +231,44 @@ class UAV_DataLoader:
                         'position_variance[0]', 'position_variance[1]', 'position_variance[2]',
                         'orientation_variance[0]', 'orientation_variance[1]', 'orientation_variance[2]', 
                         'velocity_variance[0]', 'velocity_variance[1]', 'velocity_variance[2]'],
+            'synced_columns': ['px4_vehicle_odom_position[0]', 'px4_vehicle_odom_position[1]', 'px4_vehicle_odom_position[2]', 
+                        'px4_vehicle_odom_q[0]', 'px4_vehicle_odom_q[1]', 'px4_vehicle_odom_q[2]', 'px4_vehicle_odom_q[3]', 
+                        'px4_vehicle_odom_velocity[0]','px4_vehicle_odom_velocity[1]', 'px4_vehicle_odom_velocity[2]', 
+                        'px4_vehicle_odom_angular_velocity[0]', 'px4_vehicle_odom_angular_velocity[1]', 'px4_vehicle_odom_angular_velocity[2]', 
+                        'px4_vehicle_odom_position_variance[0]', 'px4_vehicle_odom_position_variance[1]', 'px4_vehicle_odom_position_variance[2]',
+                        'px4_vehicle_odom_orientation_variance[0]', 'px4_vehicle_odom_orientation_variance[1]', 'px4_vehicle_odom_orientation_variance[2]', 
+                        'px4_vehicle_odom_velocity_variance[0]', 'px4_vehicle_odom_velocity_variance[1]', 'px4_vehicle_odom_velocity_variance[2]'],
             'df': self.px4_vehicle_odom_df,
         },
         'px4_imu0_bias': {
             'index': 0,
             'last_timestamp': timestamp,
             'columns': ['gyro_bias[0]', 'gyro_bias[1]', 'gyro_bias[2]', 'accel_bias[0]', 'accel_bias[1]', 'accel_bias[2]'],
+            'synced_columns': ['px4_imu0_bias_gyro_bias[0]', 'px4_imu0_bias_gyro_bias[1]', 'px4_imu0_bias_gyro_bias[2]', 'px4_imu0_bias_accel_bias[0]', 'px4_imu0_bias_accel_bias[1]', 'px4_imu0_bias_accel_bias[2]'],
             'df': self.imu0_bias_df,
         },
         'px4_imu1_bias': {
             'index': 0,
             'last_timestamp': timestamp,
             'columns': ['gyro_bias[0]', 'gyro_bias[1]', 'gyro_bias[2]', 'accel_bias[0]', 'accel_bias[1]', 'accel_bias[2]'],
+            'synced_columns': ['px4_imu1_bias_gyro_bias[0]', 'px4_imu1_bias_gyro_bias[1]', 'px4_imu1_bias_gyro_bias[2]', 'px4_imu1_bias_accel_bias[0]', 'px4_imu1_bias_accel_bias[1]', 'px4_imu1_bias_accel_bias[2]'],
             'df': self.imu1_bias_df,
         },
         'voxl_vo': {
             'index': 0,
             'last_timestamp': timestamp,
             'columns': self.voxl_qvio_df.columns.tolist(),
+            'synced_columns': ['voxl_vo_' + col for col in self.voxl_qvio_df.columns.tolist()],
             'df': self.voxl_qvio_df,
         },
         }
     
 if __name__ == "__main__":
     
-    loader = UAV_DataLoader(root_path="../../", sequence_nr="log0000")
+    root_example_data_path = "../../example_data"
+    example_sequence_nr="log0000"
+    
+    loader = UAV_DataLoader(root_path=root_example_data_path, sequence_nr=example_sequence_nr)
     config = loader.get_config(timestamp=0)
     print(config["voxl_vo"]["index"])
+    print(loader.synced_df.columns)

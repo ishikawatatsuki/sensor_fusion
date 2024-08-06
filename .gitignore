@@ -4,3 +4,7 @@ __pycache__
 data/
 _venv
 .Trash-0
+tools
+reference
+src/runner
+src/serial_manager

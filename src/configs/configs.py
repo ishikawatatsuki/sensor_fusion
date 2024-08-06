@@ -13,6 +13,18 @@ class SetupEnum(Enum):
     @staticmethod
     def get_names():
         return [e.name for e in SetupEnum]
+    
+    @staticmethod
+    def get_name(setup):
+        match setup:
+            case SetupEnum.SETUP_1:
+                return "Setup1 (IMU, VO)"
+            case SetupEnum.SETUP_2:
+                return "Setup2 (IMU, VO+GPS)"
+            case SetupEnum.SETUP_3:
+                return "Setup3 (INS)"
+            case _:
+                return ""
 
 class FilterEnum(Enum):
     EKF = 1 

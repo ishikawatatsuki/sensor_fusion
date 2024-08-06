@@ -30,8 +30,12 @@ def get_dummy_error_report():
     }
     
 def print_error_report(report, title):
-    print(f"----- {title} -----")
-    print(f"Mean Absolute Error: {report[ErrorEnum.MAE]}")
-    print(f"Root Mean Squared Error: {report[ErrorEnum.RMSE]}")
-    print(f"Maximum Error: {report[ErrorEnum.MAX]}")
+    t = f"----- {title} -----"
     print("")
+    print(t)
+    print(f"Mean Absolute Error: {report[ErrorEnum.MAE]} m")
+    print(f"Root Mean Squared Error: {report[ErrorEnum.RMSE]} m")
+    print(f"Maximum Error: {report[ErrorEnum.MAX]} m")
+    print("-" * len(t))
+    print("")
+    
