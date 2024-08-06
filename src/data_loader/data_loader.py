@@ -113,8 +113,10 @@ class DataLoader:
     velocity_noise_std = 0.3
     angle_noise_std = 0.01
 
-    GPS_measurement_noise_std_uncertain = 2.0
-    VO_noise_std_uncertain = 2.0
+    GPS_measurement_noise_std_uncertain = None
+    VO_noise_std_uncertain = None
+    GPS_default_measurement_noise_std_uncertain = 2.0
+    VO_default_noise_std_uncertain = 2.0
 
     quaternion_process_noise = [0.01, 0.002, 0.002, 0.05]
 
@@ -236,7 +238,6 @@ class DataLoader:
         ins_v = []
         vo = np.load(self.config['vo_path'])
         gt = np.load(self.config['gt_path'])
-        print(vo.shape)
         self.N_original = gt.shape[1]
         for index, oxts_data in enumerate(self.dataset.oxts):
             if index < self.N_original:
@@ -794,6 +795,13 @@ class DataLoader:
         self.gps_indices = np.sort(
             random.sample(indices, int(len(indices)*(1 - self.gps_dropout_ratio)))).tolist()
         
+    def change_sensor_uncertainty(self, vo_uncertainty_std=None, gps_uncertainty_std=None):
+        '''
+            Change the uncertainty of sensor values, which is used to compute measurement error covariance matrix.
+        '''
+        self.VO_noise_std_uncertain = vo_uncertainty_std if vo_uncertainty_std is not None else self.VO_default_noise_std_uncertain
+        self.GPS_measurement_noise_std_uncertain = gps_uncertainty_std if gps_uncertainty_std is not None else self.GPS_default_measurement_noise_std_uncertain
+        
     
     def get_gps_measurement_by_index(
         self, 
@@ -856,38 +864,8 @@ class DataLoader:
             return (vo_data, np.eye(self.dimension) * q)
         
         return (None, None)
-        
-    def get_gps_measurement(self, index):
-        if index in self.gps_indices:
-            return self.GPS_mesurement_in_meter_with_noise[index, :self.dimension].reshape(-1, 1)
-        else:
-            return None
-
-    def get_vo_measurement(self, index):
-        if index in self.vo_indices:
-            return self.VO_measurements_with_noise[index, :self.dimension].reshape(-1, 1)
-        else:
-            return None
-
-    def set_noise_std(self, gps_noise_std_uncertain=2., vo_noise_std_uncertain=2.):
-        self.GPS_measurement_noise_std_uncertain = gps_noise_std_uncertain
-        self.VO_noise_std_uncertain = vo_noise_std_uncertain
-
-    def get_gps_measurement_with_noise_cov(self, index):
-        if index in self.gps_indices:
-            return (self.GPS_mesurement_in_meter_with_noise[index, :self.dimension].reshape(-1, 1), 
-                    self.GPS_measurement_noise_std)
-        return (self.GPS_mesurement_in_meter_with_noise[index, :self.dimension].reshape(-1, 1), 
-                self.GPS_measurement_noise_std_uncertain)
-        
-    def get_vo_measurement_with_noise_cov(self, index):
-        if index in self.vo_indices:
-            return (self.VO_measurements_with_noise[index, :self.dimension].reshape(-1, 1),
-                    self.VO_noise_std)
-        return (self.VO_measurements_with_noise[index, :self.dimension].reshape(-1, 1),
-                    self.VO_noise_std_uncertain)
     
-    def _get_noise_vectors(self,setup, filter_type, noise_type):
+    def _get_noise_vectors(self, setup, filter_type, noise_type):
         noise_type_suffix = NoiseTypeEnum.get_suffix()[noise_type.value - 1]
         file_name = str(SetupEnum.get_names()[setup.value - 1]).lower() + noise_type_suffix + '.npy'
         filter_name = str(FilterEnum.get_names()[filter_type.value - 1]).lower()
@@ -987,24 +965,28 @@ class DataLoader:
 
             
 if __name__ == "__main__":
-    kitti_root_dir = '../../example_data/kitti'
+    example_kitti_drive = 'example'
+    kitti_example_data_root_dir = '../../example_data/KITTI'
     vo_root_dir = '../../vo_estimates'
     noise_vector_dir = '../../exports/_noise_optimizations/noise_vectors'
-    kitti_drive = 'example'
-    data = DataLoader(sequence_nr=kitti_drive, 
-                    kitti_root_dir=kitti_root_dir, 
-                    vo_root_dir=vo_root_dir,
-                    noise_vector_dir=noise_vector_dir,
-                    vo_dropout_ratio=0.0, 
-                    gps_dropout_ratio=0.0,
-                    upsampling_factor=10,
-                    downsampling_ratio=0.8,
-                    visualize_data=True,
-                    dimension=2)
+    data = DataLoader(
+        sequence_nr=example_kitti_drive, 
+        kitti_root_dir=kitti_example_data_root_dir, 
+        vo_root_dir=vo_root_dir,
+        noise_vector_dir=noise_vector_dir,
+        vo_dropout_ratio=0.2, 
+        gps_dropout_ratio=0.2,
+        upsampling_factor=10,
+        downsampling_ratio=0.8,
+        visualize_data=True,
+        dimension=2)
     plt.pause(interval=5)
-    # # data.set_data_sampling(sampling=SamplingEnum.UPSAMPLED_DATA)
-    # data.set_data_sampling(sampling=SamplingEnum.DOWNSAMPLED_DATA)
-    # data.set_data_sampling(sampling=SamplingEnum.NORMAL_DATA)
-    # x_setup1, P_setup1, H_setup1, q, r_vo, r_gps = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.EKF, noise_type=NoiseTypeEnum.CURRENT)
     
-    x_setup1, P_setup1, H_setup1, q, r_vo, r_gps = data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=FilterEnum.UKF)
+    # data.set_data_sampling(sampling=SamplingEnum.UPSAMPLED_DATA)
+    data.set_data_sampling(sampling=SamplingEnum.DOWNSAMPLED_DATA)
+    x, P, H, q, r_vo, r_gps = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.EKF)
+    
+    data.set_data_sampling(sampling=SamplingEnum.NORMAL_DATA)
+    x, P, H, q, r_vo, r_gps = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.EKF)
+    
+    x, P, H, q, r_vo, r_gps = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.EKF)

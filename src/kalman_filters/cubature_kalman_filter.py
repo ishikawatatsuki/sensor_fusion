@@ -4,14 +4,12 @@ if __name__ == "__main__":
     sys.path.append('../../src')
 
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import sys
 from tqdm import tqdm
-from utils.error_report import get_error_report
-from configs import MeasurementDataEnum, SetupEnum, FilterEnum, NoiseTypeEnum
-from scipy.linalg import cholesky
+import matplotlib.pyplot as plt
 from ahrs import Quaternion
+from scipy.linalg import cholesky
+from utils.error_report import get_error_report, print_error_report
+from configs import MeasurementDataEnum, SetupEnum, FilterEnum, NoiseTypeEnum
 
 if __name__ == "__main__":
     from base_filter import BaseFilter
@@ -210,40 +208,6 @@ class CubatureKalmanFilter(BaseFilter):
         if z_gps is not None:
             self.update(z=z_gps, R=R_gps)
             
-        # if measurement_type is MeasurementDataEnum.ALL_DATA:
-        #     z_vo = data.VO_measurements_with_noise[t_idx, :self.dimension].reshape(-1, 1)
-        #     self.update(z=z_vo, R=R_vo)
-            
-        #     if self.setup is SetupEnum.SETUP_2 or self.setup is SetupEnum.SETUP_3:
-        #         z_gps = data.GPS_mesurement_in_meter_with_noise[t_idx, :self.dimension].reshape(-1, 1)
-        #         self.update(z=z_gps, R=R_gps)
-
-        # elif measurement_type is MeasurementDataEnum.DROPOUT:
-        #     z_vo = data.get_vo_measurement(t_idx)
-        #     if z_vo is not None:
-        #         self.update(z=z_vo, R=R_vo)
-            
-        #     if self.setup is SetupEnum.SETUP_2 or self.setup is SetupEnum.SETUP_3:
-        #         z_gps = data.get_gps_measurement(t_idx)
-        #         if z_gps is not None:
-        #             self.update(z=z_gps, R=R_gps)
-        
-        # else: # MeasurementDataEnum.COVARIANCE
-        #     z_vo, vo_noise = data.get_vo_measurement_with_noise_cov(t_idx)
-        #     R_vo = np.array([
-        #             [vo_noise ** 2., 0.],
-        #             [0., vo_noise ** 2.],
-        #         ])
-        #     self.update(z=z_vo, R=R_vo)
-
-        #     if self.setup is SetupEnum.SETUP_2 or self.setup is SetupEnum.SETUP_3:
-        #         z_gps, gps_noise = data.get_gps_measurement_with_noise_cov(t_idx)
-        #         R_gps = np.array([
-        #                 [gps_noise ** 2., 0.],
-        #                 [0., gps_noise ** 2.],
-        #             ])
-        #         self.update(z=z_gps, R=R_gps)
-
     def run(self, 
             data, 
             measurement_type=MeasurementDataEnum.ALL_DATA, 
@@ -290,7 +254,7 @@ class CubatureKalmanFilter(BaseFilter):
                 np.array([mu_x, mu_y, mu_z])) 
 
         if debug_mode:
-            print(f"[CKF] errors: {error}")
+            print_error_report(error, f"[CKF] Error report for {SetupEnum.get_name(self.setup)}")
 
         if show_graph is True:
             fig, ax1 = plt.subplots(1, 1, figsize=(12, 9))
@@ -315,45 +279,61 @@ class CubatureKalmanFilter(BaseFilter):
 if __name__ == "__main__":
     from data_loader import DataLoader
 
-    kitti_root_dir = '../../data'
-    vo_root_dir = '../../vo_estimates'
-    noise_vector_dir = '../../exports/_noise_optimizations/noise_vectors'
-    kitti_date = '2011_09_30'
-    kitti_drive = '0033'
-    dimension = 3
+    root_path = "../../"
+    kitti_drive = 'example'
+    kitti_data_root_dir = os.path.join(root_path, "example_data/KITTI")
+    vo_root_dir = os.path.join(root_path, "vo_estimates")
+    noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
+    dimension=2
 
-    data = DataLoader(sequence_nr=kitti_drive, 
-                    kitti_root_dir=kitti_root_dir, 
-                    vo_root_dir=vo_root_dir,
-                    noise_vector_dir=noise_vector_dir,
-                    vo_dropout_ratio=0.0, 
-                    gps_dropout_ratio=0.0,
-                    dimension=dimension)
+    # Undo comment out this to change example data to entire sequence data
+    # root_path = "../../"
+    # kitti_drive = '0033'
+    # kitti_data_root_dir = os.path.join(root_path, "data")
+    # vo_root_dir = os.path.join(root_path, "vo_estimates")
+    # noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
+    # dimension=2
 
-    x_setup1, P_setup1, H_setup1, q1, r_vo1, r_gps1 = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.CKF, noise_type=NoiseTypeEnum.CURRENT)
-    x_setup2, P_setup2, H_setup2, q2, r_vo2, r_gps2 = data.get_initial_data(setup=SetupEnum.SETUP_2, filter_type=FilterEnum.CKF, noise_type=NoiseTypeEnum.CURRENT)
-    x_setup3, P_setup3, H_setup3, q3, r_vo3, r_gps3 = data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=FilterEnum.CKF, noise_type=NoiseTypeEnum.CURRENT)
+    data = DataLoader(
+        sequence_nr=kitti_drive, 
+        kitti_root_dir=kitti_data_root_dir, 
+        vo_root_dir=vo_root_dir,
+        noise_vector_dir=noise_vector_dir,
+        vo_dropout_ratio=0., 
+        gps_dropout_ratio=0.,
+        dimension=dimension)
+    
+    filter_type=FilterEnum.CKF
+    noise_type=NoiseTypeEnum.CURRENT
+
+    x_setup1, P_setup1, H_setup1, q1, r_vo1, r_gps1 = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=filter_type, noise_type=noise_type)
+    x_setup2, P_setup2, H_setup2, q2, r_vo2, r_gps2 = data.get_initial_data(setup=SetupEnum.SETUP_2, filter_type=filter_type, noise_type=noise_type)
+    x_setup3, P_setup3, H_setup3, q3, r_vo3, r_gps3 = data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=filter_type, noise_type=noise_type)
     
     measurement_type = MeasurementDataEnum.ALL_DATA
-    interval = 10
+    debug_mode=True
+    interval = 5
 
-    # ckf1_0 = CubatureKalmanFilter(
-    #     x=x_setup1.copy(), 
-    #     P=P_setup1.copy(), 
-    #     H=H_setup1.copy(),
-    #     q=q1,
-    #     r_vo=r_vo1,
-    #     r_gps=r_gps1,
-    #     setup=SetupEnum.SETUP_1,
-    # )
-    # error_ckf1_0 = ckf1_0.run(data=data, measurement_type=measurement_type, debug_mode=True)
+    ckf1_0 = CubatureKalmanFilter(
+        x=x_setup1.copy(), 
+        P=P_setup1.copy(), 
+        H=H_setup1.copy(),
+        q=q1,
+        r_vo=r_vo1,
+        r_gps=r_gps1,
+        setup=SetupEnum.SETUP_1,
+    )
+    error_ckf1_0 = ckf1_0.run(
+        data=data, 
+        measurement_type=measurement_type, 
+        debug_mode=debug_mode)
     
-    # estimated = ckf1_0.get_estimated_trajectory()[:, :dimension]
-    # actual = data.GPS_measurements_in_meter[:, :dimension]
-    # print(np.sum((actual - estimated) ** 2))
-
-    # ckf1_0.visualize_trajectory(data=data, dimension=dimension, interval=interval)
-
+    ckf1_0.visualize_trajectory(
+        data=data, 
+        dimension=dimension, 
+        interval=interval, 
+        title="CKF Setup1 trajectories")
+    
     ckf2_0 = CubatureKalmanFilter(
         x=x_setup2.copy(), 
         P=P_setup2.copy(), 
@@ -365,25 +345,25 @@ if __name__ == "__main__":
     )
     error_ckf2_0 = ckf2_0.run(data=data, measurement_type=measurement_type, debug_mode=True)
 
-    estimated = ckf2_0.get_estimated_trajectory()[:, :dimension]
-    actual = data.GPS_measurements_in_meter[:, :dimension]
-    print(np.sum((actual - estimated) ** 2))
+    ckf2_0.visualize_trajectory(
+        data=data, 
+        dimension=dimension, 
+        interval=interval, 
+        title="CKF Setup2 trajectories")
+    
+    ckf3_0 = CubatureKalmanFilter(
+        x=x_setup3.copy(), 
+        P=P_setup3.copy(), 
+        H=H_setup3.copy(),
+        q=q3,
+        r_vo=r_vo3,
+        r_gps=r_gps3,
+        setup=SetupEnum.SETUP_3,
+    )
+    error_ckf3_0 = ckf3_0.run(data=data, measurement_type=measurement_type, debug_mode=True)
 
-    ckf2_0.visualize_trajectory(data=data, dimension=dimension, interval=interval)
-
-    # ckf3_0 = CubatureKalmanFilter(
-    #     x=x_setup3.copy(), 
-    #     P=P_setup3.copy(), 
-    #     H=H_setup3.copy(),
-    #     q=q3,
-    #     r_vo=r_vo3,
-    #     r_gps=r_gps3,
-    #     setup=SetupEnum.SETUP_3,
-    # )
-    # error_ckf3_0 = ckf3_0.run(data=data, measurement_type=measurement_type, debug_mode=True)
-
-    # estimated = ckf3_0.get_estimated_trajectory()[:, :dimension]
-    # actual = data.GPS_measurements_in_meter[:, :dimension]
-    # print(np.sum((actual - estimated) ** 2))
-
-    # ckf3_0.visualize_trajectory(data=data, dimension=dimension, interval=interval)
+    ckf3_0.visualize_trajectory(
+        data=data, 
+        dimension=dimension, 
+        interval=interval, 
+        title="CKF Setup3 trajectories")

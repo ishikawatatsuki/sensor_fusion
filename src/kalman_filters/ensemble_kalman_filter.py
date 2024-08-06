@@ -3,10 +3,10 @@ if __name__ == "__main__":
     sys.path.append('../../src')
 
 import numpy as np
-from configs import MeasurementDataEnum, SetupEnum, FilterEnum, NoiseTypeEnum
-import matplotlib.pyplot as plt
-from utils.error_report import get_error_report
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+from configs import MeasurementDataEnum, SetupEnum, FilterEnum, NoiseTypeEnum
+from utils.error_report import get_error_report, print_error_report
 
 if __name__ == "__main__":
     from base_filter import BaseFilter
@@ -218,7 +218,7 @@ class EnsembleKalmanFilter(BaseFilter):
                 np.array([mu_x, mu_y, mu_z])) 
 
         if debug_mode is True:
-            print(f"[EnKF] errors: {error}")
+            print_error_report(error, f"[EnKF] Error report for {SetupEnum.get_name(self.setup)}")
             
         if show_graph is True:
             xs, ys, _ = data.VO_measurements.T
@@ -242,46 +242,63 @@ if __name__ == "__main__":
     from data_loader import DataLoader
 
     root_path = "../../"
-    file_export_path = os.path.join(root_path, "exports/_sequences/04")
-    kitti_root_dir = os.path.join(root_path, "data")
+    kitti_drive = 'example'
+    kitti_data_root_dir = os.path.join(root_path, "example_data/KITTI")
     vo_root_dir = os.path.join(root_path, "vo_estimates")
     noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
-    kitti_date = '2011_09_30'
-    kitti_drive = '0033'
-    dimension=3
+    dimension=2
+    
+    # Undo comment out this to change example data to entire sequence data
+    # root_path = "../../"
+    # kitti_drive = '0033'
+    # kitti_data_root_dir = os.path.join(root_path, "data")
+    # vo_root_dir = os.path.join(root_path, "vo_estimates")
+    # noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
+    # dimension=2
 
-    data = DataLoader(sequence_nr=kitti_drive, 
-                    kitti_root_dir=kitti_root_dir, 
-                    vo_root_dir=vo_root_dir,
-                    noise_vector_dir=noise_vector_dir,
-                    vo_dropout_ratio=0.7, 
-                    gps_dropout_ratio=0.,
-                    dimension=dimension)
+    data = DataLoader(
+        sequence_nr=kitti_drive, 
+        kitti_root_dir=kitti_data_root_dir, 
+        vo_root_dir=vo_root_dir,
+        noise_vector_dir=noise_vector_dir,
+        vo_dropout_ratio=0., 
+        gps_dropout_ratio=0.,
+        dimension=dimension)
 
-    x_setup1, P_setup1, H_setup1, q1, r_vo1, r_gps1 = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.EnKF, noise_type=NoiseTypeEnum.CURRENT)
-    x_setup2, P_setup2, H_setup2, q2, r_vo2, r_gps2 = data.get_initial_data(setup=SetupEnum.SETUP_2, filter_type=FilterEnum.EnKF, noise_type=NoiseTypeEnum.CURRENT)
-    x_setup3, P_setup3, H_setup3, q3, r_vo3, r_gps3 = data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=FilterEnum.EnKF, noise_type=NoiseTypeEnum.CURRENT)
+    filter_type=FilterEnum.EnKF
+    noise_type=NoiseTypeEnum.CURRENT
+    
+    x_setup1, P_setup1, H_setup1, q1, r_vo1, r_gps1 = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=filter_type, noise_type=noise_type)
+    x_setup2, P_setup2, H_setup2, q2, r_vo2, r_gps2 = data.get_initial_data(setup=SetupEnum.SETUP_2, filter_type=filter_type, noise_type=noise_type)
+    x_setup3, P_setup3, H_setup3, q3, r_vo3, r_gps3 = data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=filter_type, noise_type=noise_type)
+    
     n_ensemble_setup1_0 = 64
     n_ensemble_setup2_0 = 64
     n_ensemble_setup3_0 = 64
-    measurement_type = MeasurementDataEnum.ALL_DATA
-
-    # enkf1_0 = EnsembleKalmanFilter(
-    #     N=n_ensemble_setup1_0, 
-    #     x=x_setup1.copy(), 
-    #     P=P_setup1.copy(), 
-    #     H=H_setup1.copy(),
-    #     q=q1,
-    #     r_vo=r_vo1,
-    #     r_gps=r_gps1,
-    #     setup=SetupEnum.SETUP_1)
-    # error_enkf1_0 = enkf1_0.run(data=data, debug_mode=True, measurement_type=measurement_type)
     
-    # estimated = enkf1_0.get_estimated_trajectory()[:, :dimension]
-    # actual = data.GPS_measurements_in_meter[:, :dimension]
-    # print(np.sum((actual - estimated) ** 2))
+    measurement_type = MeasurementDataEnum.ALL_DATA
+    debug_mode=True
+    interval = 5
 
-    # enkf1_0.visualize_trajectory(data=data, dimension=dimension, interval=5)
+    enkf1_0 = EnsembleKalmanFilter(
+        N=n_ensemble_setup1_0, 
+        x=x_setup1.copy(), 
+        P=P_setup1.copy(), 
+        H=H_setup1.copy(),
+        q=q1,
+        r_vo=r_vo1,
+        r_gps=r_gps1,
+        setup=SetupEnum.SETUP_1)
+    error_enkf1_0 = enkf1_0.run(
+        data=data, 
+        debug_mode=debug_mode, 
+        measurement_type=measurement_type)
+    
+    enkf1_0.visualize_trajectory(
+        data=data, 
+        dimension=dimension, 
+        interval=interval, 
+        title="EnKF Setup1 trajectories")
 
     enkf2_0 = EnsembleKalmanFilter(
         N=n_ensemble_setup2_0, 
@@ -292,27 +309,34 @@ if __name__ == "__main__":
         r_vo=r_vo2,
         r_gps=r_gps2,
         setup=SetupEnum.SETUP_2)
-    error_enkf2_0 = enkf2_0.run(data=data, debug_mode=True, measurement_type=measurement_type)
+    error_enkf2_0 = enkf2_0.run(
+        data=data, 
+        debug_mode=debug_mode, 
+        measurement_type=measurement_type)
 
-    estimated = enkf2_0.get_estimated_trajectory()[:, :dimension]
-    actual = data.GPS_measurements_in_meter[:, :dimension]
-    print(np.sum((actual - estimated) ** 2))
-
-    enkf2_0.visualize_trajectory(data=data, dimension=dimension, interval=5)
+    enkf2_0.visualize_trajectory(
+        data=data, 
+        dimension=dimension, 
+        interval=interval, 
+        title="EnKF Setup2 trajectories")
     
-    # enkf3_0 = EnsembleKalmanFilter(
-    #     N=n_ensemble_setup3_0, 
-    #     x=x_setup3.copy(), 
-    #     P=P_setup3.copy(), 
-    #     H=H_setup3.copy(),
-    #     q=q3,
-    #     r_vo=r_vo3,
-    #     r_gps=r_gps3,
-    #     setup=SetupEnum.SETUP_3)
-    # error_enkf3_0 = enkf3_0.run(data=data, show_graph=True, debug_mode=True, measurement_type=measurement_type)
+    enkf3_0 = EnsembleKalmanFilter(
+        N=n_ensemble_setup3_0, 
+        x=x_setup3.copy(), 
+        P=P_setup3.copy(), 
+        H=H_setup3.copy(),
+        q=q3,
+        r_vo=r_vo3,
+        r_gps=r_gps3,
+        setup=SetupEnum.SETUP_3)
+    error_enkf3_0 = enkf3_0.run(
+        data=data, 
+        debug_mode=debug_mode,
+        measurement_type=measurement_type)
 
-    # estimated = enkf3_0.get_estimated_trajectory()[:, :dimension]
-    # actual = data.GPS_measurements_in_meter[:, :dimension]
-    # print(np.sum((actual - estimated) ** 2))
-
-    # enkf3_0.visualize_trajectory(data=data, dimension=dimension, interval=5)
+    enkf3_0.visualize_trajectory(
+        data=data, 
+        dimension=dimension, 
+        interval=interval, 
+        title="EnKF Setup3 trajectories")
+    

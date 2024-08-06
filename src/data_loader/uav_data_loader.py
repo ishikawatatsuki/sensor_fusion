@@ -93,14 +93,12 @@ class UAV_DataLoader:
         sequence_nr="log0000",
         version="v1"
         ):
-        
-        self.file_export_path = os.path.join(root_path, "exports/UAV")
 
-        uav_root_path = os.path.join(root_path, "data/UAV", sequence_nr)
+        uav_root_path = os.path.join(root_path, "UAV", sequence_nr)
         
-        uav_reference_path = os.path.join(root_path, f"data/UAV/{version}/timestamp_combined_{sequence_nr}.csv")
+        uav_reference_path = os.path.join(root_path, f"UAV/{version}/timestamp_combined_{sequence_nr}.csv")
         
-        uav_synced_data_path = os.path.join(root_path, f"data/UAV/{version}/{sequence_nr}_sync.csv")
+        uav_synced_data_path = os.path.join(root_path, f"UAV/{version}/{sequence_nr}_sync.csv")
         
         sensor_path = file_path[sequence_nr]
 
@@ -267,7 +265,10 @@ class UAV_DataLoader:
     
 if __name__ == "__main__":
     
-    loader = UAV_DataLoader(root_path="../../", sequence_nr="log0000")
+    root_example_data_path = "../../example_data"
+    example_sequence_nr="log0000"
+    
+    loader = UAV_DataLoader(root_path=root_example_data_path, sequence_nr=example_sequence_nr)
     config = loader.get_config(timestamp=0)
     print(config["voxl_vo"]["index"])
     print(loader.synced_df.columns)
