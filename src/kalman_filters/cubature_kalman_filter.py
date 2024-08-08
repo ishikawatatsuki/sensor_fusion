@@ -127,7 +127,8 @@ class CubatureKalmanFilter(BaseFilter):
         for i, sigma_point in enumerate(self.sigma_points):
             # x = sigma_point.reshape(-1, 1)
             # P += self.W * (np.outer(x, x.T) - np.outer(self.x, self.x.T))
-            P += self.W * ((sigma_point.reshape(-1, 1) - self.x) @ (sigma_point.reshape(-1, 1) - self.x).T)
+            var = sigma_point.reshape(-1, 1) - self.x
+            P += self.W * (var @ var.T)
         self.P = P + Q # 10x10 additive process noise
 
     def update(self, z, R):

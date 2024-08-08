@@ -117,12 +117,12 @@ class UnscentedKalmanFilter(BaseFilter):
         
         # self.x = (self.W_m @ self.chi).reshape(-1, 1) # 10x1
         self.x = (self.points.Wm @ self.chi).reshape(-1, 1) # 10x1
-        p_ = np.zeros((self.N, self.N)) # 10x10
+        P = np.zeros((self.N, self.N)) # 10x10
         for i, sigma_point in enumerate(self.chi):
             var = sigma_point.reshape(-1, 1) - self.x
-            p_ += self.points.Wc[i] * (var @ var.T)
-            # p_ += self.W_c[i] * (var @ var.T)
-        self.P = p_ + Q # 10x10 additive process noise
+            P += self.points.Wc[i] * (var @ var.T)
+            # P += self.W_c[i] * (var @ var.T)
+        self.P = P + Q # 10x10 additive process noise
 
     def predict_setup3(self, u, dt, Q):
         chi = self.compute_sigma_points() # 7x3
@@ -143,12 +143,12 @@ class UnscentedKalmanFilter(BaseFilter):
         self.chi = np.concatenate([x, y, theta], axis=1)
 
         self.x = (self.points.Wm @ self.chi).reshape(-1, 1) # 3x1
-        p_ = np.zeros((self.N, self.N)) # 3x3
+        P = np.zeros((self.N, self.N)) # 3x3
         for i, sigma_point in enumerate(self.chi):
             var = sigma_point.reshape(-1, 1) - self.x
-            p_ += self.points.Wc[i] * (var @ var.T)
-            # p_ += self.W_c[i] * (var @ var.T)
-        self.P = p_ + Q # 10x10 additive process noise
+            P += self.points.Wc[i] * (var @ var.T)
+            # P += self.W_c[i] * (var @ var.T)
+        self.P = P + Q # 10x10 additive process noise
 
     def update(self, z, R):
         chi = self.compute_sigma_points()
@@ -332,7 +332,7 @@ if __name__ == "__main__":
     debug_mode=True
     interval = 5
     
-    alpha_setup1_0 = 1.
+    alpha_setup1_0 = 1.0
     beta_setup1_0 = 2.
     kappa_setup1_0 = 0.
 

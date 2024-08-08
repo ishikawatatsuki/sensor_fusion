@@ -94,7 +94,8 @@ class EnsembleKalmanFilter(BaseFilter):
         y_hat = np.mean(samples, axis=0)
         P_yy = np.zeros((self.z_dim, self.z_dim)) # 2x2
         for sample in samples:
-            P_yy += (sample - y_hat).reshape(-1, 1) @ (sample - y_hat).reshape(-1, 1).T
+            y_var = (sample - y_hat).reshape(-1, 1)
+            P_yy += y_var @ y_var.T
         P_yy /= (self.N-1)
         
         P_xy = np.zeros((self.x_dim, self.z_dim))

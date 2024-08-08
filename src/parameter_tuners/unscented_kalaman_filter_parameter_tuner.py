@@ -21,16 +21,17 @@ class UnscentedKalmanFilterParameterTuner:
     rmse_error_df = None
     max_error_df = None
     
-    def __init__(self, 
-                 params, 
-                 kitti_dataset,
-                 file_export_path,
-                 kitti_root_dir,
-                 vo_root_dir,
-                 setup=SetupEnum.SETUP_1, 
-                 measurement_type=MeasurementDataEnum.ALL_DATA, 
-                 vo_dropout_ratio=0., 
-                 gps_dropout_ratio=0.):
+    def __init__(
+        self, 
+        params, 
+        kitti_dataset,
+        file_export_path,
+        kitti_root_dir,
+        vo_root_dir,
+        setup=SetupEnum.SETUP_1, 
+        measurement_type=MeasurementDataEnum.ALL_DATA, 
+        vo_dropout_ratio=0., 
+        gps_dropout_ratio=0.):
 
         self.setup = setup
         self.file_export_path = file_export_path
@@ -45,12 +46,13 @@ class UnscentedKalmanFilterParameterTuner:
         print(kitti_root_dir)
         print(vo_root_dir)
         self.kitti_drive = kitti_dataset
-        self.data = DataLoader(sequence_nr=self.kitti_drive, 
-                               vo_dropout_ratio=vo_dropout_ratio,
-                               gps_dropout_ratio=gps_dropout_ratio,
-                               kitti_root_dir=kitti_root_dir,
-                               vo_root_dir=vo_root_dir,
-                               visualize_data=False)
+        self.data = DataLoader(
+            sequence_nr=self.kitti_drive, 
+            vo_dropout_ratio=vo_dropout_ratio,
+            gps_dropout_ratio=gps_dropout_ratio,
+            kitti_root_dir=kitti_root_dir,
+            vo_root_dir=vo_root_dir,
+            visualize_data=False)
 
     def run_dummy_filter(self, base_time):
         return np.random.randn(), base_time + np.random.randint(0, 30)
@@ -58,12 +60,13 @@ class UnscentedKalmanFilterParameterTuner:
     def run_filter_setup1(self, alpha, beta, kappa):
         x, P, H = self.data.get_initial_data(setup=self.setup)
 
-        ukf = UnscentedKalmanFilter(x=x.copy(), 
-                                    P=P.copy(), 
-                                    H=H.copy(), 
-                                    alpha=alpha, 
-                                    beta=beta, 
-                                    kappa=kappa)
+        ukf = UnscentedKalmanFilter(
+            x=x.copy(), 
+            P=P.copy(), 
+            H=H.copy(), 
+            alpha=alpha, 
+            beta=beta, 
+            kappa=kappa)
         
         start = datetime.now()
         error = ukf.run(data=self.data, 
@@ -77,12 +80,13 @@ class UnscentedKalmanFilterParameterTuner:
     def run_filter_setup2(self, alpha, beta, kappa):
         x, P, H = self.data.get_initial_data(setup=self.setup)
 
-        ukf = UnscentedKalmanFilter(x=x.copy(), 
-                                    P=P.copy(), 
-                                    H=H.copy(), 
-                                    alpha=alpha, 
-                                    beta=beta, 
-                                    kappa=kappa)
+        ukf = UnscentedKalmanFilter(
+            x=x.copy(), 
+            P=P.copy(), 
+            H=H.copy(), 
+            alpha=alpha, 
+            beta=beta, 
+            kappa=kappa)
         
         start = datetime.now()
         error = ukf.run(data=self.data, 
@@ -96,12 +100,13 @@ class UnscentedKalmanFilterParameterTuner:
     def run_filter_setup3(self, alpha, beta, kappa):
         x, P, H = self.data.get_initial_data(setup=self.setup)
 
-        ukf = UnscentedKalmanFilter(x=x.copy(), 
-                                    P=P.copy(), 
-                                    H=H.copy(), 
-                                    alpha=alpha, 
-                                    beta=beta, 
-                                    kappa=kappa)
+        ukf = UnscentedKalmanFilter(
+            x=x.copy(), 
+            P=P.copy(), 
+            H=H.copy(), 
+            alpha=alpha, 
+            beta=beta, 
+            kappa=kappa)
         
         start = datetime.now()
         error = ukf.run(data=self.data, 
@@ -157,9 +162,10 @@ class UnscentedKalmanFilterParameterTuner:
         self.max_error_df = pd.DataFrame(max_errors, columns=beta_str, index=self.alphas)
         self.dump_df()
 
-    def find_best_combination(self,
-                              error_weight, 
-                              error_upper_limit=500):
+    def find_best_combination(
+        self,
+        error_weight, 
+        error_upper_limit=500):
         """
             weighted sum method to find the best combination of parameters.
         """

@@ -1,7 +1,5 @@
-from .kalman_filter import KalmanFilter
 from .extended_kalman_filter import ExtendedKalmanFilter
 from .unscented_kalman_filter import UnscentedKalmanFilter
 from .particle_filter import ParticleFilter, ResamplingAlgorithms
 from .ensemble_kalman_filter import EnsembleKalmanFilter
-from .experiments.custom_particle_filter import CustomParticleFilter
 from .cubature_kalman_filter import CubatureKalmanFilter

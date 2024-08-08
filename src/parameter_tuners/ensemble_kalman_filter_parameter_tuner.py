@@ -23,14 +23,15 @@ class EnsembleKalmanFilterParameterTuner:
     max_error_df = None
     
     
-    def __init__(self, 
-                 n_samples, 
-                 kitti_dataset,
-                 file_export_path,
-                 kitti_root_dir,
-                 vo_root_dir,
-                 setup=SetupEnum.SETUP_1, 
-                 measurement_type=MeasurementDataEnum.ALL_DATA):
+    def __init__(
+        self, 
+        n_samples, 
+        kitti_dataset,
+        file_export_path,
+        kitti_root_dir,
+        vo_root_dir,
+        setup=SetupEnum.SETUP_1, 
+        measurement_type=MeasurementDataEnum.ALL_DATA):
 
         self.setup = setup
         self.measurement_type = measurement_type
@@ -49,15 +50,17 @@ class EnsembleKalmanFilterParameterTuner:
     def run_filter_setup1(self, N, data):
         x, P, H = data.get_initial_data(setup=self.setup)
 
-        enkf = EnsembleKalmanFilter(N=N, 
-                               x=x.copy(), 
-                               P=P.copy(), 
-                               H=H.copy())
+        enkf = EnsembleKalmanFilter(
+            N=N, 
+            x=x.copy(), 
+            P=P.copy(), 
+            H=H.copy())
         
         start = datetime.now()
-        error = enkf.run(data=data, 
-                         setup=self.setup,
-                        measurement_type=self.measurement_type)
+        error = enkf.run(
+            data=data, 
+            setup=self.setup,
+            measurement_type=self.measurement_type)
         
         end = datetime.now()
         processing_time = (end - start).total_seconds()
@@ -67,15 +70,17 @@ class EnsembleKalmanFilterParameterTuner:
     def run_filter_setup2(self, N, data):
         x, P, H = data.get_initial_data(setup=self.setup)
 
-        enkf = EnsembleKalmanFilter(N=N, 
-                               x=x.copy(), 
-                               P=P.copy(), 
-                               H=H.copy())
+        enkf = EnsembleKalmanFilter(
+            N=N, 
+            x=x.copy(), 
+            P=P.copy(), 
+            H=H.copy())
         
         start = datetime.now()
-        error = enkf.run(data=data, 
-                         setup=self.setup,
-                         measurement_type=self.measurement_type)
+        error = enkf.run(
+            data=data, 
+            setup=self.setup,
+            measurement_type=self.measurement_type)
         
         end = datetime.now()
         processing_time = (end - start).total_seconds()
@@ -85,15 +90,17 @@ class EnsembleKalmanFilterParameterTuner:
     def run_filter_setup3(self, N, data):
         x, P, H = data.get_initial_data(setup=self.setup)
 
-        enkf = EnsembleKalmanFilter(N=N, 
-                            x=x.copy(), 
-                            P=P.copy(), 
-                            H=H.copy())
+        enkf = EnsembleKalmanFilter(
+            N=N, 
+            x=x.copy(), 
+            P=P.copy(), 
+            H=H.copy())
         
         start = datetime.now()
-        error = enkf.run(data=data, 
-                         setup=self.setup,
-                         measurement_type=self.measurement_type)
+        error = enkf.run(
+            data=data, 
+            setup=self.setup,
+            measurement_type=self.measurement_type)
         
         end = datetime.now()
         processing_time = (end - start).total_seconds()
@@ -109,12 +116,14 @@ class EnsembleKalmanFilterParameterTuner:
         for dropout_ratio in self.dropout_ratios:
             print(f"Setting dropout ratio by {str(dropout_ratio)}")
             
-            data = DataLoader(sequence_nr=self.kitti_drive, 
-                              vo_dropout_ratio=dropout_ratio,
-                              gps_dropout_ratio=dropout_ratio,
-                              vo_root_dir=self.vo_root_dir,
-                              kitti_root_dir=self.kitti_root_dir,
-                              visualize_data=False)
+            data = DataLoader(
+                sequence_nr=self.kitti_drive, 
+                vo_dropout_ratio=dropout_ratio,
+                gps_dropout_ratio=dropout_ratio,
+                vo_root_dir=self.vo_root_dir,
+                kitti_root_dir=self.kitti_root_dir,
+                visualize_data=False)
+
             mae_errors_ = []
             rmse_errors_ = []
             max_errors_ = []
@@ -152,9 +161,10 @@ class EnsembleKalmanFilterParameterTuner:
         self.max_error_df = pd.DataFrame(max_errors, columns=self.n_samples, index=self.dropout_ratios)
         self.dump_df()
 
-    def find_best_combination(self, 
-                              error_weight, 
-                              error_upper_limit=500):
+    def find_best_combination(
+        self, 
+        error_weight, 
+        error_upper_limit=500):
         """
             weighted sum method to find the best combination of parameters.
         """       

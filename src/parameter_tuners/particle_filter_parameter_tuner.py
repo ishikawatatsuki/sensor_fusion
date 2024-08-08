@@ -27,16 +27,17 @@ class ParticleFilterParameterTuner:
     rmse_error_df = None
     max_error_df = None
     
-    def __init__(self, 
-                 params, 
-                 kitti_dataset,
-                 file_export_path,
-                 kitti_root_dir,
-                 vo_root_dir,
-                 setup=SetupEnum.SETUP_1, 
-                 measurement_type=MeasurementDataEnum.ALL_DATA, 
-                 vo_dropout_ratio=0., 
-                 gps_dropout_ratio=0.):
+    def __init__(
+        self, 
+        params, 
+        kitti_dataset,
+        file_export_path,
+        kitti_root_dir,
+        vo_root_dir,
+        setup=SetupEnum.SETUP_1, 
+        measurement_type=MeasurementDataEnum.ALL_DATA, 
+        vo_dropout_ratio=0., 
+        gps_dropout_ratio=0.):
 
         self.setup = setup
         self.file_export_path = file_export_path
@@ -49,12 +50,13 @@ class ParticleFilterParameterTuner:
         print(params)
         print(measurement_type)
         self.kitti_drive = kitti_dataset
-        self.data = DataLoader(sequence_nr=self.kitti_drive, 
-                               vo_dropout_ratio=vo_dropout_ratio,
-                               gps_dropout_ratio=gps_dropout_ratio,
-                               kitti_root_dir=kitti_root_dir,
-                               vo_root_dir=vo_root_dir,
-                               visualize_data=False)
+        self.data = DataLoader(
+            sequence_nr=self.kitti_drive, 
+            vo_dropout_ratio=vo_dropout_ratio,
+            gps_dropout_ratio=gps_dropout_ratio,
+            kitti_root_dir=kitti_root_dir,
+            vo_root_dir=vo_root_dir,
+            visualize_data=False)
     
     def change_data_sampling(self, sampling=SamplingEnum.NORMAL_DATA, upsampling_factor=10, downsampling_ratio=0.1):
         if sampling is SamplingEnum.UPSAMPLED_DATA:
@@ -165,9 +167,10 @@ class ParticleFilterParameterTuner:
         self.max_error_df = pd.DataFrame(max_errors, columns=self.n_samples, index=algorithm_list)
         self.dump_df()
 
-    def find_best_combination(self, 
-                              error_weight, 
-                              error_upper_limit=500):
+    def find_best_combination(
+        self, 
+        error_weight, 
+        error_upper_limit=500):
         """
             weighted sum method to find the best combination of parameters.
         """
