@@ -49,7 +49,7 @@ class UnscentedKalmanFilter(BaseFilter):
             q (numpy.array): process noise vector
             r_vo (numpy.array): measurement noise vector for VO
             r_gps (numpy.array): measurement noise vector for GPS
-            alpha (float): Determines the spread of the sigma points around the mean state value. It is usually a small positive value. The spread of sigma points is proportional to α
+            alpha (float): Determines the spread of the sigma points around the mean state value. It is usually a small positive value. The spread of sigma points is proportional to alpha. Smaller values correspond to sigma points closer to the mean state.
             beta (float): Incorporates prior knowledge of the distribution of the state. For Gaussian distributions, β = 2 is optimal
             kappa (float): A second scaling parameter that is usually set to 0. Smaller values correspond to sigma points closer to the mean state. The spread is proportional to the square-root of κ.
             setup (SetupEnum): filter setup

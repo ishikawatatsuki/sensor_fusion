@@ -103,7 +103,8 @@ class BaseFilter:
             fig.tight_layout()
             ax1.legend(loc='best', bbox_to_anchor=(1.1, 0., 0.2, 0.9))
         
-        plt.pause(interval=interval if interval is not None else 30)
+        if interval is not None:
+            plt.pause(interval=interval)
 
     def plot_error(self):
         plt.plot([i for i in range(len(self.errors))], self.errors, label='Error', color='r')

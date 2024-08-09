@@ -3,8 +3,6 @@ if __name__ == "__main__":
     sys.path.append('../../src')
 import numpy as np
 from sklearn.metrics import mean_squared_error
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 from configs import ErrorEnum, Configs
 

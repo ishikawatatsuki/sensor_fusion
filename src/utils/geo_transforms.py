@@ -71,7 +71,6 @@ def ecef_to_enu(points_ecef, ref_lla):
     """
     lon = np.radians(ref_lla[0])
     lat = np.radians(ref_lla[1])
-    alt = ref_lla[2]
 
     ref_ecef = lla_to_ecef(ref_lla)  # [3,]
 
@@ -92,7 +91,6 @@ def ecef_to_ned(points_ecef, ref_lla):
     """
     lon = np.radians(ref_lla[0])
     lat = np.radians(ref_lla[1])
-    alt = ref_lla[2]
 
     ref_ecef = lla_to_ecef(ref_lla)  # [3,]
 

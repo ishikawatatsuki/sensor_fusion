@@ -8,7 +8,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from datetime import datetime
 from decimal import Decimal, getcontext
-from utils import normalize_angles, lla_to_enu, lla_to_ned
+from utils import lla_to_enu, lla_to_ned
 from utils.error_report import get_error_from_list, get_error_report
 from configs.configs import MeasurementDataEnum, SetupEnum, SamplingEnum, ErrorEnum
 from kalman_filters import (
