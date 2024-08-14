@@ -176,7 +176,6 @@ class DataLoader:
         sampling=SamplingEnum.NORMAL_DATA,
         downsampling_ratio=0.1,
         upsampling_factor=10,
-        smoothing_window_size=3,
         visualize_data=True,
         dimension=2,
         ):
@@ -213,7 +212,6 @@ class DataLoader:
         
         self.load_data()
         self.debug_mode = visualize_data
-        self.smoothing_window_size = smoothing_window_size
 
         if self.debug_mode:
             self.report()
@@ -349,84 +347,6 @@ class DataLoader:
 
         return np.array([w, x, y, z])
 
-    # This function generates smoothed IMU data from raw IMU data, which consists of spikes and fluctuation, by applying rolling mean.
-    def get_smoothed_imu_data(self):
-        linear_acc = self.IMU_outputs[:, :3].copy()
-        angular_vel = self.IMU_outputs[:, 3:].copy()
-        
-        linear_acc_df = pd.DataFrame(linear_acc, columns=["acc_x", "acc_y", "acc_z"])
-        ang_vel_df = pd.DataFrame(angular_vel, columns=["ang_vel_x", "ang_vel_y", "ang_vel_z"])
-        
-        linear_acc_rolling_mean = linear_acc_df.rolling(window=self.smoothing_window_size).mean()
-        angular_vel_rolling_mean = ang_vel_df.rolling(window=self.smoothing_window_size).mean()
-        
-        loc_idx = self.smoothing_window_size - 2
-        np_idx = self.smoothing_window_size - 1
-        
-        linear_acc_rolling_mean.loc[:loc_idx, "acc_x"] = linear_acc[:np_idx, 0]
-        linear_acc_rolling_mean.loc[:loc_idx, "acc_y"] = linear_acc[:np_idx, 1]
-        linear_acc_rolling_mean.loc[:loc_idx, "acc_z"] = linear_acc[:np_idx, 2]
-
-        angular_vel_rolling_mean.loc[:loc_idx, "ang_vel_x"] = angular_vel[:np_idx, 0]
-        angular_vel_rolling_mean.loc[:loc_idx, "ang_vel_y"] = angular_vel[:np_idx, 1]
-        angular_vel_rolling_mean.loc[:loc_idx, "ang_vel_z"] = angular_vel[:np_idx, 2]
-        
-
-        ins_vel = self.INS_velocities.copy()
-        ins_angle = self.INS_angles.copy()
-        
-        linear_vel_df = pd.DataFrame(ins_vel, columns=["vel_x", "vel_y", "vel_z"])
-        ins_angle_df = pd.DataFrame(ins_angle, columns=["ang_x", "ang_y", "ang_z"])
-        
-        linear_vel_rolling_mean = linear_vel_df.rolling(window=self.smoothing_window_size).mean()
-        ins_angle_rolling_mean = ins_angle_df.rolling(window=self.smoothing_window_size).mean()
-        
-        linear_vel_rolling_mean.loc[:loc_idx, "vel_x"] = ins_vel[:np_idx, 0]
-        linear_vel_rolling_mean.loc[:loc_idx, "vel_y"] = ins_vel[:np_idx, 1]
-        linear_vel_rolling_mean.loc[:loc_idx, "vel_z"] = ins_vel[:np_idx, 2]
-        
-        ins_angle_rolling_mean.loc[:loc_idx, "ang_x"] = ins_angle[:np_idx, 0]
-        ins_angle_rolling_mean.loc[:loc_idx, "ang_y"] = ins_angle[:np_idx, 1]
-        ins_angle_rolling_mean.loc[:loc_idx, "ang_z"] = ins_angle[:np_idx, 2]
-
-        # Linear acceleration
-        IMU_acc_noise = np.random.normal(0.0, self.IMU_acc_noise_std,(self.N_original, 3))  # gaussian noise
-        self.IMU_acc_with_noise = linear_acc_rolling_mean.values
-        self.IMU_acc_with_noise += IMU_acc_noise
-        
-        # angular velocity
-        IMU_angular_velocity_noise = np.random.normal(0.0, self.IMU_angular_velocity_noise_std, (self.N_original,3))  # gen gaussian noise
-        self.IMU_angular_velocity_with_noise = angular_vel_rolling_mean.values
-        self.IMU_angular_velocity_with_noise += IMU_angular_velocity_noise  # add the noise to angular velocity as measurement noise
-
-
-        # angular_rate = AngularRate(gyr=self.IMU_angular_velocity_with_noise)
-        # self.IMU_quaternion = angular_rate.Q
-        quaternions = [self.get_quaternion_from_euler_angle(angle) for angle in self.INS_angles]
-        self.IMU_quaternion = np.array(quaternions)
-
-        linear_velocity_noise = np.random.normal(0.0, self.velocity_noise_std, (self.N_original, 3))
-        self.INS_velocities_with_noise = linear_vel_rolling_mean.values
-        self.INS_velocities_with_noise += linear_velocity_noise
-
-        angle_noise = np.random.normal(0.0, self.angle_noise_std, (self.N_original, 3))
-        self.INS_angle_with_noise_original = ins_angle_rolling_mean.values
-        self.INS_angle_with_noise_original += angle_noise
-
-
-        if self.debug_mode:
-            ang_y_labels = ['angualr velocity about x[rad/s]', 
-                    'angualr velocity about y[rad/s]', 
-                    'angualr velocity about z[rad/s]']
-            
-            self.visualize_data_to_compare(self.IMU_outputs[:, 3:], self.IMU_angular_velocity_with_noise, ang_y_labels)
-
-            acc_y_labels = ['acceleration along x[m/s^2]', 
-                    'acceleration along y[m/s^2]', 
-                    'acceleration along z[m/s^2]']
-            
-            self.visualize_data_to_compare(self.IMU_outputs[:, :3], self.IMU_acc_with_noise, acc_y_labels)
-    
     def _downsample(self, arr, ratio):
         indices = [int(i) for i in np.linspace(0, len(arr)-1, int(len(arr) * ratio))]
         return np.array(arr[indices])
@@ -625,10 +545,6 @@ class DataLoader:
 
                 print("Data sampling is set to upsampling mode.")
             
-            case SamplingEnum.LOOSELY_COUPLED:
-                self.get_smoothed_imu_data()
-
-                print("IMU/INS data is now smoothed")
             case _: #SamplingEnum.NORMAL_DATA
                 self.N = self.N_original
                 self.ts = self.ts_original
@@ -801,18 +717,6 @@ class DataLoader:
         ax[3].hist(self.IMU_quaternion[:, 3], bins=100)
         plt.plot()
     
-    def visualize_data_to_compare(self, imu_data, rolling_mean, labels):
-        fig, ax = plt.subplots(3, 1, figsize=(10, 12))
-        
-        for idx in range(3):  
-            i = idx + 4
-            ax[idx].plot(self.ts, imu_data[:, idx:idx+1], lw=1, label='raw data', c="red")
-            ax[idx].plot(self.ts, rolling_mean[:, idx:idx+1], lw=1, label='averaged', c="blue")
-            ax[idx].set_xlabel('time elapsed [sec]')
-            ax[idx].set_ylabel(labels[idx])
-            ax[idx].legend()
-        fig.tight_layout()        
-
     # NOTE: Change attributes
 
     def change_smoothing_window_size(self, window_size):

@@ -118,8 +118,6 @@ class SamplingEnum(Enum):
     DOWNSAMPLED_DATA = 2 
     UPSAMPLED_DATA = 3
 
-    LOOSELY_COUPLED = 4
-
 class Configs:
     decimal_place = 3
     processing_time_decimal_place = 5
