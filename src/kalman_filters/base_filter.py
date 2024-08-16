@@ -63,9 +63,9 @@ class BaseFilter:
             np.array(self.mu_y).reshape(-1, 1), 
             np.array(self.mu_z).reshape(-1, 1)], axis=1)
     
-    def visualize_trajectory(self, data, dimension=2, xlim=None, ylim=None, interval=None):
+    def visualize_trajectory(self, data, dimension=2, title=None, xlim=None, ylim=None, interval=None):
         if dimension == 2:
-            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+            fig, ax1 = plt.subplots(1, 1, figsize=(6, 6))
             xs, ys, _ = data.GPS_measurements_in_meter.T
             ax1.plot(xs, ys, lw=2, label='ground-truth trajectory', color='black')
             xs, ys, _ = data.VO_measurements.T
@@ -73,26 +73,16 @@ class BaseFilter:
             ax1.plot(
                 self.mu_x, self.mu_y, lw=2, 
                 label='estimated trajectory', color='r')
+            if title is not None:
+                ax1.title.set_text(title)
+            if xlim is not None:
+                ax1.set_xlim(xlim)
+            if ylim is not None:
+                ax1.set_ylim(ylim)
             ax1.set_xlabel('X [m]')
             ax1.set_ylabel('Y [m]')
             ax1.legend()
             ax1.grid()
-            
-            xs, ys, _ = data.GPS_measurements_in_meter.T
-            ax2.plot(xs, ys, lw=2, label='ground-truth trajectory', color='black')
-            xs, ys, _ = data.VO_measurements.T
-            ax2.plot(xs, ys, lw=2, label='VO trajectory', color='b')
-            ax2.plot(
-                self.mu_x, self.mu_y, lw=2, 
-                label='estimated trajectory', color='r')
-            if xlim is not None:
-                ax2.set_xlim(xlim)
-            if ylim is not None:
-                ax2.set_ylim(ylim)
-            ax2.set_xlabel('X [m]')
-            ax2.set_ylabel('Y [m]')
-            ax2.legend()
-            ax2.grid()
         else:
             fig = plt.figure()
             ax1 = fig.add_subplot(111, projection='3d')
@@ -113,10 +103,8 @@ class BaseFilter:
             fig.tight_layout()
             ax1.legend(loc='best', bbox_to_anchor=(1.1, 0., 0.2, 0.9))
         
-        matplotlib.use('agg')
-        print(matplotlib.get_backend())
-        plt.show()
-        plt.pause(interval=interval if interval is not None else 30)
+        if interval is not None:
+            plt.pause(interval=interval)
 
     def plot_error(self):
         plt.plot([i for i in range(len(self.errors))], self.errors, label='Error', color='r')

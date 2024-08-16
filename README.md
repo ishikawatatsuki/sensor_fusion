@@ -1,25 +1,26 @@
-# sensor_fusion
+# Sensor Fusion
 
-This repository is designed to create various filters and apply them to Kitti datasets and UAV (Unmanned Aerial Vehicle) datasets collected at Taltech.
+This repository is designed to integrate various filters and apply them to KITTI datasets and UAV (Unmanned Aerial Vehicle) datasets collected at Taltech in Estonia.
 
 # Features
 
 ## Filters
-- Extended Kalman filter
-- Unscented Kalman filter
-- Cubature Kalman filter
-- Particle filter
-- Ensemble Kalman filter
+* Extended Kalman filter
+* Unscented Kalman filter
+* Cubature Kalman filter
+* Particle filter
+* Ensemble Kalman filter
 
 # Quick start
 
-## Prerequisite
+## Prerequisites
 
 - docker
 
 ## Clone this repository
 
 Firstly pull the github repository in your local environment with the command:
+
 ```
 git clone https://github.com/ishikawatatsuki/sensor_fusion.git
 ```
@@ -27,33 +28,34 @@ git clone https://github.com/ishikawatatsuki/sensor_fusion.git
 ## To create Docker container
 
 Given docker installed on your host machine, run the following command to create Docker container on your machine:
+
 ```
 make build
 ```
+
 The command creates a docker container, in which required python libraries are installed.
 
 
 ## To download Kitti datasets
 
 To download Kitti dataset, executing the shell script namely`kitti_data_downloader.sh` creates a directory called `data` and download the Kitti raw dataset under the directory. The command is as follows:
-```
-# Make shell script executable (if permission error is shown.)
-chmod +x kitti_data_downloader.sh
 
+```
 # Run the shell script
 ./kitti_data_downloader.sh
 ```
+If permission error is shown, make shell script executable by following command: `chmod +x kitti_data_downloader.sh`.
+
 You can select which sequence of Kitti dataset to download by editing the script directly.
 
 ## To download UAV (Unmanned Aerial Vehicle) data corrected at Taltech
 Besides Kitti dataset, we also prepared UAV data corrected at Taltech. To download the dataset, likewise Kitti data, run the following commands:
 ```
-# Make shell script executable (if permission error is shown.)
-chmod +x uav_data_downloader.sh
-
 # Run the shell script
 ./uav_data_downloader.sh
 ```
+If permission error is shown, make shell script executable by following command: `chmod +x uav_data_downloader.sh`.
+
 The commands create a directory called `UAV` under the `data` directory and download 5 UAV datasets.
 
 
@@ -96,7 +98,7 @@ docker run --rm --user root -p 8889:8888 -v .:/app -it sensor_fusion:1.0 jupyter
         http://bbc53700ae0c:8888/lab?token=cb1963f12bd2299eb863ea565b564cb4b9f3089f1c14b582
         http://127.0.0.1:8888/lab?token=cb1963f12bd2299eb863ea565b564cb4b9f3089f1c14b582
 ```
-Copy the URL starting with `http://127.0.0.1:8888/lab?token=` and access the URL on browser will navigate to the jupyter lab environment.
+Copy the URL starting with `http://127.0.0.1:8888/lab?token=` and access the URL on your browser. It navigates to the jupyter lab environment.
 
 
 ## To test python script individually

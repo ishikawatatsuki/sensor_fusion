@@ -4,3 +4,11 @@ __pycache__
 data/
 _venv
 .Trash-0
+tools
+reference
+runner
+serial_manager
+experimental_implementations
+_streaming
+playgrounds
+src/_test

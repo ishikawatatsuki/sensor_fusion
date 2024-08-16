@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import pykitti
 from ahrs.filters import AngularRate
 
-from utils import normalize_angles, lla_to_enu, get_rigid_transformation
+from utils import lla_to_enu, get_rigid_transformation
 from configs import SetupEnum, SamplingEnum, FilterEnum, NoiseTypeEnum, MeasurementDataEnum
 
 sequence_data_map = {
@@ -20,7 +20,6 @@ sequence_data_map = {
         'calib_imu_to_velo': '2011_09_30/calib_imu_to_velo.txt',
         'vo_path': 'trajectory_estimated_04.npy',
         'gt_path': 'trajectory_gt_04.npy',
-        'imu_path': 'imu_04.npy' 
     },
     '0033': { #09
         'kitti_date': '2011_09_30',
@@ -28,7 +27,13 @@ sequence_data_map = {
         'calib_imu_to_velo': '2011_09_30/calib_imu_to_velo.txt',
         'vo_path': 'trajectory_estimated_09.npy',
         'gt_path': 'trajectory_gt_09.npy',
-        'imu_path': 'imu_09.npy'
+    },
+    'example': { #example data
+        'kitti_date': '2011_09_30',
+        'calib_velo_to_cam': '2011_09_30/calib_velo_to_cam.txt',
+        'calib_imu_to_velo': '2011_09_30/calib_imu_to_velo.txt',
+        'vo_path': 'trajectory_estimated_09_example.npy',
+        'gt_path': 'trajectory_gt_09_example.npy',
     }
 }
 
@@ -44,6 +49,16 @@ noise_configs = {
         'quaternion_process_noise': [0.01, 0.002, 0.002, 0.05]
     },
     '0033': {
+        'GPS_measurement_noise_std': 1.0,
+        'VO_noise_std': 1.0,
+        'IMU_acc_noise_std': 0.02,
+        'IMU_angular_velocity_noise_std': 0.01,
+        'velocity_noise_std': 0.3,
+        'GPS_measurement_noise_std_uncertain': 2.0,
+        'VO_noise_std_uncertain': 2.0,
+        'quaternion_process_noise': [0.01, 0.002, 0.002, 0.05]
+    },
+    'example': {
         'GPS_measurement_noise_std': 1.0,
         'VO_noise_std': 1.0,
         'IMU_acc_noise_std': 0.02,
@@ -98,8 +113,10 @@ class DataLoader:
     velocity_noise_std = 0.3
     angle_noise_std = 0.01
 
-    GPS_measurement_noise_std_uncertain = 2.0
-    VO_noise_std_uncertain = 2.0
+    GPS_measurement_noise_std_uncertain = None
+    VO_noise_std_uncertain = None
+    GPS_default_measurement_noise_std_uncertain = 2.0
+    VO_default_noise_std_uncertain = 2.0
 
     quaternion_process_noise = [0.01, 0.002, 0.002, 0.05]
 
@@ -128,7 +145,7 @@ class DataLoader:
     IMU_angular_velocity_with_noise = None
     INS_velocities_with_noise = None
     INS_angle_with_noise = None
-    IMU_quaterion = None
+    IMU_quaternion = None
 
     N_original = None
     ts_original = None
@@ -138,7 +155,7 @@ class DataLoader:
     IMU_angular_velocity_with_noise_original = None
     INS_velocities_with_noise_original = None
     INS_angle_with_noise_original = None
-    IMU_quaterion_original = None
+    IMU_quaternion_original = None
 
     vo_dropout_ratio = None
     gps_dropout_ratio = None
@@ -156,22 +173,21 @@ class DataLoader:
         noise_vector_dir='../exports/_noise_optimizations/noise_vectors',
         vo_dropout_ratio=0., 
         gps_dropout_ratio=0., 
-        sampling=SamplingEnum.NORMAL_DATA,
+        sampling=SamplingEnum.DEFAULT_DATA,
         downsampling_ratio=0.1,
         upsampling_factor=10,
-        smoothing_window_size=3,
         visualize_data=True,
         dimension=2,
         ):
         
         self.dimension = dimension
         
+        # Setting paths
         self.config = sequence_data_map[sequence_nr].copy()
         self.config['calib_velo_to_cam'] = kitti_root_dir + '/' + self.config['calib_velo_to_cam']
         self.config['calib_imu_to_velo'] = kitti_root_dir + '/' + self.config['calib_imu_to_velo']
         self.config['vo_path'] = vo_root_dir + '/' + self.config['vo_path']
         self.config['gt_path'] = vo_root_dir + '/' + self.config['gt_path']
-        self.config['imu_path'] = vo_root_dir + '/' + self.config['imu_path']
 
         self.noise_vector_dir = noise_vector_dir
         noise = noise_configs[sequence_nr].copy()
@@ -196,7 +212,6 @@ class DataLoader:
         
         self.load_data()
         self.debug_mode = visualize_data
-        self.smoothing_window_size = smoothing_window_size
 
         if self.debug_mode:
             self.report()
@@ -250,8 +265,6 @@ class DataLoader:
                 ])
             
         
-        # self.GPS_measurements_in_meter_original = (self.z() @ self.transform_gps_data_into_imu_coord(np.array(gt).T).T).T
-        # self.VO_measurements_original = (self.z() @ self.transform_vo_data_into_imu_coord(np.array(vo)[:self.N_original]).T).T
         self.GPS_measurements_in_meter_original = self.transform_gps_data_into_imu_coord(np.array(gt).T)
         self.VO_measurements_original = self.transform_vo_data_into_imu_coord(np.array(vo)[:self.N_original])
         
@@ -269,16 +282,7 @@ class DataLoader:
         timestamps = np.array(self.dataset.timestamps[:self.N_original])
         elapsed = np.array(timestamps) - timestamps[0]
         self.ts_original = [t.total_seconds() for t in elapsed] # dt
-        
-    def z(self):
-        theta = np.pi / 6.5
-        c = np.cos(theta)
-        s = np.sin(theta)
-        return np.array([
-            [c, s, 0],
-            [-s, c, 0],
-            [0, 0, 1]
-        ])
+
     def transform_imu_into_gps(self, data):
         if self.debug_mode:
             print("Transform data in IMU space into GPS coordinate.")
@@ -327,82 +331,22 @@ class DataLoader:
         print(f'INS angle: {self.INS_angles.shape}')
         print(f'INS velocity: {self.INS_velocities.shape}')
 
-    # This function generates smoothed IMU data from raw IMU data, which consists of spikes and fluctuation, by applying rolling mean.
-    def get_smoothed_imu_data(self):
-        linear_acc = self.IMU_outputs[:, :3].copy()
-        angular_vel = self.IMU_outputs[:, 3:].copy()
-        
-        linear_acc_df = pd.DataFrame(linear_acc, columns=["acc_x", "acc_y", "acc_z"])
-        ang_vel_df = pd.DataFrame(angular_vel, columns=["ang_vel_x", "ang_vel_y", "ang_vel_z"])
-        
-        linear_acc_rolling_mean = linear_acc_df.rolling(window=self.smoothing_window_size).mean()
-        angular_vel_rolling_mean = ang_vel_df.rolling(window=self.smoothing_window_size).mean()
-        
-        loc_idx = self.smoothing_window_size - 2
-        np_idx = self.smoothing_window_size - 1
-        
-        linear_acc_rolling_mean.loc[:loc_idx, "acc_x"] = linear_acc[:np_idx, 0]
-        linear_acc_rolling_mean.loc[:loc_idx, "acc_y"] = linear_acc[:np_idx, 1]
-        linear_acc_rolling_mean.loc[:loc_idx, "acc_z"] = linear_acc[:np_idx, 2]
+    def get_quaternion_from_euler_angle(self, angle):
+        roll, pitch, yaw = angle
+        cr = np.cos(roll * 0.5)
+        sr = np.sin(roll * 0.5)
+        cp = np.cos(pitch * 0.5)
+        sp = np.sin(pitch * 0.5)
+        cy = np.cos(yaw * 0.5)
+        sy = np.sin(yaw * 0.5)
 
-        angular_vel_rolling_mean.loc[:loc_idx, "ang_vel_x"] = angular_vel[:np_idx, 0]
-        angular_vel_rolling_mean.loc[:loc_idx, "ang_vel_y"] = angular_vel[:np_idx, 1]
-        angular_vel_rolling_mean.loc[:loc_idx, "ang_vel_z"] = angular_vel[:np_idx, 2]
-        
+        w = cr * cp * cy + sr * sp * sy
+        x = sr * cp * cy - cr * sp * sy
+        y = cr * sp * cy + sr * cp * sy
+        z = cr * cp * sy - sr * sp * cy
 
-        ins_vel = self.INS_velocities.copy()
-        ins_angle = self.INS_angles.copy()
-        
-        linear_vel_df = pd.DataFrame(ins_vel, columns=["vel_x", "vel_y", "vel_z"])
-        ins_angle_df = pd.DataFrame(ins_angle, columns=["ang_x", "ang_y", "ang_z"])
-        
-        linear_vel_rolling_mean = linear_vel_df.rolling(window=self.smoothing_window_size).mean()
-        ins_angle_rolling_mean = ins_angle_df.rolling(window=self.smoothing_window_size).mean()
-        
-        linear_vel_rolling_mean.loc[:loc_idx, "vel_x"] = ins_vel[:np_idx, 0]
-        linear_vel_rolling_mean.loc[:loc_idx, "vel_y"] = ins_vel[:np_idx, 1]
-        linear_vel_rolling_mean.loc[:loc_idx, "vel_z"] = ins_vel[:np_idx, 2]
-        
-        ins_angle_rolling_mean.loc[:loc_idx, "ang_x"] = ins_angle[:np_idx, 0]
-        ins_angle_rolling_mean.loc[:loc_idx, "ang_y"] = ins_angle[:np_idx, 1]
-        ins_angle_rolling_mean.loc[:loc_idx, "ang_z"] = ins_angle[:np_idx, 2]
+        return np.array([w, x, y, z])
 
-        # Linear acceleration
-        IMU_acc_noise = np.random.normal(0.0, self.IMU_acc_noise_std,(self.N_original, 3))  # gaussian noise
-        self.IMU_acc_with_noise = linear_acc_rolling_mean.values
-        self.IMU_acc_with_noise += IMU_acc_noise
-        
-        # angular velocity
-        IMU_angular_velocity_noise = np.random.normal(0.0, self.IMU_angular_velocity_noise_std, (self.N_original,3))  # gen gaussian noise
-        self.IMU_angular_velocity_with_noise = angular_vel_rolling_mean.values
-        self.IMU_angular_velocity_with_noise += IMU_angular_velocity_noise  # add the noise to angular velocity as measurement noise
-
-
-        angular_rate = AngularRate(gyr=self.IMU_angular_velocity_with_noise)
-        self.IMU_quaterion = angular_rate.Q
-
-        linear_velocity_noise = np.random.normal(0.0, self.velocity_noise_std, (self.N_original, 3))
-        self.INS_velocities_with_noise = linear_vel_rolling_mean.values
-        self.INS_velocities_with_noise += linear_velocity_noise
-
-        angle_noise = np.random.normal(0.0, self.angle_noise_std, (self.N_original, 3))
-        self.INS_angle_with_noise_original = ins_angle_rolling_mean.values
-        self.INS_angle_with_noise_original += angle_noise
-
-
-        if self.debug_mode:
-            ang_y_labels = ['angualr velocity about x[rad/s]', 
-                    'angualr velocity about y[rad/s]', 
-                    'angualr velocity about z[rad/s]']
-            
-            self.visualize_data_to_compare(self.IMU_outputs[:, 3:], self.IMU_angular_velocity_with_noise, ang_y_labels)
-
-            acc_y_labels = ['acceleration along x[m/s^2]', 
-                    'acceleration along y[m/s^2]', 
-                    'acceleration along z[m/s^2]']
-            
-            self.visualize_data_to_compare(self.IMU_outputs[:, :3], self.IMU_acc_with_noise, acc_y_labels)
-    
     def _downsample(self, arr, ratio):
         indices = [int(i) for i in np.linspace(0, len(arr)-1, int(len(arr) * ratio))]
         return np.array(arr[indices])
@@ -424,6 +368,9 @@ class DataLoader:
             ratio)
         downsampled_ins_velocity = self._downsample(
             self.INS_velocities_with_noise_original, 
+            ratio)
+        downsampled_ins_angle = self._downsample(
+            self.INS_angle_with_noise_original,
             ratio)
         downsampled_imu_angular_velocity = self._downsample(
             self.IMU_angular_velocity_with_noise_original, 
@@ -469,12 +416,15 @@ class DataLoader:
         self.GPS_mesurement_in_meter_with_noise = downsampled_gps
         self.VO_measurements_with_noise = downsampled_vo
         self.INS_velocities_with_noise = downsampled_ins_velocity
+        self.INS_angle_with_noise = downsampled_ins_angle
         self.IMU_angular_velocity_with_noise = downsampled_imu_angular_velocity
         self.IMU_acc_with_noise = downsampled_imu_acceleration
         
-        angular_rate = AngularRate(gyr=self.IMU_angular_velocity_with_noise)
-        self.IMU_quaterion = angular_rate.Q
-
+        # angular_rate = AngularRate(gyr=self.IMU_angular_velocity_with_noise)
+        # self.IMU_quaternion = angular_rate.Q
+        quaternions = [self.get_quaternion_from_euler_angle(angle) for angle in self.INS_angle_with_noise]
+        self.IMU_quaternion = np.array(quaternions)
+        
         self.GPS_measurements_in_meter = gps_measurement_in_meter
         self.VO_measurements = vo_measurement
         
@@ -498,6 +448,9 @@ class DataLoader:
             factor=self.upsampling_factor)
         upsampled_ins_velocity = self._upsample(
             self.INS_velocities_with_noise_original,
+            factor=self.upsampling_factor)
+        upsampled_ins_angule = self._upsample(
+            self.INS_angle_with_noise_original,
             factor=self.upsampling_factor)
         upsampled_imu_angular_velocity = self._upsample(
             self.IMU_angular_velocity_with_noise_original, 
@@ -547,11 +500,14 @@ class DataLoader:
         self.GPS_mesurement_in_meter_with_noise = upsampled_gps
         self.VO_measurements_with_noise = upsampled_vo
         self.INS_velocities_with_noise = upsampled_ins_velocity
+        self.INS_angle_with_noise = upsampled_ins_angule
         self.IMU_angular_velocity_with_noise = upsampled_imu_angular_velocity
         self.IMU_acc_with_noise = upsampled_imu_acceleration
 
-        angular_rate = AngularRate(gyr=self.IMU_angular_velocity_with_noise)
-        self.IMU_quaterion = angular_rate.Q
+        # angular_rate = AngularRate(gyr=self.IMU_angular_velocity_with_noise)
+        # self.IMU_quaternion = angular_rate.Q
+        quaternions = [self.get_quaternion_from_euler_angle(angle) for angle in self.INS_angle_with_noise]
+        self.IMU_quaternion = np.array(quaternions)
 
         self.GPS_measurements_in_meter = gps_measurement_in_meter
         self.VO_measurements = vo_measurement
@@ -564,9 +520,9 @@ class DataLoader:
         assert 0 <= ratio and ratio < 1, "Ratio must be less than or equal to 1."
         self.downsampleing_ratio = ratio
 
-    def set_data_sampling(self, sampling=SamplingEnum.NORMAL_DATA):
+    def set_data_sampling(self, sampling=SamplingEnum.DEFAULT_DATA):
         match sampling:
-            case SamplingEnum.NORMAL_DATA:
+            case SamplingEnum.DEFAULT_DATA:
                 self.N = self.N_original
                 self.ts = self.ts_original
                 self.GPS_mesurement_in_meter_with_noise = self.GPS_mesurement_in_meter_with_noise_original
@@ -574,7 +530,7 @@ class DataLoader:
                 self.IMU_acc_with_noise = self.IMU_acc_with_noise_original
                 self.IMU_angular_velocity_with_noise = self.IMU_angular_velocity_with_noise_original
                 self.INS_velocities_with_noise = self.INS_velocities_with_noise_original
-                self.IMU_quaterion = self.IMU_quaterion_original
+                self.IMU_quaternion = self.IMU_quaternion_original
 
                 self.GPS_measurements_in_meter = self.GPS_measurements_in_meter_original
                 self.VO_measurements = self.VO_measurements_original
@@ -589,11 +545,7 @@ class DataLoader:
 
                 print("Data sampling is set to upsampling mode.")
             
-            case SamplingEnum.LOOSELY_COUPLED:
-                self.get_smoothed_imu_data()
-
-                print("IMU/INS data is now smoothed")
-            case _: #SamplingEnum.NORMAL_DATA
+            case _: #SamplingEnum.DEFAULT_DATA
                 self.N = self.N_original
                 self.ts = self.ts_original
                 self.GPS_mesurement_in_meter_with_noise = self.GPS_mesurement_in_meter_with_noise_original
@@ -601,7 +553,7 @@ class DataLoader:
                 self.IMU_acc_with_noise = self.IMU_acc_with_noise_original
                 self.IMU_angular_velocity_with_noise = self.IMU_angular_velocity_with_noise_original
                 self.INS_velocities_with_noise = self.INS_velocities_with_noise_original
-                self.IMU_quaterion = self.IMU_quaterion_original
+                self.IMU_quaternion = self.IMU_quaternion_original
                 
                 self.GPS_measurements_in_meter = self.GPS_measurements_in_meter_original
                 self.VO_measurements = self.VO_measurements_original
@@ -667,8 +619,16 @@ class DataLoader:
         self.IMU_angular_velocity_with_noise_original = self.IMU_outputs[:, 3:].copy()
         self.IMU_angular_velocity_with_noise_original += IMU_angular_velocity_noise  # add the noise to angular velocity as measurement noise
 
-        angular_rate = AngularRate(gyr=self.IMU_angular_velocity_with_noise_original)
-        self.IMU_quaterion_original = angular_rate.Q
+
+        # angular_rate = AngularRate(gyr=self.IMU_angular_velocity_with_noise_original)
+        # self.IMU_quaternion_original = angular_rate.Q
+        
+        angle_noise = np.random.normal(0.0, self.angle_noise_std, (self.N_original, 3))
+        self.INS_angle_with_noise_original = self.INS_angles.copy()
+        self.INS_angle_with_noise_original += angle_noise
+        
+        quaternions = [self.get_quaternion_from_euler_angle(angle) for angle in self.INS_angle_with_noise_original]
+        self.IMU_quaternion_original = np.array(quaternions)
 
         if self.debug_mode:
             print("Adding noise to INS sensor data")
@@ -678,11 +638,6 @@ class DataLoader:
         self.INS_velocities_with_noise_original = self.INS_velocities.copy()
         self.INS_velocities_with_noise_original += velocity_noise
         
-        # This is not used by any setup
-        angle_noise = np.random.normal(0.0, self.angle_noise_std, (self.N_original, 3))
-        self.INS_angle_with_noise_original = self.INS_angles.copy()
-        self.INS_angle_with_noise_original += angle_noise
-
     # NOTE: Visualization methods
     def show_vo_with_noise(self):
         if self.dimension == 2:
@@ -756,28 +711,13 @@ class DataLoader:
     def show_quaternion(self):
         fig, ax = plt.subplots(2, 2, figsize=(12, 9))
         ax = ax.ravel()
-        ax[0].hist(self.IMU_quaterion[:, 0], bins=100)
-        ax[1].hist(self.IMU_quaterion[:, 1], bins=100)
-        ax[2].hist(self.IMU_quaterion[:, 2], bins=100)
-        ax[3].hist(self.IMU_quaterion[:, 3], bins=100)
+        ax[0].hist(self.IMU_quaternion[:, 0], bins=100)
+        ax[1].hist(self.IMU_quaternion[:, 1], bins=100)
+        ax[2].hist(self.IMU_quaternion[:, 2], bins=100)
+        ax[3].hist(self.IMU_quaternion[:, 3], bins=100)
         plt.plot()
     
-    def visualize_data_to_compare(self, imu_data, rolling_mean, labels):
-        fig, ax = plt.subplots(3, 1, figsize=(10, 12))
-        
-        for idx in range(3):  
-            i = idx + 4
-            ax[idx].plot(self.ts, imu_data[:, idx:idx+1], lw=1, label='raw data', c="red")
-            ax[idx].plot(self.ts, rolling_mean[:, idx:idx+1], lw=1, label='averaged', c="blue")
-            ax[idx].set_xlabel('time elapsed [sec]')
-            ax[idx].set_ylabel(labels[idx])
-            ax[idx].legend()
-        fig.tight_layout()        
-
     # NOTE: Change attributes
-
-    def change_smoothing_window_size(self, window_size):
-        self.smoothing_window_size = window_size
     
     def change_dropout_ratio(self, vo_dropout_ratio, gps_dropout_ratio):
         self.vo_dropout_ratio = vo_dropout_ratio
@@ -788,6 +728,13 @@ class DataLoader:
             random.sample(indices, int(len(indices)*(1 - self.vo_dropout_ratio)))).tolist()
         self.gps_indices = np.sort(
             random.sample(indices, int(len(indices)*(1 - self.gps_dropout_ratio)))).tolist()
+        
+    def change_sensor_uncertainty(self, vo_uncertainty_std=None, gps_uncertainty_std=None):
+        '''
+            Change the uncertainty of sensor values, which is used to compute measurement error covariance matrix.
+        '''
+        self.VO_noise_std_uncertain = vo_uncertainty_std if vo_uncertainty_std is not None else self.VO_default_noise_std_uncertain
+        self.GPS_measurement_noise_std_uncertain = gps_uncertainty_std if gps_uncertainty_std is not None else self.GPS_default_measurement_noise_std_uncertain
         
     
     def get_gps_measurement_by_index(
@@ -851,38 +798,8 @@ class DataLoader:
             return (vo_data, np.eye(self.dimension) * q)
         
         return (None, None)
-        
-    def get_gps_measurement(self, index):
-        if index in self.gps_indices:
-            return self.GPS_mesurement_in_meter_with_noise[index, :self.dimension].reshape(-1, 1)
-        else:
-            return None
-
-    def get_vo_measurement(self, index):
-        if index in self.vo_indices:
-            return self.VO_measurements_with_noise[index, :self.dimension].reshape(-1, 1)
-        else:
-            return None
-
-    def set_noise_std(self, gps_noise_std_uncertain=2., vo_noise_std_uncertain=2.):
-        self.GPS_measurement_noise_std_uncertain = gps_noise_std_uncertain
-        self.VO_noise_std_uncertain = vo_noise_std_uncertain
-
-    def get_gps_measurement_with_noise_cov(self, index):
-        if index in self.gps_indices:
-            return (self.GPS_mesurement_in_meter_with_noise[index, :self.dimension].reshape(-1, 1), 
-                    self.GPS_measurement_noise_std)
-        return (self.GPS_mesurement_in_meter_with_noise[index, :self.dimension].reshape(-1, 1), 
-                self.GPS_measurement_noise_std_uncertain)
-        
-    def get_vo_measurement_with_noise_cov(self, index):
-        if index in self.vo_indices:
-            return (self.VO_measurements_with_noise[index, :self.dimension].reshape(-1, 1),
-                    self.VO_noise_std)
-        return (self.VO_measurements_with_noise[index, :self.dimension].reshape(-1, 1),
-                    self.VO_noise_std_uncertain)
     
-    def _get_noise_vectors(self,setup, filter_type, noise_type):
+    def _get_noise_vectors(self, setup, filter_type, noise_type):
         noise_type_suffix = NoiseTypeEnum.get_suffix()[noise_type.value - 1]
         file_name = str(SetupEnum.get_names()[setup.value - 1]).lower() + noise_type_suffix + '.npy'
         filter_name = str(FilterEnum.get_names()[filter_type.value - 1]).lower()
@@ -907,7 +824,7 @@ class DataLoader:
 
         if setup is SetupEnum.SETUP_1 or setup is SetupEnum.SETUP_2:
             px, py, pz = self.VO_measurements[0, :]
-            q1, q2, q3, q4 = self.IMU_quaterion[0]
+            q1, q2, q3, q4 = self.IMU_quaternion[0]
             x = np.array([
                 [px], #Px
                 [py], #Py
@@ -982,31 +899,28 @@ class DataLoader:
 
             
 if __name__ == "__main__":
-    kitti_root_dir = '../../data'
+    example_kitti_drive = 'example'
+    kitti_example_data_root_dir = '../../example_data/KITTI'
     vo_root_dir = '../../vo_estimates'
     noise_vector_dir = '../../exports/_noise_optimizations/noise_vectors'
-    kitti_date = '2011_09_30'
-    kitti_drive = '0033'
-    data = DataLoader(sequence_nr=kitti_drive, 
-                    kitti_root_dir=kitti_root_dir, 
-                    vo_root_dir=vo_root_dir,
-                    noise_vector_dir=noise_vector_dir,
-                    vo_dropout_ratio=0.0, 
-                    gps_dropout_ratio=0.0,
-                    upsampling_factor=10,
-                    downsampling_ratio=0.8,
-                    visualize_data=True,
-                    dimension=3)
+    data = DataLoader(
+        sequence_nr=example_kitti_drive, 
+        kitti_root_dir=kitti_example_data_root_dir, 
+        vo_root_dir=vo_root_dir,
+        noise_vector_dir=noise_vector_dir,
+        vo_dropout_ratio=0.2, 
+        gps_dropout_ratio=0.2,
+        upsampling_factor=10,
+        downsampling_ratio=0.8,
+        visualize_data=True,
+        dimension=2)
     plt.pause(interval=5)
-    # # data.set_data_sampling(sampling=SamplingEnum.UPSAMPLED_DATA)
-    # data.set_data_sampling(sampling=SamplingEnum.DOWNSAMPLED_DATA)
-    # data.set_data_sampling(sampling=SamplingEnum.NORMAL_DATA)
-    # x_setup1, P_setup1, H_setup1, q, r_vo, r_gps = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.EKF, noise_type=NoiseTypeEnum.CURRENT)
     
-    x_setup1, P_setup1, H_setup1, q, r_vo, r_gps = data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=FilterEnum.UKF)
-    print(r_vo)
-    print(data.GPS_measurements_in_meter)
-
-
-
-
+    # data.set_data_sampling(sampling=SamplingEnum.UPSAMPLED_DATA)
+    data.set_data_sampling(sampling=SamplingEnum.DOWNSAMPLED_DATA)
+    x, P, H, q, r_vo, r_gps = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.EKF)
+    
+    data.set_data_sampling(sampling=SamplingEnum.DEFAULT_DATA)
+    x, P, H, q, r_vo, r_gps = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.EKF)
+    
+    x, P, H, q, r_vo, r_gps = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.EKF)

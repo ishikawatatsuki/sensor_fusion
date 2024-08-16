@@ -3,14 +3,13 @@ if __name__ == "__main__":
     sys.path.append('../../src')
 
 import numpy as np
-import matplotlib.pyplot as plt
-import sys
 from tqdm import tqdm
-from utils.error_report import get_error_report
+from ahrs import Quaternion
+import matplotlib.pyplot as plt
+from scipy.linalg import cholesky
+from utils.error_report import get_error_report, print_error_report
 from configs import MeasurementDataEnum, SetupEnum, FilterEnum, NoiseTypeEnum
 from filterpy.kalman import MerweScaledSigmaPoints
-from ahrs import Quaternion
-from scipy.linalg import cholesky
 
 if __name__ == "__main__":
     from base_filter import BaseFilter
@@ -50,7 +49,7 @@ class UnscentedKalmanFilter(BaseFilter):
             q (numpy.array): process noise vector
             r_vo (numpy.array): measurement noise vector for VO
             r_gps (numpy.array): measurement noise vector for GPS
-            alpha (float): Determines the spread of the sigma points around the mean state value. It is usually a small positive value. The spread of sigma points is proportional to α
+            alpha (float): Determines the spread of the sigma points around the mean state value. It is usually a small positive value. The spread of sigma points is proportional to alpha. Smaller values correspond to sigma points closer to the mean state.
             beta (float): Incorporates prior knowledge of the distribution of the state. For Gaussian distributions, β = 2 is optimal
             kappa (float): A second scaling parameter that is usually set to 0. Smaller values correspond to sigma points closer to the mean state. The spread is proportional to the square-root of κ.
             setup (SetupEnum): filter setup
@@ -118,12 +117,12 @@ class UnscentedKalmanFilter(BaseFilter):
         
         # self.x = (self.W_m @ self.chi).reshape(-1, 1) # 10x1
         self.x = (self.points.Wm @ self.chi).reshape(-1, 1) # 10x1
-        p_ = np.zeros((self.N, self.N)) # 10x10
+        P = np.zeros((self.N, self.N)) # 10x10
         for i, sigma_point in enumerate(self.chi):
             var = sigma_point.reshape(-1, 1) - self.x
-            p_ += self.points.Wc[i] * (var @ var.T)
-            # p_ += self.W_c[i] * (var @ var.T)
-        self.P = p_ + Q # 10x10 additive process noise
+            P += self.points.Wc[i] * (var @ var.T)
+            # P += self.W_c[i] * (var @ var.T)
+        self.P = P + Q # 10x10 additive process noise
 
     def predict_setup3(self, u, dt, Q):
         chi = self.compute_sigma_points() # 7x3
@@ -144,12 +143,12 @@ class UnscentedKalmanFilter(BaseFilter):
         self.chi = np.concatenate([x, y, theta], axis=1)
 
         self.x = (self.points.Wm @ self.chi).reshape(-1, 1) # 3x1
-        p_ = np.zeros((self.N, self.N)) # 3x3
+        P = np.zeros((self.N, self.N)) # 3x3
         for i, sigma_point in enumerate(self.chi):
             var = sigma_point.reshape(-1, 1) - self.x
-            p_ += self.points.Wc[i] * (var @ var.T)
-            # p_ += self.W_c[i] * (var @ var.T)
-        self.P = p_ + Q # 10x10 additive process noise
+            P += self.points.Wc[i] * (var @ var.T)
+            # P += self.W_c[i] * (var @ var.T)
+        self.P = P + Q # 10x10 additive process noise
 
     def update(self, z, R):
         chi = self.compute_sigma_points()
@@ -225,40 +224,6 @@ class UnscentedKalmanFilter(BaseFilter):
         
         if z_gps is not None:
             self.update(z=z_gps, R=R_gps)
-        
-        # if measurement_type is MeasurementDataEnum.ALL_DATA:
-        #     z_vo = data.VO_measurements_with_noise[t_idx, :self.dimension].reshape(-1, 1)
-        #     self.update(z=z_vo, R=R_vo)
-            
-        #     if self.setup is SetupEnum.SETUP_2 or self.setup is SetupEnum.SETUP_3:
-        #         z_gps = data.GPS_mesurement_in_meter_with_noise[t_idx, :self.dimension].reshape(-1, 1)
-        #         self.update(z=z_gps, R=R_gps)
-
-        # elif measurement_type is MeasurementDataEnum.DROPOUT:
-        #     z_vo = data.get_vo_measurement(t_idx)
-        #     if z_vo is not None:
-        #         self.update(z=z_vo, R=R_vo)
-            
-        #     if self.setup is SetupEnum.SETUP_2 or self.setup is SetupEnum.SETUP_3:
-        #         z_gps = data.get_gps_measurement(t_idx)
-        #         if z_gps is not None:
-        #             self.update(z=z_gps, R=R_gps)
-        
-        # else: # MeasurementDataEnum.COVARIANCE
-        #     z_vo, vo_noise = data.get_vo_measurement_with_noise_cov(t_idx)
-        #     R_vo = np.array([
-        #             [vo_noise ** 2., 0.],
-        #             [0., vo_noise ** 2.],
-        #         ])
-        #     self.update(z=z_vo, R=R_vo)
-
-        #     if self.setup is SetupEnum.SETUP_2 or self.setup is SetupEnum.SETUP_3:
-        #         z_gps, gps_noise = data.get_gps_measurement_with_noise_cov(t_idx)
-        #         R_gps = np.array([
-        #                 [gps_noise ** 2., 0.],
-        #                 [0., gps_noise ** 2.],
-        #             ])
-        #         self.update(z=z_gps, R=R_gps)
 
     def run(self, 
             data,
@@ -306,7 +271,7 @@ class UnscentedKalmanFilter(BaseFilter):
                 np.array([mu_x, mu_y, mu_z])) 
             
         if debug_mode:
-            print(f"[UKF] errors: {error}")
+            print_error_report(error, f"[UKF] Error report for {SetupEnum.get_name(self.setup)}")
 
         if show_graph is True:
             fig, ax1 = plt.subplots(1, 1, figsize=(12, 9))
@@ -333,62 +298,75 @@ if __name__ == "__main__":
     from data_loader import DataLoader
 
     root_path = "../../"
-    file_export_path = os.path.join(root_path, "exports/_sequences/04")
-    kitti_root_dir = os.path.join(root_path, "data")
+    kitti_drive = 'example'
+    kitti_data_root_dir = os.path.join(root_path, "example_data/KITTI")
     vo_root_dir = os.path.join(root_path, "vo_estimates")
     noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
-    kitti_date = '2011_09_30'
-    kitti_drive = '0033'
-    dimension=3
+    dimension=2
+    
+    # Undo comment out this to change example data to entire sequence data
+    # root_path = "../../"
+    # kitti_drive = '0033'
+    # kitti_data_root_dir = os.path.join(root_path, "data")
+    # vo_root_dir = os.path.join(root_path, "vo_estimates")
+    # noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
+    # dimension=2
+    
+    data = DataLoader(
+        sequence_nr=kitti_drive, 
+        kitti_root_dir=kitti_data_root_dir, 
+        vo_root_dir=vo_root_dir,
+        noise_vector_dir=noise_vector_dir,
+        vo_dropout_ratio=0., 
+        gps_dropout_ratio=0.,
+        dimension=dimension)
 
-    data = DataLoader(sequence_nr=kitti_drive, 
-                    kitti_root_dir=kitti_root_dir, 
-                    vo_root_dir=vo_root_dir,
-                    noise_vector_dir=noise_vector_dir,
-                    vo_dropout_ratio=1.0, 
-                    gps_dropout_ratio=0.5,
-                    dimension=dimension)
-
-    x_setup1, P_setup1, H_setup1, q1, r_vo1, r_gps1 = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.UKF, noise_type=NoiseTypeEnum.CURRENT)
-    x_setup2, P_setup2, H_setup2, q2, r_vo2, r_gps2 = data.get_initial_data(setup=SetupEnum.SETUP_2, filter_type=FilterEnum.UKF,  noise_type=NoiseTypeEnum.CURRENT)
-    x_setup3, P_setup3, H_setup3, q3, r_vo3, r_gps3 = data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=FilterEnum.UKF,  noise_type=NoiseTypeEnum.CURRENT)
+    filter_type=FilterEnum.UKF
+    noise_type=NoiseTypeEnum.CURRENT
+    
+    x_setup1, P_setup1, H_setup1, q1, r_vo1, r_gps1 = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=filter_type, noise_type=noise_type)
+    x_setup2, P_setup2, H_setup2, q2, r_vo2, r_gps2 = data.get_initial_data(setup=SetupEnum.SETUP_2, filter_type=filter_type, noise_type=noise_type)
+    x_setup3, P_setup3, H_setup3, q3, r_vo3, r_gps3 = data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=filter_type, noise_type=noise_type)
 
     measurement_type=MeasurementDataEnum.ALL_DATA
-    alpha_setup1_0 = 0.0001
+    debug_mode=True
+    interval = 5
+    
+    alpha_setup1_0 = 1.0
     beta_setup1_0 = 2.
     kappa_setup1_0 = 0.
 
     alpha_setup2_0 = 0.6
-    beta_setup2_0 = 6.
-    kappa_setup2_0 = -7.
+    beta_setup2_0 = 2.
+    kappa_setup2_0 = 0.
 
-    alpha_setup3_0 = 0.0001
-    beta_setup3_0 = 4.
+    alpha_setup3_0 = 0.1
+    beta_setup3_0 = 2.
     kappa_setup3_0 = 0.
 
-    # ukf1_0 = UnscentedKalmanFilter(
-    #     x=x_setup1.copy(), 
-    #     P=P_setup1.copy(), 
-    #     H=H_setup1.copy(), 
-    #     q=q1,
-    #     r_vo=r_vo1,
-    #     r_gps=r_gps1,
-    #     alpha=alpha_setup1_0, 
-    #     beta=beta_setup1_0, 
-    #     kappa=kappa_setup1_0,
-    #     setup=SetupEnum.SETUP_1
-    # )
-    # error_ukf1_0 = ukf1_0.run(
-    #     data=data,
-    #     debug_mode=True,
-    #     measurement_type=measurement_type
-    # )
+    ukf1_0 = UnscentedKalmanFilter(
+        x=x_setup1.copy(), 
+        P=P_setup1.copy(), 
+        H=H_setup1.copy(), 
+        q=q1,
+        r_vo=r_vo1,
+        r_gps=r_gps1,
+        alpha=alpha_setup1_0, 
+        beta=beta_setup1_0, 
+        kappa=kappa_setup1_0,
+        setup=SetupEnum.SETUP_1
+    )
+    error_ukf1_0 = ukf1_0.run(
+        data=data,
+        debug_mode=debug_mode,
+        measurement_type=measurement_type
+    )
     
-    # estimated = ukf1_0.get_estimated_trajectory()[:, :dimension]
-    # actual = data.GPS_measurements_in_meter[:, :dimension]
-    # print(np.sum((actual - estimated) ** 2))
-
-    # ukf1_0.visualize_trajectory(data=data, dimension=dimension, interval=5)
+    ukf1_0.visualize_trajectory(
+        data=data, 
+        dimension=dimension, 
+        interval=interval, 
+        title="UKF Setup1 trajectories")
 
     ukf2_0 = UnscentedKalmanFilter(
         x=x_setup2.copy(), 
@@ -397,44 +375,43 @@ if __name__ == "__main__":
         q=q2,
         r_vo=r_vo2,
         r_gps=r_gps2,
-        alpha=10, 
-        beta=2, 
-        kappa=0,
+        alpha=alpha_setup2_0, 
+        beta=beta_setup2_0, 
+        kappa=kappa_setup2_0,
         setup=SetupEnum.SETUP_2
     )
     error_ukf2_0 = ukf2_0.run(
         data=data,
-        debug_mode=True,
+        debug_mode=debug_mode,
         measurement_type=measurement_type
     )
-
-    estimated = ukf2_0.get_estimated_trajectory()[:, :dimension]
-    actual = data.GPS_measurements_in_meter[:, :dimension]
-    print(np.sum((actual - estimated) ** 2))
-
-    ukf2_0.visualize_trajectory(data=data, dimension=dimension, interval=5)
-
-    # ukf3_0 = UnscentedKalmanFilter(
-    #     x=x_setup3.copy(), 
-    #     P=P_setup3.copy(), 
-    #     H=H_setup3.copy(), 
-    #     q=q3,
-    #     r_vo=r_vo3,
-    #     r_gps=r_gps3,
-    #     alpha=alpha_setup3_0, 
-    #     beta=beta_setup3_0, 
-    #     kappa=kappa_setup3_0,
-    #     setup=SetupEnum.SETUP_3
-    # )
-    # error_ukf3_0 = ukf3_0.run(
-    #     data=data, 
-    #     debug_mode=True,
-    #     measurement_type=measurement_type
-    # )
     
+    ukf2_0.visualize_trajectory(
+        data=data, 
+        dimension=dimension, 
+        interval=interval, 
+        title="UKF Setup2 trajectories")
 
-    # estimated = ukf3_0.get_estimated_trajectory()[:, :dimension]
-    # actual = data.GPS_measurements_in_meter[:, :dimension]
-    # print(np.sum((actual - estimated) ** 2))
-
-    # ukf3_0.visualize_trajectory(data=data, dimension=dimension, interval=5)
+    ukf3_0 = UnscentedKalmanFilter(
+        x=x_setup3.copy(), 
+        P=P_setup3.copy(), 
+        H=H_setup3.copy(), 
+        q=q3,
+        r_vo=r_vo3,
+        r_gps=r_gps3,
+        alpha=alpha_setup3_0, 
+        beta=beta_setup3_0, 
+        kappa=kappa_setup3_0,
+        setup=SetupEnum.SETUP_3
+    )
+    error_ukf3_0 = ukf3_0.run(
+        data=data, 
+        debug_mode=debug_mode,
+        measurement_type=measurement_type
+    )
+    
+    ukf3_0.visualize_trajectory(
+        data=data, 
+        dimension=dimension, 
+        interval=interval, 
+        title="UKF Setup3 trajectories")

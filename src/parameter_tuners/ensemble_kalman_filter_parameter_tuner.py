@@ -7,7 +7,7 @@ import pandas as pd
 from datetime import datetime
 from tqdm import tqdm
 from data_loader import DataLoader
-from configs import SetupEnum, MeasurementDataEnum, Configs, ErrorEnum
+from configs import SetupEnum, MeasurementDataEnum, Configs, ErrorEnum, FilterEnum, NoiseTypeEnum
 from kalman_filters.ensemble_kalman_filter import EnsembleKalmanFilter
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -23,81 +23,65 @@ class EnsembleKalmanFilterParameterTuner:
     max_error_df = None
     
     
-    def __init__(self, 
-                 n_samples, 
-                 kitti_dataset,
-                 file_export_path,
-                 kitti_root_dir,
-                 vo_root_dir,
-                 setup=SetupEnum.SETUP_1, 
-                 measurement_type=MeasurementDataEnum.ALL_DATA):
+    def __init__(
+        self, 
+        n_samples, 
+        kitti_drive,
+        file_export_path,
+        kitti_root_dir,
+        vo_root_dir,
+        noise_vector_dir,
+        setup=SetupEnum.SETUP_1, 
+        measurement_type=MeasurementDataEnum.ALL_DATA):
 
         self.setup = setup
         self.measurement_type = measurement_type
         self.n_samples = n_samples
         self.dropout_ratios = [0.0, 0.1, 0.2, 0.3, 0.4]
         
-        self.kitti_drive = kitti_dataset
+        self.kitti_drive = kitti_drive
         self.file_export_path = file_export_path
         self.kitti_root_dir = kitti_root_dir
         self.vo_root_dir = vo_root_dir
+        self.noise_vector_dir = noise_vector_dir
         
 
     def run_dummy_filter(self, base_time):
-        return np.random.rand(), base_time + np.random.randint(0, 30)
-    
-    def run_filter_setup1(self, N, data):
-        x, P, H = data.get_initial_data(setup=self.setup)
+        return {
+                ErrorEnum.MAE: 100.,
+                ErrorEnum.RMSE: 100.,
+                ErrorEnum.MAX: 1000.,
+            }, base_time + np.random.randint(0, 30)
 
-        enkf = EnsembleKalmanFilter(N=N, 
-                               x=x.copy(), 
-                               P=P.copy(), 
-                               H=H.copy())
+    def run_filter(self, N, data):
         
+        x, P, H, q, r_vo, r_gps = data.get_initial_data(
+            setup=self.setup, 
+            filter_type=FilterEnum.EnKF, 
+            noise_type=NoiseTypeEnum.CURRENT
+        )
+
+        enkf = EnsembleKalmanFilter(
+            N=N, 
+            x=x.copy(), 
+            P=P.copy(), 
+            H=H.copy(),
+            q=q,
+            r_vo=r_vo,
+            r_gps=r_gps,
+            setup=self.setup
+        )
+
         start = datetime.now()
-        error = enkf.run(data=data, 
-                         setup=self.setup,
-                        measurement_type=self.measurement_type)
-        
+        error = enkf.run(
+            data=data, 
+            measurement_type=MeasurementDataEnum.DROPOUT, 
+            debug_mode=True,
+            show_graph=False,
+        )
         end = datetime.now()
         processing_time = (end - start).total_seconds()
         
-        return error, np.round(processing_time / data.N, Configs.processing_time_decimal_place)
-    
-    def run_filter_setup2(self, N, data):
-        x, P, H = data.get_initial_data(setup=self.setup)
-
-        enkf = EnsembleKalmanFilter(N=N, 
-                               x=x.copy(), 
-                               P=P.copy(), 
-                               H=H.copy())
-        
-        start = datetime.now()
-        error = enkf.run(data=data, 
-                         setup=self.setup,
-                         measurement_type=self.measurement_type)
-        
-        end = datetime.now()
-        processing_time = (end - start).total_seconds()
-
-        return error, np.round(processing_time / data.N, Configs.processing_time_decimal_place)
-    
-    def run_filter_setup3(self, N, data):
-        x, P, H = data.get_initial_data(setup=self.setup)
-
-        enkf = EnsembleKalmanFilter(N=N, 
-                            x=x.copy(), 
-                            P=P.copy(), 
-                            H=H.copy())
-        
-        start = datetime.now()
-        error = enkf.run(data=data, 
-                         setup=self.setup,
-                         measurement_type=self.measurement_type)
-        
-        end = datetime.now()
-        processing_time = (end - start).total_seconds()
-
         return error, np.round(processing_time / data.N, Configs.processing_time_decimal_place)
 
     def run(self):
@@ -109,12 +93,15 @@ class EnsembleKalmanFilterParameterTuner:
         for dropout_ratio in self.dropout_ratios:
             print(f"Setting dropout ratio by {str(dropout_ratio)}")
             
-            data = DataLoader(sequence_nr=self.kitti_drive, 
-                              vo_dropout_ratio=dropout_ratio,
-                              gps_dropout_ratio=dropout_ratio,
-                              vo_root_dir=self.vo_root_dir,
-                              kitti_root_dir=self.kitti_root_dir,
-                              visualize_data=False)
+            data = DataLoader(
+                sequence_nr=self.kitti_drive, 
+                vo_dropout_ratio=dropout_ratio,
+                gps_dropout_ratio=dropout_ratio,
+                vo_root_dir=self.vo_root_dir,
+                kitti_root_dir=self.kitti_root_dir,
+                noise_vector_dir=self.noise_vector_dir,
+                visualize_data=False)
+
             mae_errors_ = []
             rmse_errors_ = []
             max_errors_ = []
@@ -126,15 +113,8 @@ class EnsembleKalmanFilterParameterTuner:
                 # max_errors_.append(error)
                 # processing_times_.append(processing_time)
                 
-                if self.setup is SetupEnum.SETUP_1:
-                    error, processing_time = self.run_filter_setup1(N=N, data=data)
-                    
-                elif self.setup is SetupEnum.SETUP_2:
-                    error, processing_time = self.run_filter_setup2(N=N, data=data)
-                    
-                else: #SetupEnum.SETUP_3
-                    error, processing_time = self.run_filter_setup3(N=N, data=data)
-                    
+                error, processing_time = self.run_filter(N=N, data=data)
+                
                 mae_errors_.append(error[ErrorEnum.MAE])
                 rmse_errors_.append(error[ErrorEnum.RMSE])
                 max_errors_.append(error[ErrorEnum.MAX])
@@ -152,9 +132,10 @@ class EnsembleKalmanFilterParameterTuner:
         self.max_error_df = pd.DataFrame(max_errors, columns=self.n_samples, index=self.dropout_ratios)
         self.dump_df()
 
-    def find_best_combination(self, 
-                              error_weight, 
-                              error_upper_limit=500):
+    def find_best_combination(
+        self, 
+        error_weight, 
+        error_upper_limit=500):
         """
             weighted sum method to find the best combination of parameters.
         """       

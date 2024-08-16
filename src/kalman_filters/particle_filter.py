@@ -5,13 +5,13 @@ if __name__ == "__main__":
 import numpy as np
 from enum import Enum
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 from scipy.stats import multivariate_normal
 from configs import SetupEnum, MeasurementDataEnum, FilterEnum, NoiseTypeEnum
-import matplotlib.pyplot as plt
+from utils.error_report import get_error_report, print_error_report
 from filterpy.monte_carlo import (
     multinomial_resample, residual_resample, systematic_resample, stratified_resample
 )
-from utils.error_report import get_error_report
 
 if __name__ == "__main__":
     from base_filter import BaseFilter
@@ -26,8 +26,6 @@ class ResamplingAlgorithms(Enum):
     SYSTEMATIC = 4
 
 class ParticleFilter(BaseFilter):
-
-    weights = None
 
     def __init__(
         self, 
@@ -150,6 +148,11 @@ class ParticleFilter(BaseFilter):
         self.weights /= sum(self.weights) # normalize
 
     def calculate_ess(self):
+        '''
+            Effective sample size (ESS)
+            When the ESS gets close to zero resulted from many particles having small weight, it indicates particle degeneracy meaning that many particles with small weight estimate the measurement poorly.
+            To prevent particle degeneracy, resampling comes into play.
+        '''
         return 1. / np.sum(np.square(self.weights))
         
     def estimate(self):
@@ -183,6 +186,11 @@ class ParticleFilter(BaseFilter):
         self.resample_from_index(indexes)
 
     def allow_resampling(self, importance_resampling=True):
+        '''
+            Allow resampling either:
+                - when importance resampling is False -> Always resample after measurement update step
+                - when importance resampling is True and the effective sample size is less than 
+        '''
         return not importance_resampling or (importance_resampling and self.calculate_ess() < self.N * self.n_threshold)
     
     def _time_update_step(self, data, t_idx, dt, Q):
@@ -223,8 +231,8 @@ class ParticleFilter(BaseFilter):
         if z_gps is not None:
             self.update(z=z_gps, R=R_gps)
         
-        if  z_vo is not None and z_gps is not None and \
-            self.allow_resampling(importance_resampling=importance_resampling):
+        
+        if  z_vo is not None and z_gps is not None and self.allow_resampling(importance_resampling=importance_resampling):
             self.resample()
 
     def run(self, 
@@ -298,7 +306,7 @@ class ParticleFilter(BaseFilter):
                 np.array([mu_x, mu_y, mu_z])) 
         
         if debug_mode is True:
-            print(f"[PF] errors: {error}")
+            print_error_report(error, f"[PF] Error report for {SetupEnum.get_name(self.setup)}")
 
         if show_graph is True:
             xs, ys, _ = data.VO_measurements.T
@@ -322,17 +330,23 @@ if __name__ == "__main__":
     from data_loader import DataLoader
 
     root_path = "../../"
-    file_export_path = os.path.join(root_path, "exports/_sequences/04")
-    kitti_root_dir = os.path.join(root_path, "data")
+    kitti_drive = 'example'
+    kitti_data_root_dir = os.path.join(root_path, "example_data/KITTI")
     vo_root_dir = os.path.join(root_path, "vo_estimates")
     noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
-    kitti_date = '2011_09_30'
-    kitti_drive = '0033'
-    dimension=3
+    dimension=2
+
+    # Undo comment out this to change example data to entire sequence data
+    # root_path = "../../"
+    # kitti_drive = '0033'
+    # kitti_data_root_dir = os.path.join(root_path, "data")
+    # vo_root_dir = os.path.join(root_path, "vo_estimates")
+    # noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
+    # dimension=2
 
     data = DataLoader(
         sequence_nr=kitti_drive, 
-        kitti_root_dir=kitti_root_dir, 
+        kitti_root_dir=kitti_data_root_dir, 
         vo_root_dir=vo_root_dir,
         noise_vector_dir=noise_vector_dir,
         vo_dropout_ratio=0., 
@@ -340,36 +354,46 @@ if __name__ == "__main__":
         visualize_data=False,
         dimension=dimension
     )
-    x_setup1, P_setup1, H_setup1, q1, r_vo1, r_gps1 = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.PF, noise_type=NoiseTypeEnum.CURRENT)
-    x_setup2, P_setup2, H_setup2, q2, r_vo2, r_gps2 = data.get_initial_data(setup=SetupEnum.SETUP_2, filter_type=FilterEnum.PF, noise_type=NoiseTypeEnum.CURRENT)
-    x_setup3, P_setup3, H_setup3, q3, r_vo3, r_gps3 = data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=FilterEnum.PF, noise_type=NoiseTypeEnum.CURRENT)
+    
+    filter_type=FilterEnum.PF
+    noise_type=NoiseTypeEnum.CURRENT
+    
+    x_setup1, P_setup1, H_setup1, q1, r_vo1, r_gps1 = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=filter_type, noise_type=noise_type)
+    x_setup2, P_setup2, H_setup2, q2, r_vo2, r_gps2 = data.get_initial_data(setup=SetupEnum.SETUP_2, filter_type=filter_type, noise_type=noise_type)
+    x_setup3, P_setup3, H_setup3, q3, r_vo3, r_gps3 = data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=filter_type, noise_type=noise_type)
 
-    n_samples_setup1_0 = 2048
+    n_samples_setup1_0 = 1024
     resampling_algorithm_setup1_0 = ResamplingAlgorithms.STRATIFIED
-    n_samples_setup2_0 = 4096
+    n_samples_setup2_0 = 1024
     resampling_algorithm_setup2_0 = ResamplingAlgorithms.STRATIFIED
-    n_samples_setup3_0 = 2048
+    n_samples_setup3_0 = 1024
     resampling_algorithm_setup3_0 = ResamplingAlgorithms.RESIDUAL
     
     measurement_type = MeasurementDataEnum.ALL_DATA
     importance_resampling = True
+    debug_mode=True
+    interval=5
 
-    # pf1_0 = ParticleFilter(N=n_samples_setup1_0, 
-    #                         x_dim=x_setup1.shape[0], 
-    #                         H=H_setup1.copy(), 
-    #                         q=q1,
-    #                         r_vo=r_vo1,
-    #                         r_gps=r_gps1,
-    #                         setup=SetupEnum.SETUP_1,
-    #                         resampling_algorithm=resampling_algorithm_setup1_0)
-    # pf1_0.create_gaussian_particles(mean=x_setup1.copy(), var=P_setup1.copy())
-    # error_pf1_0 = pf1_0.run(data=data, debug_mode=True)
-
-    # estimated = pf1_0.get_estimated_trajectory()[:, :dimension]
-    # actual = data.GPS_measurements_in_meter[:, :dimension]
-    # print(np.sum((actual - estimated) ** 2))
-
-    # pf1_0.visualize_trajectory(data=data, dimension=dimension, interval=5)
+    pf1_0 = ParticleFilter(N=n_samples_setup1_0, 
+                            x_dim=x_setup1.shape[0], 
+                            H=H_setup1.copy(), 
+                            q=q1,
+                            r_vo=r_vo1,
+                            r_gps=r_gps1,
+                            setup=SetupEnum.SETUP_1,
+                            resampling_algorithm=resampling_algorithm_setup1_0)
+    pf1_0.create_gaussian_particles(mean=x_setup1.copy(), var=P_setup1.copy())
+    error_pf1_0 = pf1_0.run(
+        data=data, 
+        debug_mode=debug_mode,
+        measurement_type=measurement_type, 
+        importance_resampling=importance_resampling)
+    
+    pf1_0.visualize_trajectory(
+        data=data, 
+        dimension=dimension, 
+        interval=interval, 
+        title="PF Setup1 trajectories")
 
     pf2_0 = ParticleFilter(N=n_samples_setup2_0, 
                             x_dim=x_setup2.shape[0], 
@@ -382,30 +406,34 @@ if __name__ == "__main__":
     pf2_0.create_gaussian_particles(mean=x_setup2.copy(), var=P_setup2.copy())
     error_pf2_0 = pf2_0.run(
         data=data, 
-        debug_mode=True, 
+        debug_mode=debug_mode, 
         measurement_type=measurement_type, 
         importance_resampling=importance_resampling)
     
-    estimated = pf2_0.get_estimated_trajectory()[:, :dimension]
-    actual = data.GPS_measurements_in_meter[:, :dimension]
-    print(np.sum((actual - estimated) ** 2))
-
-    pf2_0.visualize_trajectory(data=data, dimension=dimension, interval=5)
+    pf2_0.visualize_trajectory(
+        data=data, 
+        dimension=dimension, 
+        interval=interval, 
+        title="PF Setup2 trajectories")
     
     
-    # pf3_0 = ParticleFilter(N=n_samples_setup3_0, 
-    #                         x_dim=x_setup3.shape[0], 
-    #                         H=H_setup3.copy(), 
-    #                         q=q3,
-    #                         r_vo=r_vo3,
-    #                         r_gps=r_gps3,
-    #                         setup=SetupEnum.SETUP_3,
-    #                         resampling_algorithm=resampling_algorithm_setup3_0)
-    # pf3_0.create_gaussian_particles(mean=x_setup3.copy(), var=P_setup3.copy())
-    # error_pf3_0 = pf3_0.run(data=data, debug_mode=True, measurement_type=measurement_type, importance_resampling=importance_resampling)
+    pf3_0 = ParticleFilter(N=n_samples_setup3_0, 
+                            x_dim=x_setup3.shape[0], 
+                            H=H_setup3.copy(), 
+                            q=q3,
+                            r_vo=r_vo3,
+                            r_gps=r_gps3,
+                            setup=SetupEnum.SETUP_3,
+                            resampling_algorithm=resampling_algorithm_setup3_0)
+    pf3_0.create_gaussian_particles(mean=x_setup3.copy(), var=P_setup3.copy())
+    error_pf3_0 = pf3_0.run(
+        data=data,
+        debug_mode=debug_mode,
+        measurement_type=measurement_type, 
+        importance_resampling=importance_resampling)
     
-    # estimated = pf3_0.get_estimated_trajectory()[:, :dimension]
-    # actual = data.GPS_measurements_in_meter[:, :dimension]
-    # print(np.sum((actual - estimated) ** 2))
-
-    # pf3_0.visualize_trajectory(data=data, interval=5)
+    pf3_0.visualize_trajectory(
+        data=data, 
+        dimension=dimension, 
+        interval=interval, 
+        title="PF Setup3 trajectories")

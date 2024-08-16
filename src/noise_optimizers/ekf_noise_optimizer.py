@@ -27,9 +27,10 @@ class EKF_NoiseOptimizer:
   
   setup = SetupEnum.SETUP_1
 
-  header = pd.MultiIndex.from_product([['Setup1(IMU+VO)','Setup2(IMU+VO,GPS)', 'Setup3(INS)'],
-                                   ["MAE", "RMSE", "MAX"]],
-                                   names=['Setups', 'Error types'])
+  header = pd.MultiIndex.from_product([
+      ['Setup1(IMU+VO)', 'Setup2(IMU+VO,GPS)', 'Setup3(INS)'],
+      ["MAE", "RMSE", "MAX"]
+    ], names=['Setups', 'Error types'])
   index = ["Non-optimized", "Optimized", "∆"]
   error_df = None
 
@@ -69,14 +70,15 @@ class EKF_NoiseOptimizer:
       r_vo = noise_vector[-4:-2]
       r_gps = noise_vector[-2:]
 
-    ekf = ExtendedKalmanFilter(x=self.x.copy(), 
-                               P=self.P.copy(), 
-                               H=self.H.copy(),
-                               q=q,
-                               r_vo=r_vo,
-                               r_gps=r_gps,
-                               setup=self.setup
-                               )
+    ekf = ExtendedKalmanFilter(
+      x=self.x.copy(), 
+      P=self.P.copy(), 
+      H=self.H.copy(),
+      q=q,
+      r_vo=r_vo,
+      r_gps=r_gps,
+      setup=self.setup
+    )
     ekf.run(data=self.data)
     estimated = ekf.get_estimated_trajectory()
     actual = self.data.GPS_measurements_in_meter[:, :2]
@@ -118,14 +120,15 @@ class EKF_NoiseOptimizer:
   def compare(self, load_exported=False):
     x_1, P_1, H_1, q1, r_vo1, r_gps1 = self.data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.EKF, noise_type=NoiseTypeEnum.CURRENT)
 
-    self.ekf_1 = ExtendedKalmanFilter(x=x_1.copy(), 
-                                P=P_1.copy(), 
-                                H=H_1.copy(),
-                                q=q1,
-                                r_vo=r_vo1,
-                                r_gps=r_gps1,
-                                setup=SetupEnum.SETUP_1
-                                )
+    self.ekf_1 = ExtendedKalmanFilter(
+      x=x_1.copy(), 
+      P=P_1.copy(), 
+      H=H_1.copy(),
+      q=q1,
+      r_vo=r_vo1,
+      r_gps=r_gps1,
+      setup=SetupEnum.SETUP_1
+    )
     error_1 = self.ekf_1.run(data=self.data)
 
     optimized_noise_1 = None
@@ -138,14 +141,15 @@ class EKF_NoiseOptimizer:
     r_vo1_optimal = optimized_noise_1[-4:-2]
     r_gps1_optimal = optimized_noise_1[-2:]
 
-    self.ekf_1_optimized = ExtendedKalmanFilter(x=x_1.copy(), 
-                                           P=P_1.copy(), 
-                                           H=H_1.copy(),
-                                           q=q1_optimal,
-                                           r_vo=r_vo1_optimal,
-                                           r_gps=r_gps1_optimal,
-                                           setup=SetupEnum.SETUP_1
-                                          )
+    self.ekf_1_optimized = ExtendedKalmanFilter(
+      x=x_1.copy(), 
+      P=P_1.copy(), 
+      H=H_1.copy(),
+      q=q1_optimal,
+      r_vo=r_vo1_optimal,
+      r_gps=r_gps1_optimal,
+      setup=SetupEnum.SETUP_1
+    )
     error_1_optimized = self.ekf_1_optimized.run(data=self.data)
 
     x_2, P_2, H_2, q2, r_vo2, r_gps2 = self.data.get_initial_data(setup=SetupEnum.SETUP_2, filter_type=FilterEnum.EKF, noise_type=NoiseTypeEnum.CURRENT)
@@ -169,14 +173,15 @@ class EKF_NoiseOptimizer:
     q2_optimal = optimized_noise_2[:-4]
     r_vo2_optimal = optimized_noise_2[-4:-2]
     r_gps2_optimal = optimized_noise_2[-2:]
-    self.ekf_2_optimized = ExtendedKalmanFilter(x=x_2.copy(), 
-                                           P=P_2.copy(), 
-                                           H=H_2.copy(),
-                                           q=q2_optimal,
-                                           r_vo=r_vo2_optimal,
-                                           r_gps=r_gps2_optimal,
-                                           setup=SetupEnum.SETUP_2
-                                          )
+    self.ekf_2_optimized = ExtendedKalmanFilter(
+      x=x_2.copy(), 
+      P=P_2.copy(), 
+      H=H_2.copy(),
+      q=q2_optimal,
+      r_vo=r_vo2_optimal,
+      r_gps=r_gps2_optimal,
+      setup=SetupEnum.SETUP_2
+    )
     error_2_optimized = self.ekf_2_optimized.run(data=self.data)
 
     x_3, P_3, H_3, q3, r_vo3, r_gps3 = self.data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=FilterEnum.EKF, noise_type=NoiseTypeEnum.CURRENT)
@@ -200,14 +205,15 @@ class EKF_NoiseOptimizer:
     q3_optimal = optimized_noise_3[:-4]
     r_vo3_optimal = optimized_noise_3[-4:-2]
     r_gps3_optimal = optimized_noise_3[-2:]
-    self.ekf_3_optimized = ExtendedKalmanFilter(x=x_3.copy(), 
-                                           P=P_3.copy(), 
-                                           H=H_3.copy(),
-                                           q=q3_optimal,
-                                           r_vo=r_vo3_optimal,
-                                           r_gps=r_gps3_optimal,
-                                           setup=SetupEnum.SETUP_3
-                                          )
+    self.ekf_3_optimized = ExtendedKalmanFilter(
+      x=x_3.copy(), 
+      P=P_3.copy(), 
+      H=H_3.copy(),
+      q=q3_optimal,
+      r_vo=r_vo3_optimal,
+      r_gps=r_gps3_optimal,
+      setup=SetupEnum.SETUP_3
+    )
     error_3_optimized = self.ekf_3_optimized.run(data=self.data)
 
     error_setup1 = [error_1, error_1_optimized]
