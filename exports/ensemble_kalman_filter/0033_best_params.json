@@ -1,0 +1,1 @@
+{"('Setup1 (IMU, VO)',)":{"No dropout":64,"10% drop":64,"20% drop":32,"30% drop":32,"40% drop":256},"('Setup2(IMU, VO+GPS)',)":{"No dropout":256,"10% drop":512,"20% drop":1024,"30% drop":64,"40% drop":256},"('Setup3(INS)',)":{"No dropout":128,"10% drop":256,"20% drop":64,"30% drop":128,"40% drop":128}}

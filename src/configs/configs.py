@@ -114,7 +114,7 @@ class ErrorEnum(Enum):
         return [e.name for e in ErrorEnum]
 
 class SamplingEnum(Enum):
-    NORMAL_DATA = 1 
+    DEFAULT_DATA = 1 
     DOWNSAMPLED_DATA = 2 
     UPSAMPLED_DATA = 3
 

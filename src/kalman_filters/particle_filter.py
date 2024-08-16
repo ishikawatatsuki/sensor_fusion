@@ -232,8 +232,7 @@ class ParticleFilter(BaseFilter):
             self.update(z=z_gps, R=R_gps)
         
         
-        if  (z_vo is not None or z_gps is not None) and \
-            self.allow_resampling(importance_resampling=importance_resampling):
+        if  z_vo is not None and z_gps is not None and self.allow_resampling(importance_resampling=importance_resampling):
             self.resample()
 
     def run(self, 

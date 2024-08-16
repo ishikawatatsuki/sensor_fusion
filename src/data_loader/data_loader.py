@@ -173,7 +173,7 @@ class DataLoader:
         noise_vector_dir='../exports/_noise_optimizations/noise_vectors',
         vo_dropout_ratio=0., 
         gps_dropout_ratio=0., 
-        sampling=SamplingEnum.NORMAL_DATA,
+        sampling=SamplingEnum.DEFAULT_DATA,
         downsampling_ratio=0.1,
         upsampling_factor=10,
         visualize_data=True,
@@ -520,9 +520,9 @@ class DataLoader:
         assert 0 <= ratio and ratio < 1, "Ratio must be less than or equal to 1."
         self.downsampleing_ratio = ratio
 
-    def set_data_sampling(self, sampling=SamplingEnum.NORMAL_DATA):
+    def set_data_sampling(self, sampling=SamplingEnum.DEFAULT_DATA):
         match sampling:
-            case SamplingEnum.NORMAL_DATA:
+            case SamplingEnum.DEFAULT_DATA:
                 self.N = self.N_original
                 self.ts = self.ts_original
                 self.GPS_mesurement_in_meter_with_noise = self.GPS_mesurement_in_meter_with_noise_original
@@ -545,7 +545,7 @@ class DataLoader:
 
                 print("Data sampling is set to upsampling mode.")
             
-            case _: #SamplingEnum.NORMAL_DATA
+            case _: #SamplingEnum.DEFAULT_DATA
                 self.N = self.N_original
                 self.ts = self.ts_original
                 self.GPS_mesurement_in_meter_with_noise = self.GPS_mesurement_in_meter_with_noise_original
@@ -718,9 +718,6 @@ class DataLoader:
         plt.plot()
     
     # NOTE: Change attributes
-
-    def change_smoothing_window_size(self, window_size):
-        self.smoothing_window_size = window_size
     
     def change_dropout_ratio(self, vo_dropout_ratio, gps_dropout_ratio):
         self.vo_dropout_ratio = vo_dropout_ratio
@@ -923,7 +920,7 @@ if __name__ == "__main__":
     data.set_data_sampling(sampling=SamplingEnum.DOWNSAMPLED_DATA)
     x, P, H, q, r_vo, r_gps = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.EKF)
     
-    data.set_data_sampling(sampling=SamplingEnum.NORMAL_DATA)
+    data.set_data_sampling(sampling=SamplingEnum.DEFAULT_DATA)
     x, P, H, q, r_vo, r_gps = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.EKF)
     
     x, P, H, q, r_vo, r_gps = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.EKF)

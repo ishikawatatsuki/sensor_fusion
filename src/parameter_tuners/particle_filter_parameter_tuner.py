@@ -8,8 +8,7 @@ from datetime import datetime
 import seaborn as sns
 import sys
 from tqdm import tqdm
-from data_loader import DataLoader
-from configs import SetupEnum, MeasurementDataEnum, SamplingEnum, Configs, ErrorEnum
+from configs import SetupEnum, MeasurementDataEnum, SamplingEnum, Configs, ErrorEnum, FilterEnum, NoiseTypeEnum
 from kalman_filters.particle_filter import ResamplingAlgorithms, ParticleFilter
 
 
@@ -29,36 +28,28 @@ class ParticleFilterParameterTuner:
     
     def __init__(
         self, 
+        setup,
         params, 
-        kitti_dataset,
-        file_export_path,
-        kitti_root_dir,
-        vo_root_dir,
-        setup=SetupEnum.SETUP_1, 
-        measurement_type=MeasurementDataEnum.ALL_DATA, 
-        vo_dropout_ratio=0., 
-        gps_dropout_ratio=0.):
+        data,
+        kitti_drive,
+        file_export_path
+        ):
 
         self.setup = setup
         self.file_export_path = file_export_path
-        self.measurement_type = measurement_type
         self.n_samples = params["n_samples"]
         self.algorithms = params["algorithms"]
-        self.vo_dropout_ratio = vo_dropout_ratio
-        self.gps_dropout_ratio = gps_dropout_ratio
+        self.vo_dropout_ratio = data.vo_dropout_ratio
+        self.gps_dropout_ratio = data.gps_dropout_ratio
         
         print(params)
-        print(measurement_type)
-        self.kitti_drive = kitti_dataset
-        self.data = DataLoader(
-            sequence_nr=self.kitti_drive, 
-            vo_dropout_ratio=vo_dropout_ratio,
-            gps_dropout_ratio=gps_dropout_ratio,
-            kitti_root_dir=kitti_root_dir,
-            vo_root_dir=vo_root_dir,
-            visualize_data=False)
+        print(self.vo_dropout_ratio)
+        print(self.gps_dropout_ratio)
+        self.importance_resampling = True
+        self.kitti_drive = kitti_drive
+        self.data = data
     
-    def change_data_sampling(self, sampling=SamplingEnum.NORMAL_DATA, upsampling_factor=10, downsampling_ratio=0.1):
+    def change_data_sampling(self, sampling=SamplingEnum.DEFAULT_DATA, upsampling_factor=10, downsampling_ratio=0.1):
         if sampling is SamplingEnum.UPSAMPLED_DATA:
             self.data.set_upsampling_factor(upsampling_factor)
         elif sampling is SamplingEnum.DOWNSAMPLED_DATA:
@@ -67,89 +58,62 @@ class ParticleFilterParameterTuner:
         self.data.set_data_sampling(sampling=sampling)
         
     def run_dummy_filter(self, base_time):
-        return np.random.randn(), base_time + np.random.randint(0, 30)
+        return {
+                ErrorEnum.MAE: 100.,
+                ErrorEnum.RMSE: 100.,
+                ErrorEnum.MAX: 1000.,
+            }, base_time + np.random.randint(0, 30)
     
-    def run_filter_setup1(self, algorithm, N):
-        x, P, H = self.data.get_initial_data(setup=self.setup)
-
-        pf = ParticleFilter(N=N, 
-                            x_dim=x.shape[0], 
-                            H=H.copy(), 
-                            resampling_algorithm=algorithm)
-        
+    def run_filter(self, algorithm, N):
+        x, P, H, q, r_vo, r_gps = self.data.get_initial_data(
+            setup=self.setup, 
+            filter_type=FilterEnum.PF,
+            noise_type=NoiseTypeEnum.CURRENT
+        )
+        pf = ParticleFilter(
+            N=N, 
+            x_dim=x.shape[0], 
+            H=H.copy(), 
+            q=q,
+            r_vo=r_vo,
+            r_gps=r_gps,
+            setup=self.setup,
+            resampling_algorithm=algorithm
+        )
         pf.create_gaussian_particles(mean=x.copy(), var=P.copy())
 
         start = datetime.now()
-        error = pf.run(data=self.data, 
-                        setup=self.setup,
-                        measurement_type=self.measurement_type)
+        error = pf.run(
+            data=self.data, 
+            importance_resampling=self.importance_resampling,
+            measurement_type=MeasurementDataEnum.DROPOUT, 
+            debug_mode=True,
+            show_graph=False,
+        )
         end = datetime.now()
         processing_time = (end - start).total_seconds()
         return error, np.round(processing_time / self.data.N, Configs.processing_time_decimal_place)
     
-    def run_filter_setup2(self, algorithm, N):
-        x, P, H = self.data.get_initial_data(setup=self.setup)
-
-        pf = ParticleFilter(N=N, 
-                            x_dim=x.shape[0], 
-                            H=H.copy(), 
-                            resampling_algorithm=algorithm)
-        
-        pf.create_gaussian_particles(mean=x.copy(), var=P.copy())
-
-        start = datetime.now()
-        error = pf.run(data=self.data, 
-                        setup=self.setup,
-                        measurement_type=self.measurement_type)
-        end = datetime.now()
-        processing_time = (end - start).total_seconds()
-        return error, np.round(processing_time / self.data.N, Configs.processing_time_decimal_place)
-    
-    def run_filter_setup3(self, algorithm, N):
-        x, P, H = self.data.get_initial_data(setup=self.setup)
-
-        pf = ParticleFilter(N=N, 
-                            x_dim=x.shape[0], 
-                            H=H.copy(), 
-                            resampling_algorithm=algorithm)
-        
-        pf.create_gaussian_particles(mean=x.copy(), var=P.copy())
-        
-        start = datetime.now()
-        error = pf.run(data=self.data, 
-                        setup=self.setup,
-                        measurement_type=self.measurement_type)
-        end = datetime.now()
-        processing_time = (end - start).total_seconds()
-        return error, np.round(processing_time / self.data.N, Configs.processing_time_decimal_place)
-
     def run(self):
         mae_errors = []
         rmse_errors = []
         max_errors = []
         processing_times = []
         for algorithm in self.algorithms:
-            print(f"Resampling by ${self.algorithm_str[algorithm]}")
+            print(f"Resampled by: {self.algorithm_str[algorithm]}")
             mae_errors_ = []
             rmse_errors_ = []
             max_errors_ = []
             processing_times_ = []
-            for N in tqdm(self.n_samples):
+            for N in self.n_samples:
                 # error, processing_time = self.run_dummy_filter(base_time=N)
                 # mae_errors_.append(error)
                 # rmse_errors_.append(error)
                 # max_errors_.append(error)
                 # processing_times_.append(processing_time)
                 
-                if self.setup is SetupEnum.SETUP_1:
-                    error, processing_time = self.run_filter_setup1(algorithm=algorithm, N=N)
-                    
-                elif self.setup is SetupEnum.SETUP_2:
-                    error, processing_time = self.run_filter_setup2(algorithm=algorithm, N=N)
-                    
-                else: #SetupEnum.SETUP_3
-                    error, processing_time = self.run_filter_setup3(algorithm=algorithm, N=N)
-
+                error, processing_time = self.run_filter(algorithm=algorithm, N=N)
+                
                 mae_errors_.append(error[ErrorEnum.MAE])
                 rmse_errors_.append(error[ErrorEnum.RMSE])
                 max_errors_.append(error[ErrorEnum.MAX])

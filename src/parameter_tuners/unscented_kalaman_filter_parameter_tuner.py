@@ -7,7 +7,7 @@ import pandas as pd
 from datetime import datetime
 from tqdm import tqdm
 from data_loader import DataLoader
-from configs import SetupEnum, MeasurementDataEnum, Configs, ErrorEnum
+from configs import SetupEnum, MeasurementDataEnum, Configs, ErrorEnum, FilterEnum, NoiseTypeEnum
 from kalman_filters.unscented_kalman_filter import UnscentedKalmanFilter
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -23,97 +23,69 @@ class UnscentedKalmanFilterParameterTuner:
     
     def __init__(
         self, 
+        setup,
         params, 
-        kitti_dataset,
+        data,
+        kitti_drive,
         file_export_path,
-        kitti_root_dir,
-        vo_root_dir,
-        setup=SetupEnum.SETUP_1, 
-        measurement_type=MeasurementDataEnum.ALL_DATA, 
-        vo_dropout_ratio=0., 
-        gps_dropout_ratio=0.):
+        ):
 
         self.setup = setup
         self.file_export_path = file_export_path
-        self.measurement_type = measurement_type
+        
         self.alphas = params["alphas"]
-        self.betas = params["betas"]
-        self.kappa = params["kappa"]
-        print(params)
-        print(measurement_type)
-        self.vo_dropout_ratio = vo_dropout_ratio
-        self.gps_dropout_ratio = gps_dropout_ratio
-        print(kitti_root_dir)
-        print(vo_root_dir)
-        self.kitti_drive = kitti_dataset
-        self.data = DataLoader(
-            sequence_nr=self.kitti_drive, 
-            vo_dropout_ratio=vo_dropout_ratio,
-            gps_dropout_ratio=gps_dropout_ratio,
-            kitti_root_dir=kitti_root_dir,
-            vo_root_dir=vo_root_dir,
-            visualize_data=False)
+        self.beta = 2.
+        self.kappa = [0.]
+        if setup != SetupEnum.SETUP_3:
+            self.kappa.append(-7) # kappa is normally set to 0 or n + κ = 3, where n is dimension of the system's state
+        
+        self.vo_dropout_ratio = data.vo_dropout_ratio
+        self.gps_dropout_ratio = data.gps_dropout_ratio
+        self.kitti_drive = kitti_drive
+        self.data = data
+        
+        
 
     def run_dummy_filter(self, base_time):
         return np.random.randn(), base_time + np.random.randint(0, 30)
-        
-    def run_filter_setup1(self, alpha, beta, kappa):
-        x, P, H = self.data.get_initial_data(setup=self.setup)
+    
+    def run_filter(self, alpha, kappa):
+        x, P, H, q, r_vo, r_gps = self.data.get_initial_data(
+            setup=self.setup, 
+            filter_type=FilterEnum.UKF,
+            noise_type=NoiseTypeEnum.CURRENT
+        )
 
         ukf = UnscentedKalmanFilter(
             x=x.copy(), 
             P=P.copy(), 
             H=H.copy(), 
+            q=q,
+            r_vo=r_vo,
+            r_gps=r_gps,
             alpha=alpha, 
-            beta=beta, 
-            kappa=kappa)
+            beta=self.beta, 
+            kappa=kappa,
+            setup=self.setup,
+        )
         
-        start = datetime.now()
-        error = ukf.run(data=self.data, 
-                        setup=self.setup,
-                        measurement_type=self.measurement_type)
-        end = datetime.now()
-        processing_time = (end - start).total_seconds()
-
-        return error, np.round(processing_time / self.data.N, Configs.processing_time_decimal_place)
-        
-    def run_filter_setup2(self, alpha, beta, kappa):
-        x, P, H = self.data.get_initial_data(setup=self.setup)
-
-        ukf = UnscentedKalmanFilter(
-            x=x.copy(), 
-            P=P.copy(), 
-            H=H.copy(), 
-            alpha=alpha, 
-            beta=beta, 
-            kappa=kappa)
-        
-        start = datetime.now()
-        error = ukf.run(data=self.data, 
-                        setup=self.setup,
-                        measurement_type=self.measurement_type)
-        end = datetime.now()
-        processing_time = (end - start).total_seconds()
-
-        return error, np.round(processing_time / self.data.N, Configs.processing_time_decimal_place)
-        
-    def run_filter_setup3(self, alpha, beta, kappa):
-        x, P, H = self.data.get_initial_data(setup=self.setup)
-
-        ukf = UnscentedKalmanFilter(
-            x=x.copy(), 
-            P=P.copy(), 
-            H=H.copy(), 
-            alpha=alpha, 
-            beta=beta, 
-            kappa=kappa)
-        
-        start = datetime.now()
-        error = ukf.run(data=self.data, 
-                        setup=self.setup,
-                        measurement_type=self.measurement_type)
-        end = datetime.now()
-        processing_time = (end - start).total_seconds()
+        try:
+            start = datetime.now()
+            error = ukf.run(
+                data=self.data, 
+                measurement_type=MeasurementDataEnum.DROPOUT, 
+                debug_mode=True,
+                show_graph=False,
+            )
+            end = datetime.now()
+            processing_time = (end - start).total_seconds()
+        except:
+            error = {
+                ErrorEnum.MAE: 100.,
+                ErrorEnum.RMSE: 100.,
+                ErrorEnum.MAX: 1000.,
+            }
+            processing_time = 10.
 
         return error, np.round(processing_time / self.data.N, Configs.processing_time_decimal_place)
 
@@ -123,27 +95,18 @@ class UnscentedKalmanFilterParameterTuner:
         mae_errors = []
         rmse_errors = []
         max_errors = []
-        for alpha in self.alphas:
+        for k in tqdm(self.kappa):
             mae_errors_ = []
             rmse_errors_ = []
             max_errors_ = []
             processing_times_ = []
-            for beta in tqdm(self.betas):
+            for alpha in self.alphas:
                 # error, processing_time = self.run_dummy_filter(base_time=beta)
                 # mae_errors_.append(error)
                 # rmse_errors_.append(error)
                 # max_errors_.append(error)
                 # processing_times_.append(processing_time)
-
-                if self.setup is SetupEnum.SETUP_1:
-                    error, processing_time = self.run_filter_setup1(alpha=alpha, beta=beta, kappa=self.kappa)
-                    
-                elif self.setup is SetupEnum.SETUP_2:
-                    error, processing_time = self.run_filter_setup2(alpha=alpha, beta=beta, kappa=self.kappa)
-                    
-                else: # SetupEnum.SETUP_3
-                    error, processing_time = self.run_filter_setup3(alpha=alpha, beta=beta, kappa=self.kappa)
-
+                error, processing_time = self.run_filter(alpha=alpha, kappa=k)
                 mae_errors_.append(error[ErrorEnum.MAE])
                 rmse_errors_.append(error[ErrorEnum.RMSE])
                 max_errors_.append(error[ErrorEnum.MAX])
@@ -155,11 +118,11 @@ class UnscentedKalmanFilterParameterTuner:
             processing_times.append(processing_times_)
 
         print("Experiment finished.")
-        beta_str = [str(int(beta)) for beta in self.betas]
-        self.time_df = pd.DataFrame(processing_times, columns=beta_str, index=self.alphas)
-        self.mae_error_df = pd.DataFrame(mae_errors, columns=beta_str, index=self.alphas)
-        self.rmse_error_df = pd.DataFrame(rmse_errors, columns=beta_str, index=self.alphas)
-        self.max_error_df = pd.DataFrame(max_errors, columns=beta_str, index=self.alphas)
+        kappa_str = [str(int(k)) for k in self.kappa]
+        self.time_df = pd.DataFrame(processing_times, columns=self.alphas, index=kappa_str)
+        self.mae_error_df = pd.DataFrame(mae_errors, columns=self.alphas, index=kappa_str)
+        self.rmse_error_df = pd.DataFrame(rmse_errors, columns=self.alphas, index=kappa_str)
+        self.max_error_df = pd.DataFrame(max_errors, columns=self.alphas, index=kappa_str)
         self.dump_df()
 
     def find_best_combination(
@@ -177,6 +140,7 @@ class UnscentedKalmanFilterParameterTuner:
         weight_for_time = 1. - error_weight
         max_time = np.max(processing_times)
 
+        best_combination = {}
         print("-"*20)
         for error_type in error_types:
             if error_type is ErrorEnum.MAE:
@@ -203,14 +167,19 @@ class UnscentedKalmanFilterParameterTuner:
             
             # Find the index of the best model
             optimal_index = scores.index(min(scores))
-            alpha_index = optimal_index // len(self.betas)
-            beta_index = optimal_index % len(self.betas)
-            print(f"For {error_type.name} error:")
-            print(f"Minimum model error: {errors_[optimal_index]:.3f}")
+            alpha_index = optimal_index % len(self.alphas)
+            kappa_index = optimal_index // len(self.alphas)
+            print(f"Regarding {error_type.name} error:")
+            print(f"Minimum MAE: {errors_[optimal_index]:.3f}")
             print(f"Processing time: {processing_times_[optimal_index]:.1f}")
-            print(f"Alpha (k={self.kappa}): {self.alphas[alpha_index]}")
-            print(f"Beta (k={self.kappa}): {self.betas[beta_index]}")
+            print(f"Alpha: {self.alphas[alpha_index]}")
+            print(f"Kappa: {self.kappa[kappa_index]}")
             print("-"*20)
+            best_combination[error_type] = {
+                'alpha': self.alphas[alpha_index],
+                'kappa': self.kappa[kappa_index]
+            }
+        return best_combination
         
     def plot_results(self):        
         fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(20, 10))
@@ -222,7 +191,7 @@ class UnscentedKalmanFilterParameterTuner:
                     linewidths=1,
                     fmt='.3f')
         ax1.set_title("Processing time (seconds)")
-        ax1.set(xlabel="Beta", ylabel="Alpha")
+        ax1.set(xlabel="Alpha", ylabel="Kappa")
         
         sns.heatmap(self.mae_error_df,
                     ax=ax2,
@@ -231,7 +200,7 @@ class UnscentedKalmanFilterParameterTuner:
                     linewidths=1,
                     fmt='.3g')
         ax2.set_title("Mean Absolute Error")
-        ax2.set(xlabel="Beta", ylabel="Alpha")
+        ax2.set(xlabel="Alpha", ylabel="Kappa")
 
         sns.heatmap(self.rmse_error_df,
                     ax=ax3,
@@ -240,7 +209,7 @@ class UnscentedKalmanFilterParameterTuner:
                     linewidths=1,
                     fmt='.3g')
         ax3.set_title("Root Mean Squared Error")
-        ax3.set(xlabel="Beta", ylabel="Alpha")
+        ax3.set(xlabel="Alpha", ylabel="Kappa")
 
         sns.heatmap(self.max_error_df,
                     ax=ax4,
@@ -249,22 +218,10 @@ class UnscentedKalmanFilterParameterTuner:
                     linewidths=1,
                     fmt='.3g')
         ax4.set_title("Maximum Error")
-        ax4.set(xlabel="Beta", ylabel="Alpha")
+        ax4.set(xlabel="Alpha", ylabel="Kappa")
 
         fig.subplots_adjust(wspace=0.2)
-
-    def plot_combined_result(self, df, error_type=ErrorEnum.MAE):
-        fig, ax = plt.subplots(nrows=1, figsize=(16, 6))
-        fig.subplots_adjust(wspace=0.2)
-        
-        sns.heatmap(df,
-                    ax=ax,
-                    cmap="crest",
-                    annot=True,
-                    fmt='.4g')
-        ax.set_title(error_type.name)
-        ax.set(xlabel="Beta", ylabel="Alpha")
-
+    
     def get_error_df(self, error_type=ErrorEnum.MAE):
         if error_type is ErrorEnum.MAE:
             return self.mae_error_df
@@ -277,11 +234,11 @@ class UnscentedKalmanFilterParameterTuner:
         vo_dropout_percentage = str(int(self.vo_dropout_ratio * 100))
         gps_dropout_percentage = str(int(self.gps_dropout_ratio * 100))
         # Saving the results
-        self.time_df.to_json(f"{self.file_export_path}/{str(self.setup.value)}/{self.kitti_drive}/{vo_dropout_percentage}_{gps_dropout_percentage}_{self.kappa}_time_df.json")
+        self.time_df.to_json(f"{self.file_export_path}/{str(self.setup.value)}/{self.kitti_drive}/{vo_dropout_percentage}_{gps_dropout_percentage}_time_df.json")
 
-        self.mae_error_df.to_json(f"{self.file_export_path}/{str(self.setup.value)}/{self.kitti_drive}/{vo_dropout_percentage}_{gps_dropout_percentage}_{self.kappa}_mae_error_df.json")
-        self.rmse_error_df.to_json(f"{self.file_export_path}/{str(self.setup.value)}/{self.kitti_drive}/{vo_dropout_percentage}_{gps_dropout_percentage}_{self.kappa}_rmse_error_df.json")
-        self.max_error_df.to_json(f"{self.file_export_path}/{str(self.setup.value)}/{self.kitti_drive}/{vo_dropout_percentage}_{gps_dropout_percentage}_{self.kappa}_max_error_df.json")
+        self.mae_error_df.to_json(f"{self.file_export_path}/{str(self.setup.value)}/{self.kitti_drive}/{vo_dropout_percentage}_{gps_dropout_percentage}_mae_error_df.json")
+        self.rmse_error_df.to_json(f"{self.file_export_path}/{str(self.setup.value)}/{self.kitti_drive}/{vo_dropout_percentage}_{gps_dropout_percentage}_rmse_error_df.json")
+        self.max_error_df.to_json(f"{self.file_export_path}/{str(self.setup.value)}/{self.kitti_drive}/{vo_dropout_percentage}_{gps_dropout_percentage}_max_error_df.json")
 
     def load_df(self):
         vo_dropout_percentage = str(int(self.vo_dropout_ratio * 100))
@@ -289,16 +246,16 @@ class UnscentedKalmanFilterParameterTuner:
         # Loading results
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            self.time_df = pd.read_json(f"{self.file_export_path}/{str(self.setup.value)}/{self.kitti_drive}/{vo_dropout_percentage}_{gps_dropout_percentage}_{self.kappa}_time_df.json")
+            self.time_df = pd.read_json(f"{self.file_export_path}/{str(self.setup.value)}/{self.kitti_drive}/{vo_dropout_percentage}_{gps_dropout_percentage}_time_df.json")
             
-            self.mae_error_df = pd.read_json(f"{self.file_export_path}/{str(self.setup.value)}/{self.kitti_drive}/{vo_dropout_percentage}_{gps_dropout_percentage}_{self.kappa}_mae_error_df.json")
-            self.rmse_error_df = pd.read_json(f"{self.file_export_path}/{str(self.setup.value)}/{self.kitti_drive}/{vo_dropout_percentage}_{gps_dropout_percentage}_{self.kappa}_rmse_error_df.json")
-            self.max_error_df = pd.read_json(f"{self.file_export_path}/{str(self.setup.value)}/{self.kitti_drive}/{vo_dropout_percentage}_{gps_dropout_percentage}_{self.kappa}_max_error_df.json")
+            self.mae_error_df = pd.read_json(f"{self.file_export_path}/{str(self.setup.value)}/{self.kitti_drive}/{vo_dropout_percentage}_{gps_dropout_percentage}_mae_error_df.json")
+            self.rmse_error_df = pd.read_json(f"{self.file_export_path}/{str(self.setup.value)}/{self.kitti_drive}/{vo_dropout_percentage}_{gps_dropout_percentage}_rmse_error_df.json")
+            self.max_error_df = pd.read_json(f"{self.file_export_path}/{str(self.setup.value)}/{self.kitti_drive}/{vo_dropout_percentage}_{gps_dropout_percentage}_max_error_df.json")
 
-        self.time_df.set_index([self.alphas], inplace=True)
-        self.mae_error_df.set_index([self.alphas], inplace=True)
-        self.rmse_error_df.set_index([self.alphas], inplace=True)
-        self.max_error_df.set_index([self.alphas], inplace=True)
+        self.time_df.set_index([self.kappa], inplace=True)
+        self.mae_error_df.set_index([self.kappa], inplace=True)
+        self.rmse_error_df.set_index([self.kappa], inplace=True)
+        self.max_error_df.set_index([self.kappa], inplace=True)
 
 
 
