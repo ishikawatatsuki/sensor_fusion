@@ -185,7 +185,7 @@ class ParticleFilter(BaseFilter):
         
         self.resample_from_index(indexes)
 
-    def allow_resampling(self, importance_resampling=True):
+    def _allow_resampling(self, importance_resampling=True):
         '''
             Allow resampling either:
                 - when importance resampling is False -> Always resample after measurement update step
@@ -231,8 +231,11 @@ class ParticleFilter(BaseFilter):
         if z_gps is not None:
             self.update(z=z_gps, R=R_gps)
         
+        # check if all sensor data is available
+        sensor_data_available = z_vo is not None if self.setup is SetupEnum.SETUP_1 else z_vo is not None and z_gps is not None
         
-        if  z_vo is not None and z_gps is not None and self.allow_resampling(importance_resampling=importance_resampling):
+        # Resample when all sensor data is available and allowed by importance resampling
+        if sensor_data_available and self._allow_resampling(importance_resampling=importance_resampling):
             self.resample()
 
     def run(self, 
@@ -362,11 +365,11 @@ if __name__ == "__main__":
     x_setup2, P_setup2, H_setup2, q2, r_vo2, r_gps2 = data.get_initial_data(setup=SetupEnum.SETUP_2, filter_type=filter_type, noise_type=noise_type)
     x_setup3, P_setup3, H_setup3, q3, r_vo3, r_gps3 = data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=filter_type, noise_type=noise_type)
 
-    n_samples_setup1_0 = 1024
+    n_samples_setup1_0 = 512
     resampling_algorithm_setup1_0 = ResamplingAlgorithms.STRATIFIED
-    n_samples_setup2_0 = 1024
-    resampling_algorithm_setup2_0 = ResamplingAlgorithms.STRATIFIED
-    n_samples_setup3_0 = 1024
+    n_samples_setup2_0 = 512
+    resampling_algorithm_setup2_0 = ResamplingAlgorithms.MULTINOMIAL
+    n_samples_setup3_0 = 64
     resampling_algorithm_setup3_0 = ResamplingAlgorithms.RESIDUAL
     
     measurement_type = MeasurementDataEnum.ALL_DATA
@@ -415,7 +418,6 @@ if __name__ == "__main__":
         dimension=dimension, 
         interval=interval, 
         title="PF Setup2 trajectories")
-    
     
     pf3_0 = ParticleFilter(N=n_samples_setup3_0, 
                             x_dim=x_setup3.shape[0], 
