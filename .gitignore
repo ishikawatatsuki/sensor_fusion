@@ -12,3 +12,4 @@ experimental_implementations
 _streaming
 playgrounds
 src/_test
+.tmp

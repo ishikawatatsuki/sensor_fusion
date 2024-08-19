@@ -2,6 +2,7 @@ FROM python:3.12
 
 ARG USER_ID
 ARG GROUP_ID
+ARG MPLCONFIGDIR=/app/.tmp/matplotlib
 
 WORKDIR /app
 COPY requirements.txt /app/
@@ -12,13 +13,14 @@ RUN useradd -l -u ${USER_ID}  user
 RUN chown -R ${USER_ID}:${GROUP_ID} /app
 
 RUN apt-get update
-RUN apt-get install -y gdal-bin libgdal-dev g++ libgl1 make
+RUN apt-get install -y gdal-bin libgdal-dev g++ libgl1 make libx11-6 python3-tk
 
 RUN pip install -r requirements.txt
 
 # matplotlib config (used by benchmark)
-RUN mkdir -p /root/.config/matplotlib
-RUN echo "backend : Agg" > /root/.config/matplotlib/matplotlibrc
+RUN mkdir -p ${MPLCONFIGDIR}
+# set env variable
+ENV MPLCONFIGDIR=${MPLCONFIGDIR}
 
 USER user
 
