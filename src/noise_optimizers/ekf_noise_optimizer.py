@@ -8,9 +8,6 @@ from data_loader import DataLoader
 from configs.configs import SetupEnum, FilterEnum, ErrorEnum, NoiseTypeEnum
 from scipy.optimize import minimize
 from kalman_filters.extended_kalman_filter import ExtendedKalmanFilter
-from kalman_filters.unscented_kalman_filter import UnscentedKalmanFilter
-from kalman_filters.ensemble_kalman_filter import EnsembleKalmanFilter
-from kalman_filters.particle_filter import ParticleFilter, ResamplingAlgorithms
 from utils.error_report import get_error_from_list
 
 np.random.seed(777)
@@ -58,17 +55,9 @@ class EKF_NoiseOptimizer:
     self.noise_vector_export_path = noise_vector_export_path
 
   def J(self, noise_vector):
-    q = None
-    r_vo = None
-    r_gps = None
-    if self.setup is SetupEnum.SETUP_1 or self.setup is SetupEnum.SETUP_2:
-      q = noise_vector[:-4]
-      r_vo = noise_vector[-4:-2]
-      r_gps = noise_vector[-2:]
-    else: # Setup3
-      q = noise_vector[:-4]
-      r_vo = noise_vector[-4:-2]
-      r_gps = noise_vector[-2:]
+    q = noise_vector[:-4]
+    r_vo = noise_vector[-4:-2]
+    r_gps = noise_vector[-2:]
 
     ekf = ExtendedKalmanFilter(
       x=self.x.copy(), 
@@ -79,10 +68,8 @@ class EKF_NoiseOptimizer:
       r_gps=r_gps,
       setup=self.setup
     )
-    ekf.run(data=self.data)
-    estimated = ekf.get_estimated_trajectory()
-    actual = self.data.GPS_measurements_in_meter[:, :2]
-    return np.sum((actual - estimated) ** 2)
+    error = ekf.run(data=self.data)
+    return error[ErrorEnum.MAE]
   
   def run(self):
     print("Finding optimal noise vector")
@@ -133,7 +120,7 @@ class EKF_NoiseOptimizer:
 
     optimized_noise_1 = None
     if load_exported:
-      optimized_noise_1 = np.load(f'{self.noise_vector_export_path}/{str(SetupEnum.get_names()[SetupEnum.SETUP_1.value - 1]).lower()}_optimized.npy')
+      optimized_noise_1 = np.load(f'{self.noise_vector_export_path}/{str(SetupEnum.get_names()[SetupEnum.SETUP_1.value - 1]).lower()}_optimized.npy', allow_pickle=True)
     else:
       optimized_noise_1 = self.result_1['x']
 
@@ -152,6 +139,8 @@ class EKF_NoiseOptimizer:
     )
     error_1_optimized = self.ekf_1_optimized.run(data=self.data)
 
+
+
     x_2, P_2, H_2, q2, r_vo2, r_gps2 = self.data.get_initial_data(setup=SetupEnum.SETUP_2, filter_type=FilterEnum.EKF, noise_type=NoiseTypeEnum.CURRENT)
     
     self.ekf_2 = ExtendedKalmanFilter(x=x_2.copy(), 
@@ -166,7 +155,7 @@ class EKF_NoiseOptimizer:
 
     optimized_noise_2 = None
     if load_exported:
-      optimized_noise_2 = np.load(f'{self.noise_vector_export_path}/{str(SetupEnum.get_names()[SetupEnum.SETUP_2.value - 1]).lower()}_optimized.npy')
+      optimized_noise_2 = np.load(f'{self.noise_vector_export_path}/{str(SetupEnum.get_names()[SetupEnum.SETUP_2.value - 1]).lower()}_optimized.npy', allow_pickle=True)
     else:
       optimized_noise_2 = self.result_2['x']
 
@@ -184,6 +173,8 @@ class EKF_NoiseOptimizer:
     )
     error_2_optimized = self.ekf_2_optimized.run(data=self.data)
 
+
+
     x_3, P_3, H_3, q3, r_vo3, r_gps3 = self.data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=FilterEnum.EKF, noise_type=NoiseTypeEnum.CURRENT)
 
     self.ekf_3 = ExtendedKalmanFilter(x=x_3.copy(), 
@@ -198,7 +189,7 @@ class EKF_NoiseOptimizer:
 
     optimized_noise_3 = None
     if load_exported:
-      optimized_noise_3 = np.load(f'{self.noise_vector_export_path}/{str(SetupEnum.get_names()[SetupEnum.SETUP_3.value - 1]).lower()}_optimized.npy')
+      optimized_noise_3 = np.load(f'{self.noise_vector_export_path}/{str(SetupEnum.get_names()[SetupEnum.SETUP_3.value - 1]).lower()}_optimized.npy', allow_pickle=True)
     else:
       optimized_noise_3 = self.result_3['x']
 
@@ -215,6 +206,8 @@ class EKF_NoiseOptimizer:
       setup=SetupEnum.SETUP_3
     )
     error_3_optimized = self.ekf_3_optimized.run(data=self.data)
+
+
 
     error_setup1 = [error_1, error_1_optimized]
     error_setup2 = [error_2, error_2_optimized]
@@ -289,23 +282,45 @@ class EKF_NoiseOptimizer:
 
 
 if __name__ == "__main__":
-    kitti_root_dir = '../../data'
-    vo_root_dir = '../../vo_estimates'
-    noise_vector_dir = '../../exports/_noise_optimizations/noise_vectors'
-    kitti_date = '2011_09_30'
-    kitti_drive = '0033'
+  
+    root_path = "../../"
+    kitti_drive = 'example'
+    kitti_data_root_dir = os.path.join(root_path, "example_data/KITTI")
+    vo_root_dir = os.path.join(root_path, "vo_estimates")
+    noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
+    dimension=2
     
-    data = DataLoader(sequence_nr=kitti_drive, 
-                    kitti_root_dir=kitti_root_dir, 
-                    vo_root_dir=vo_root_dir,
-                    noise_vector_dir=noise_vector_dir,
-                    vo_dropout_ratio=0.0, 
-                    gps_dropout_ratio=0.0)
+    # root_path = "../../"
+    # kitti_drive = '0033'
+    # kitti_data_root_dir = os.path.join(root_path, "data")
+    # vo_root_dir = os.path.join(root_path, "vo_estimates")
+    # noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
+    # dimension=2
     
-    error_df_export_path = '../../exports/_noise_optimizations/errors/ekf'
-    noise_vector_export_path = '../../exports/_noise_optimizations/noise_vectors/ekf'
+    noise_export_dir = 'ekf_example' if kitti_drive == "example" else "ekf"
+    
+    data = DataLoader(
+      sequence_nr=kitti_drive, 
+      kitti_root_dir=kitti_data_root_dir, 
+      vo_root_dir=vo_root_dir,
+      noise_vector_dir=noise_vector_dir,
+      vo_dropout_ratio=0.0, 
+      gps_dropout_ratio=0.0,
+      dimension=dimension
+      )
+    
+    error_df_export_path = os.path.join(root_path, 'exports/_noise_optimizations/errors/', noise_export_dir)
+    noise_vector_export_path = os.path.join(noise_vector_dir, noise_export_dir)
 
-    optimizer = EKF_NoiseOptimizer(data=data, error_df_export_path=error_df_export_path, noise_vector_export_path=noise_vector_export_path)
-    # optimizer.run()
+    if kitti_drive == "example":
+      os.mkdir(error_df_export_path)
+      os.mkdir(noise_vector_export_path)
+      
+    optimizer = EKF_NoiseOptimizer(
+      data=data, 
+      error_df_export_path=error_df_export_path, 
+      noise_vector_export_path=noise_vector_export_path
+    )
+    optimizer.run()
     optimizer.compare(load_exported=True)
     optimizer.visualize_results()
