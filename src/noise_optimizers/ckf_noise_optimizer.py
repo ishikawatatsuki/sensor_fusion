@@ -6,7 +6,7 @@ import sys
 if __name__ == "__main__":
     sys.path.append('../../src')
 from data_loader import DataLoader
-from configs.configs import SetupEnum, FilterEnum, ErrorEnum, NoiseTypeEnum
+from configs.configs import SetupEnum, FilterEnum, ErrorEnum, NoiseTypeEnum, MeasurementDataEnum
 from scipy.optimize import minimize
 from kalman_filters.cubature_kalman_filter import CubatureKalmanFilter
 from utils.error_report import get_error_from_list
@@ -25,9 +25,9 @@ class CKF_NoiseOptimizer:
   
   setup = SetupEnum.SETUP_1
 
-  header = pd.MultiIndex.from_product([['Setup1(IMU+VO)','Setup2(IMU+VO,GPS)', 'Setup3(INS)'],
-                                   ["MAE", "RMSE", "MAX"]],
-                                   names=['Setups', 'Error types'])
+  header = pd.MultiIndex.from_product([
+    ['Setup1(IMU+VO)','Setup2(IMU+VO,GPS)', 'Setup3(INS)'],
+    ["MAE", "RMSE", "MAX"]], names=['Setups', 'Error types'])
   index = ["Non-optimized", "Optimized", "∆"]
   error_df = None
 
@@ -57,31 +57,27 @@ class CKF_NoiseOptimizer:
     self.noise_vector_export_path = noise_vector_export_path
 
   def J(self, noise_vector):
-    q = None
-    r_vo = None
-    r_gps = None
-    if self.setup is SetupEnum.SETUP_1 or self.setup is SetupEnum.SETUP_2:
-      q = noise_vector[:-4]
-      r_vo = noise_vector[-4:-2]
-      r_gps = noise_vector[-2:]
-    else: # Setup3
-      q = noise_vector[:-4]
-      r_vo = noise_vector[-4:-2]
-      r_gps = noise_vector[-2:]
+    q = noise_vector[:-4]
+    r_vo = noise_vector[-4:-2]
+    r_gps = noise_vector[-2:]
     
     try:
       ckf = CubatureKalmanFilter(
-        x=self.x.copy(), 
-        P=self.P.copy(), 
-        H=self.H.copy(),
-        q=q,
-        r_vo=r_vo,
-        r_gps=r_gps,
-        setup=self.setup)
-      ckf.run(data=self.data)
-      estimated = ckf.get_estimated_trajectory()
-      actual = self.data.GPS_measurements_in_meter[:, :2]
-      return np.sum((actual - estimated) ** 2)
+          x=self.x.copy(), 
+          P=self.P.copy(), 
+          H=self.H.copy(),
+          q=q,
+          r_vo=r_vo,
+          r_gps=r_gps,
+          setup=self.setup
+        )
+      error = ckf.run(
+        data=self.data,
+        measurement_type=MeasurementDataEnum.ALL_DATA,
+        debug_mode=False
+      )
+      
+      return error[ErrorEnum.MAE]
     except:
       return self.maximum_error
   
@@ -301,26 +297,46 @@ class CKF_NoiseOptimizer:
 
 
 if __name__ == "__main__":
-    kitti_root_dir = '../../data'
-    vo_root_dir = '../../vo_estimates'
-    noise_vector_dir = '../../exports/_noise_optimizations/noise_vectors'
-    kitti_date = '2011_09_30'
-    kitti_drive = '0033'
+  
+    root_path = "../../"
+    kitti_drive = 'example'
+    kitti_data_root_dir = os.path.join(root_path, "example_data/KITTI")
+    vo_root_dir = os.path.join(root_path, "vo_estimates")
+    noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
+    dimension=2
     
-    data = DataLoader(sequence_nr=kitti_drive, 
-                    kitti_root_dir=kitti_root_dir, 
-                    vo_root_dir=vo_root_dir,
-                    noise_vector_dir=noise_vector_dir,
-                    vo_dropout_ratio=0.0, 
-                    gps_dropout_ratio=0.0)
+    # root_path = "../../"
+    # kitti_drive = '0033'
+    # kitti_data_root_dir = os.path.join(root_path, "data")
+    # vo_root_dir = os.path.join(root_path, "vo_estimates")
+    # noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
+    # dimension=2
     
-    error_df_export_path = '../../exports/_noise_optimizations/errors/ckf'
-    noise_vector_export_path = '../../exports/_noise_optimizations/noise_vectors/ckf'
+    
+    noise_export_dir = 'ckf_example' if kitti_drive == "example" else "ckf"
+    
+    data = DataLoader(
+      sequence_nr=kitti_drive, 
+      kitti_root_dir=kitti_data_root_dir, 
+      vo_root_dir=vo_root_dir,
+      noise_vector_dir=noise_vector_dir,
+      vo_dropout_ratio=0.0, 
+      gps_dropout_ratio=0.0,
+      dimension=dimension
+      )
+    
+    error_df_export_path = os.path.join(root_path, 'exports/_noise_optimizations/errors/', noise_export_dir)
+    noise_vector_export_path = os.path.join(noise_vector_dir, noise_export_dir)
 
+    if kitti_drive == "example":
+      os.mkdir(error_df_export_path)
+      os.mkdir(noise_vector_export_path)
+      
     optimizer = CKF_NoiseOptimizer(
       data=data, 
       error_df_export_path=error_df_export_path, 
-      noise_vector_export_path=noise_vector_export_path)
+      noise_vector_export_path=noise_vector_export_path
+    )
     optimizer.run()
     optimizer.compare(load_exported=False)
     optimizer.visualize_results()

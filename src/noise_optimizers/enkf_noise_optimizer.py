@@ -12,6 +12,18 @@ from utils.error_report import get_error_from_list
 
 np.random.seed(777)
 
+enkf_params = {
+  SetupEnum.SETUP_1: {
+    'ensemble_size': 64,
+  },
+  SetupEnum.SETUP_2: {
+    'ensemble_size': 1024,
+  },
+  SetupEnum.SETUP_3:{
+    'ensemble_size': 1024,
+  }
+}
+
 class EnKF_NoiseOptimizer:
 
   x = None
@@ -21,14 +33,12 @@ class EnKF_NoiseOptimizer:
   result_1 = None
   result_2 = None
   result_3 = None
-
-  n_samples = 2048
   
   setup = SetupEnum.SETUP_1
 
-  header = pd.MultiIndex.from_product([['Setup1(IMU+VO)','Setup2(IMU+VO,GPS)', 'Setup3(INS)'],
-                                   ["MAE", "RMSE", "MAX"]],
-                                   names=['Setups', 'Error types'])
+  header = pd.MultiIndex.from_product([
+    ['Setup1(IMU+VO)','Setup2(IMU+VO,GPS)', 'Setup3(INS)'],
+    ["MAE", "RMSE", "MAX"]], names=['Setups', 'Error types'])
   index = ["Non-optimized", "Optimized", "∆"]
   error_df = None
 
@@ -60,21 +70,15 @@ class EnKF_NoiseOptimizer:
     self.noise_vector_export_path = noise_vector_export_path
 
   def J(self, noise_vector):
-    q = None
-    r_vo = None
-    r_gps = None
-    if self.setup is SetupEnum.SETUP_1 or self.setup is SetupEnum.SETUP_2:
-      q = noise_vector[:-4]
-      r_vo = noise_vector[-4:-2]
-      r_gps = noise_vector[-2:]
-    else: # Setup3
-      q = noise_vector[:-4]
-      r_vo = noise_vector[-4:-2]
-      r_gps = noise_vector[-2:]
+    
+    params = enkf_params[self.setup]
+    q = noise_vector[:-4]
+    r_vo = noise_vector[-4:-2]
+    r_gps = noise_vector[-2:]
     
     try:
       enkf = EnsembleKalmanFilter(
-        N=self.n_samples, 
+        N=params["ensemble_size"], 
         x=self.x.copy(), 
         P=self.P.copy(), 
         H=self.H.copy(),
@@ -82,10 +86,8 @@ class EnKF_NoiseOptimizer:
         r_vo=r_vo,
         r_gps=r_gps,
         setup=SetupEnum.SETUP_1)
-      enkf.run(data=self.data, debug_mode=True)
-      estimated = enkf.get_estimated_trajectory()
-      actual = self.data.GPS_measurements_in_meter[:, :2]
-      return np.sum((actual - estimated) ** 2)
+      error = enkf.run(data=self.data, debug_mode=True)
+      return error[ErrorEnum.MAE]
     except:
       return self.maximum_error
   
@@ -126,10 +128,12 @@ class EnKF_NoiseOptimizer:
       np.save(file, self.result_3['x'])
   
   def compare(self, load_exported=False):
+    
+    params = enkf_params[SetupEnum.SETUP_1]
     x_1, P_1, H_1, q1, r_vo1, r_gps1 = self.data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.EnKF, noise_type=NoiseTypeEnum.CURRENT)
 
     self.enkf_1 = EnsembleKalmanFilter(
-      N=self.n_samples, 
+      N=params["ensemble_size"], 
       x=x_1.copy(), 
       P=P_1.copy(), 
       H=H_1.copy(),
@@ -141,7 +145,7 @@ class EnKF_NoiseOptimizer:
 
     optimized_noise_1 = None
     if load_exported:
-      optimized_noise_1 = np.load(f'{self.noise_vector_export_path}/{str(SetupEnum.get_names()[SetupEnum.SETUP_1.value - 1]).lower()}_optimized.npy')
+      optimized_noise_1 = np.load(f'{self.noise_vector_export_path}/{str(SetupEnum.get_names()[SetupEnum.SETUP_1.value - 1]).lower()}_optimized.npy', allow_pickle=True)
     else:
       optimized_noise_1 = self.result_1['x']
 
@@ -150,7 +154,7 @@ class EnKF_NoiseOptimizer:
     r_gps1_optimal = optimized_noise_1[-2:]
 
     self.enkf_1_optimized = EnsembleKalmanFilter(
-      N=self.n_samples, 
+      N=params["ensemble_size"], 
       x=x_1.copy(), 
       P=P_1.copy(), 
       H=H_1.copy(),
@@ -163,10 +167,11 @@ class EnKF_NoiseOptimizer:
 
 
 
+    params = enkf_params[SetupEnum.SETUP_2]
     x_2, P_2, H_2, q2, r_vo2, r_gps2 = self.data.get_initial_data(setup=SetupEnum.SETUP_2, filter_type=FilterEnum.EnKF, noise_type=NoiseTypeEnum.CURRENT)
     
     self.enkf_2 = EnsembleKalmanFilter(
-      N=self.n_samples, 
+      N=params["ensemble_size"], 
       x=x_2.copy(), 
       P=P_2.copy(), 
       H=H_2.copy(),
@@ -178,7 +183,7 @@ class EnKF_NoiseOptimizer:
 
     optimized_noise_2 = None
     if load_exported:
-      optimized_noise_2 = np.load(f'{self.noise_vector_export_path}/{str(SetupEnum.get_names()[SetupEnum.SETUP_2.value - 1]).lower()}_optimized.npy')
+      optimized_noise_2 = np.load(f'{self.noise_vector_export_path}/{str(SetupEnum.get_names()[SetupEnum.SETUP_2.value - 1]).lower()}_optimized.npy', allow_pickle=True)
     else:
       optimized_noise_2 = self.result_2['x']
 
@@ -187,7 +192,7 @@ class EnKF_NoiseOptimizer:
     r_gps2_optimal = optimized_noise_2[-2:]
 
     self.enkf_2_optimized = EnsembleKalmanFilter(
-      N=self.n_samples, 
+      N=params["ensemble_size"], 
       x=x_2.copy(), 
       P=P_2.copy(), 
       H=H_2.copy(),
@@ -200,10 +205,11 @@ class EnKF_NoiseOptimizer:
 
 
 
+    params = enkf_params[SetupEnum.SETUP_3]
     x_3, P_3, H_3, q3, r_vo3, r_gps3 = self.data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=FilterEnum.EnKF, noise_type=NoiseTypeEnum.CURRENT)
 
     self.enkf_3 = EnsembleKalmanFilter(
-      N=self.n_samples, 
+      N=params["ensemble_size"], 
       x=x_3.copy(), 
       P=P_3.copy(), 
       H=H_3.copy(),
@@ -215,7 +221,7 @@ class EnKF_NoiseOptimizer:
 
     optimized_noise_3 = None
     if load_exported:
-      optimized_noise_3 = np.load(f'{self.noise_vector_export_path}/{str(SetupEnum.get_names()[SetupEnum.SETUP_3.value - 1]).lower()}_optimized.npy')
+      optimized_noise_3 = np.load(f'{self.noise_vector_export_path}/{str(SetupEnum.get_names()[SetupEnum.SETUP_3.value - 1]).lower()}_optimized.npy', allow_pickle=True)
     else:
       optimized_noise_3 = self.result_3['x']
 
@@ -223,7 +229,7 @@ class EnKF_NoiseOptimizer:
     r_vo3_optimal = optimized_noise_3[-4:-2]
     r_gps3_optimal = optimized_noise_3[-2:]
     self.enkf_3_optimized = EnsembleKalmanFilter(
-      N=self.n_samples, 
+      N=params["ensemble_size"], 
       x=x_3.copy(), 
       P=P_3.copy(), 
       H=H_3.copy(),
@@ -308,22 +314,40 @@ class EnKF_NoiseOptimizer:
 
 
 if __name__ == "__main__":
-    kitti_root_dir = '../../data'
-    vo_root_dir = '../../vo_estimates'
-    noise_vector_dir = '../../exports/_noise_optimizations/noise_vectors'
-    kitti_date = '2011_09_30'
-    kitti_drive = '0033'
+  
+    root_path = "../../"
+    kitti_drive = 'example'
+    kitti_data_root_dir = os.path.join(root_path, "example_data/KITTI")
+    vo_root_dir = os.path.join(root_path, "vo_estimates")
+    noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
+    dimension=2
     
-    data = DataLoader(sequence_nr=kitti_drive, 
-                    kitti_root_dir=kitti_root_dir, 
-                    vo_root_dir=vo_root_dir,
-                    noise_vector_dir=noise_vector_dir,
-                    vo_dropout_ratio=0.0, 
-                    gps_dropout_ratio=0.0)
+    # root_path = "../../"
+    # kitti_drive = '0033'
+    # kitti_data_root_dir = os.path.join(root_path, "data")
+    # vo_root_dir = os.path.join(root_path, "vo_estimates")
+    # noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
+    # dimension=2
     
-    error_df_export_path = '../../exports/_noise_optimizations/errors/enkf'
-    noise_vector_export_path = '../../exports/_noise_optimizations/noise_vectors/enkf'
+    noise_export_dir = 'enkf_example' if kitti_drive == "example" else "enkf"
+    
+    data = DataLoader(
+      sequence_nr=kitti_drive, 
+      kitti_root_dir=kitti_data_root_dir, 
+      vo_root_dir=vo_root_dir,
+      noise_vector_dir=noise_vector_dir,
+      vo_dropout_ratio=0.0, 
+      gps_dropout_ratio=0.0,
+      dimension=dimension
+      )
+    
+    error_df_export_path = os.path.join(root_path, 'exports/_noise_optimizations/errors/', noise_export_dir)
+    noise_vector_export_path = os.path.join(noise_vector_dir, noise_export_dir)
 
+    if kitti_drive == "example":
+      os.mkdir(error_df_export_path)
+      os.mkdir(noise_vector_export_path)
+      
     optimizer = EnKF_NoiseOptimizer(
       data=data, 
       error_df_export_path=error_df_export_path, 

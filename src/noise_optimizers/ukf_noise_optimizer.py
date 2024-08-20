@@ -6,7 +6,7 @@ import sys
 if __name__ == "__main__":
     sys.path.append('../../src')
 from data_loader import DataLoader
-from configs.configs import SetupEnum, FilterEnum, ErrorEnum, NoiseTypeEnum
+from configs.configs import SetupEnum, FilterEnum, ErrorEnum, NoiseTypeEnum, MeasurementDataEnum
 from scipy.optimize import minimize
 from kalman_filters.unscented_kalman_filter import UnscentedKalmanFilter
 from utils.error_report import get_error_from_list
@@ -14,35 +14,20 @@ from utils.error_report import get_error_from_list
 np.random.seed(777)
 
 ukf_params = {
-  # SetupEnum.SETUP_1: {
-  #   'alpha': 0.0001,
-  #   'beta': 2.,
-  #   'kappa': 0.
-  # },
-  # SetupEnum.SETUP_2: {
-  #   'alpha': 0.0001,
-  #   'beta': 2.,
-  #   'kappa': 0.
-  # },
-  # SetupEnum.SETUP_3: {
-  #   'alpha': 0.0001,
-  #   'beta': 2.,
-  #   'kappa': 0.
-  # }
   SetupEnum.SETUP_1: {
-    'alpha': 0.2,
-    'beta': 8.,
-    'kappa': 0.
+    'alpha': 1.0,
+    'beta': 2.0,
+    'kappa': 0.0
   },
   SetupEnum.SETUP_2: {
-    'alpha': 0.6,
-    'beta': 6.,
-    'kappa': -7.
+    'alpha': 1.0,
+    'beta': 2.0,
+    'kappa': 0.0
   },
   SetupEnum.SETUP_3: {
-    'alpha': 0.0001,
-    'beta': 4.,
-    'kappa': 0.
+    'alpha': 0.001,
+    'beta': 2.0,
+    'kappa': 0.0
   }
 }
 
@@ -58,9 +43,9 @@ class UKF_NoiseOptimizer:
   
   setup = SetupEnum.SETUP_1
 
-  header = pd.MultiIndex.from_product([['Setup1(IMU+VO)','Setup2(IMU+VO,GPS)', 'Setup3(INS)'],
-                                   ["MAE", "RMSE", "MAX"]],
-                                   names=['Setups', 'Error types'])
+  header = pd.MultiIndex.from_product([
+    ['Setup1(IMU+VO)','Setup2(IMU+VO,GPS)', 'Setup3(INS)'],
+    ["MAE", "RMSE", "MAX"]], names=['Setups', 'Error types'])
   index = ["Non-optimized", "Optimized", "∆"]
   error_df = None
 
@@ -80,7 +65,7 @@ class UKF_NoiseOptimizer:
 
   maximum_error = 1e+8
 
-  max_iter = 2000
+  max_iter = 500
 
   def __init__(self, data, error_df_export_path, noise_vector_export_path):
 
@@ -92,18 +77,10 @@ class UKF_NoiseOptimizer:
     self.noise_vector_export_path = noise_vector_export_path
 
   def J(self, noise_vector):
-    q = None
-    r_vo = None
-    r_gps = None
     params = ukf_params[self.setup]
-    if self.setup is SetupEnum.SETUP_1 or self.setup is SetupEnum.SETUP_2:
-      q = noise_vector[:-4]
-      r_vo = noise_vector[-4:-2]
-      r_gps = noise_vector[-2:]
-    else: # Setup3
-      q = noise_vector[:-4]
-      r_vo = noise_vector[-4:-2]
-      r_gps = noise_vector[-2:]
+    q = noise_vector[:-4]
+    r_vo = noise_vector[-4:-2]
+    r_gps = noise_vector[-2:]
 
     try:
       ukf = UnscentedKalmanFilter(
@@ -118,10 +95,12 @@ class UKF_NoiseOptimizer:
         kappa=params['kappa'],
         setup=self.setup
       )
-      ukf.run(data=self.data)
-      estimated = ukf.get_estimated_trajectory()
-      actual = self.data.GPS_measurements_in_meter[:, :2]
-      return np.sum((actual - estimated) ** 2)
+      error = ukf.run(
+        data=self.data,
+        measurement_type=MeasurementDataEnum.ALL_DATA,
+        debug_mode=False
+        )
+      return error[ErrorEnum.MAE]
     except:
       return self.maximum_error
   
@@ -171,19 +150,20 @@ class UKF_NoiseOptimizer:
   def compare(self, load_exported=False):
     x_1, P_1, H_1, q1, r_vo1, r_gps1 = self.data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.UKF, noise_type=NoiseTypeEnum.CURRENT)
 
-    self.ukf_1 = UnscentedKalmanFilter(x=x_1.copy(), 
-                                P=P_1.copy(), 
-                                H=H_1.copy(),
-                                q=q1,
-                                r_vo=r_vo1,
-                                r_gps=r_gps1,
-                                setup=SetupEnum.SETUP_1
-                                )
+    self.ukf_1 = UnscentedKalmanFilter(
+      x=x_1.copy(), 
+      P=P_1.copy(), 
+      H=H_1.copy(),
+      q=q1,
+      r_vo=r_vo1,
+      r_gps=r_gps1,
+      setup=SetupEnum.SETUP_1
+    )
     error_1 = self.ukf_1.run(data=self.data)
 
     optimized_noise_1 = None
     if load_exported:
-      optimized_noise_1 = np.load(f'{self.noise_vector_export_path}/{str(SetupEnum.get_names()[SetupEnum.SETUP_1.value - 1]).lower()}_optimized.npy')
+      optimized_noise_1 = np.load(f'{self.noise_vector_export_path}/{str(SetupEnum.get_names()[SetupEnum.SETUP_1.value - 1]).lower()}_optimized.npy', allow_pickle=True)
     else:
       optimized_noise_1 = self.result_1['x']
 
@@ -191,77 +171,89 @@ class UKF_NoiseOptimizer:
     r_vo1_optimal = optimized_noise_1[-4:-2]
     r_gps1_optimal = optimized_noise_1[-2:]
 
-    self.ukf_1_optimized = UnscentedKalmanFilter(x=x_1.copy(), 
-                                           P=P_1.copy(), 
-                                           H=H_1.copy(),
-                                           q=q1_optimal,
-                                           r_vo=r_vo1_optimal,
-                                           r_gps=r_gps1_optimal,
-                                           setup=SetupEnum.SETUP_1
-                                          )
+    self.ukf_1_optimized = UnscentedKalmanFilter(
+      x=x_1.copy(), 
+      P=P_1.copy(), 
+      H=H_1.copy(),
+      q=q1_optimal,
+      r_vo=r_vo1_optimal,
+      r_gps=r_gps1_optimal,
+      setup=SetupEnum.SETUP_1
+    )
     error_1_optimized = self.ukf_1_optimized.run(data=self.data)
+    
+
 
     x_2, P_2, H_2, q2, r_vo2, r_gps2 = self.data.get_initial_data(setup=SetupEnum.SETUP_2, filter_type=FilterEnum.UKF, noise_type=NoiseTypeEnum.CURRENT)
     
-    self.ukf_2 = UnscentedKalmanFilter(x=x_2.copy(), 
-                                P=P_2.copy(), 
-                                H=H_2.copy(),
-                                q=q2,
-                                r_vo=r_vo2,
-                                r_gps=r_gps2,
-                                setup=SetupEnum.SETUP_2
-                                )
+    self.ukf_2 = UnscentedKalmanFilter(
+      x=x_2.copy(), 
+      P=P_2.copy(), 
+      H=H_2.copy(),
+      q=q2,
+      r_vo=r_vo2,
+      r_gps=r_gps2,
+      setup=SetupEnum.SETUP_2
+    )
     error_2 = self.ukf_2.run(data=self.data)
 
     optimized_noise_2 = None
     if load_exported:
-      optimized_noise_2 = np.load(f'{self.noise_vector_export_path}/{str(SetupEnum.get_names()[SetupEnum.SETUP_2.value - 1]).lower()}_optimized.npy')
+      optimized_noise_2 = np.load(f'{self.noise_vector_export_path}/{str(SetupEnum.get_names()[SetupEnum.SETUP_2.value - 1]).lower()}_optimized.npy', allow_pickle=True)
     else:
       optimized_noise_2 = self.result_2['x']
 
     q2_optimal = optimized_noise_2[:-4]
     r_vo2_optimal = optimized_noise_2[-4:-2]
     r_gps2_optimal = optimized_noise_2[-2:]
-    self.ukf_2_optimized = UnscentedKalmanFilter(x=x_2.copy(), 
-                                           P=P_2.copy(), 
-                                           H=H_2.copy(),
-                                           q=q2_optimal,
-                                           r_vo=r_vo2_optimal,
-                                           r_gps=r_gps2_optimal,
-                                           setup=SetupEnum.SETUP_2
-                                          )
+    self.ukf_2_optimized = UnscentedKalmanFilter(
+      x=x_2.copy(), 
+      P=P_2.copy(), 
+      H=H_2.copy(),
+      q=q2_optimal,
+      r_vo=r_vo2_optimal,
+      r_gps=r_gps2_optimal,
+      setup=SetupEnum.SETUP_2
+    )
     error_2_optimized = self.ukf_2_optimized.run(data=self.data)
+    
+    
+    
 
     x_3, P_3, H_3, q3, r_vo3, r_gps3 = self.data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=FilterEnum.UKF)
 
-    self.ukf_3 = UnscentedKalmanFilter(x=x_3.copy(), 
-                                P=P_3.copy(), 
-                                H=H_3.copy(),
-                                q=q3,
-                                r_vo=r_vo3,
-                                r_gps=r_gps3,
-                                setup=SetupEnum.SETUP_3
-                                )
+    self.ukf_3 = UnscentedKalmanFilter(
+      x=x_3.copy(), 
+      P=P_3.copy(), 
+      H=H_3.copy(),
+      q=q3,
+      r_vo=r_vo3,
+      r_gps=r_gps3,
+      setup=SetupEnum.SETUP_3
+    )
     error_3 = self.ukf_3.run(data=self.data)
 
     optimized_noise_3 = None
     if load_exported:
-      optimized_noise_3 = np.load(f'{self.noise_vector_export_path}/{str(SetupEnum.get_names()[SetupEnum.SETUP_3.value - 1]).lower()}_optimized.npy')
+      optimized_noise_3 = np.load(f'{self.noise_vector_export_path}/{str(SetupEnum.get_names()[SetupEnum.SETUP_3.value - 1]).lower()}_optimized.npy', allow_pickle=True)
     else:
       optimized_noise_3 = self.result_3['x']
 
     q3_optimal = optimized_noise_3[:-4]
     r_vo3_optimal = optimized_noise_3[-4:-2]
     r_gps3_optimal = optimized_noise_3[-2:]
-    self.ukf_3_optimized = UnscentedKalmanFilter(x=x_3.copy(), 
-                                           P=P_3.copy(), 
-                                           H=H_3.copy(),
-                                           q=q3_optimal,
-                                           r_vo=r_vo3_optimal,
-                                           r_gps=r_gps3_optimal,
-                                           setup=SetupEnum.SETUP_3
-                                          )
+    self.ukf_3_optimized = UnscentedKalmanFilter(
+      x=x_3.copy(), 
+      P=P_3.copy(), 
+      H=H_3.copy(),
+      q=q3_optimal,
+      r_vo=r_vo3_optimal,
+      r_gps=r_gps3_optimal,
+      setup=SetupEnum.SETUP_3
+    )
     error_3_optimized = self.ukf_3_optimized.run(data=self.data)
+    
+    
 
     error_setup1 = [error_1, error_1_optimized]
     error_setup2 = [error_2, error_2_optimized]
@@ -338,26 +330,43 @@ class UKF_NoiseOptimizer:
 if __name__ == "__main__":
 
     root_path = "../../"
-    file_export_path = os.path.join(root_path, "exports/_sequences/04")
-    kitti_root_dir = os.path.join(root_path, "data")
+    kitti_drive = 'example'
+    kitti_data_root_dir = os.path.join(root_path, "example_data/KITTI")
     vo_root_dir = os.path.join(root_path, "vo_estimates")
     noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
-    kitti_date = '2011_09_30'
-    kitti_drive = '0033'
+    dimension=2
     
-    data = DataLoader(sequence_nr=kitti_drive, 
-                    kitti_root_dir=kitti_root_dir, 
-                    vo_root_dir=vo_root_dir,
-                    noise_vector_dir=noise_vector_dir,
-                    vo_dropout_ratio=0.0, 
-                    gps_dropout_ratio=0.0)
+    # root_path = "../../"
+    # kitti_drive = '0033'
+    # kitti_data_root_dir = os.path.join(root_path, "data")
+    # vo_root_dir = os.path.join(root_path, "vo_estimates")
+    # noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
+    # dimension=2
     
-    error_df_export_path = os.path.join(root_path, 'exports/_noise_optimizations/errors/ukf')
-    noise_vector_export_path = os.path.join(root_path, 'exports/_noise_optimizations/noise_vectors/ukf')
+    noise_export_dir = 'ukf_example' if kitti_drive == "example" else "ukf"
+    
+    data = DataLoader(
+      sequence_nr=kitti_drive, 
+      kitti_root_dir=kitti_data_root_dir, 
+      vo_root_dir=vo_root_dir,
+      noise_vector_dir=noise_vector_dir,
+      vo_dropout_ratio=0.0, 
+      gps_dropout_ratio=0.0,
+      dimension=dimension
+      )
+    
+    error_df_export_path = os.path.join(root_path, 'exports/_noise_optimizations/errors/', noise_export_dir)
+    noise_vector_export_path = os.path.join(noise_vector_dir, noise_export_dir)
+    
+    if kitti_drive == "example":
+      os.mkdir(error_df_export_path)
+      os.mkdir(noise_vector_export_path)
 
-    optimizer = UKF_NoiseOptimizer(data=data, 
-                                   error_df_export_path=error_df_export_path, 
-                                   noise_vector_export_path=noise_vector_export_path)
+    optimizer = UKF_NoiseOptimizer(
+      data=data, 
+      error_df_export_path=error_df_export_path, 
+      noise_vector_export_path=noise_vector_export_path
+    )
     optimizer.run()
     optimizer.compare(load_exported=False)
     optimizer.visualize_results()
