@@ -168,8 +168,7 @@ class DataLoader:
     def __init__(
         self, 
         sequence_nr='0033', 
-        kitti_root_dir='../data', 
-        vo_root_dir='../vo_estimates', 
+        kitti_root_dir='../data',
         noise_vector_dir='../exports/_noise_optimizations/noise_vectors',
         vo_dropout_ratio=0., 
         gps_dropout_ratio=0., 
@@ -181,15 +180,21 @@ class DataLoader:
         ):
         
         self.dimension = dimension
+        self.sequence_nr = sequence_nr
+        self.kitti_root_dir = kitti_root_dir
+        self.noise_vector_dir = noise_vector_dir
         
         # Setting paths
         self.config = sequence_data_map[sequence_nr].copy()
-        self.config['calib_velo_to_cam'] = kitti_root_dir + '/' + self.config['calib_velo_to_cam']
-        self.config['calib_imu_to_velo'] = kitti_root_dir + '/' + self.config['calib_imu_to_velo']
-        self.config['vo_path'] = vo_root_dir + '/' + self.config['vo_path']
-        self.config['gt_path'] = vo_root_dir + '/' + self.config['gt_path']
+        
+        kitti_root_dir = os.path.join(kitti_root_dir, 'KITTI')
+        vo_root_dir = os.path.join(kitti_root_dir, "vo_estimates")
+        
+        self.config['calib_velo_to_cam'] = os.path.join(kitti_root_dir, self.config['calib_velo_to_cam'])
+        self.config['calib_imu_to_velo'] = os.path.join(kitti_root_dir, self.config['calib_imu_to_velo'])
+        self.config['vo_path'] = os.path.join(vo_root_dir, self.config['vo_path'])
+        self.config['gt_path'] = os.path.join(vo_root_dir, self.config['gt_path'])
 
-        self.noise_vector_dir = noise_vector_dir
         noise = noise_configs[sequence_nr].copy()
         
         self.GPS_measurement_noise_std = noise['GPS_measurement_noise_std']
@@ -899,14 +904,17 @@ class DataLoader:
 
             
 if __name__ == "__main__":
-    example_kitti_drive = 'example'
-    kitti_example_data_root_dir = '../../example_data/KITTI'
-    vo_root_dir = '../../vo_estimates'
+    kitti_drive = 'example'
+    kitti_example_data_root_dir = '../../example_data'
     noise_vector_dir = '../../exports/_noise_optimizations/noise_vectors'
+    
+    # kitti_drive = '0033'
+    # kitti_example_data_root_dir = '../../data'
+    # noise_vector_dir = '../../exports/_noise_optimizations/noise_vectors'
+    
     data = DataLoader(
-        sequence_nr=example_kitti_drive, 
+        sequence_nr=kitti_drive, 
         kitti_root_dir=kitti_example_data_root_dir, 
-        vo_root_dir=vo_root_dir,
         noise_vector_dir=noise_vector_dir,
         vo_dropout_ratio=0.2, 
         gps_dropout_ratio=0.2,
@@ -914,7 +922,6 @@ if __name__ == "__main__":
         downsampling_ratio=0.8,
         visualize_data=True,
         dimension=2)
-    plt.pause(interval=5)
     
     # data.set_data_sampling(sampling=SamplingEnum.UPSAMPLED_DATA)
     data.set_data_sampling(sampling=SamplingEnum.DOWNSAMPLED_DATA)

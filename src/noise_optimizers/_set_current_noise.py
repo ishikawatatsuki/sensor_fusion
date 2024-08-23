@@ -52,14 +52,11 @@ def main():
   # q = np.array(A + B) @ np.array([1, 0, 0, 0]) # multiply with the identity quaternion, q = (1, 0, 0, 0). It represents no rotation. - [5].
   # q0_noise, q1_noise, q2_noise, q3_noise = q
   kitti_root_dir = '../../data'
-  vo_root_dir = '../../vo_estimates'
   noise_vector_dir = '../../exports/_noise_optimizations/noise_vectors'
-  kitti_date = '2011_09_30'
   kitti_drive = '0033'
 
   data = DataLoader(sequence_nr=kitti_drive, 
                     kitti_root_dir=kitti_root_dir, 
-                    vo_root_dir=vo_root_dir,
                     noise_vector_dir=noise_vector_dir,
                     vo_dropout_ratio=0.0, 
                     gps_dropout_ratio=0.0)

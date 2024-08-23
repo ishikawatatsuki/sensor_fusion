@@ -244,8 +244,7 @@ if __name__ == "__main__":
 
     root_path = "../../"
     kitti_drive = 'example'
-    kitti_data_root_dir = os.path.join(root_path, "example_data/KITTI")
-    vo_root_dir = os.path.join(root_path, "vo_estimates")
+    kitti_data_root_dir = os.path.join(root_path, "example_data")
     noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
     dimension=2
     
@@ -253,14 +252,12 @@ if __name__ == "__main__":
     # root_path = "../../"
     # kitti_drive = '0033'
     # kitti_data_root_dir = os.path.join(root_path, "data")
-    # vo_root_dir = os.path.join(root_path, "vo_estimates")
     # noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
     # dimension=2
 
     data = DataLoader(
         sequence_nr=kitti_drive, 
         kitti_root_dir=kitti_data_root_dir, 
-        vo_root_dir=vo_root_dir,
         noise_vector_dir=noise_vector_dir,
         vo_dropout_ratio=0., 
         gps_dropout_ratio=0.,
