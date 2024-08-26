@@ -22,8 +22,6 @@ np.random.seed(777)
 # https://kalman-filter.com/cubature-kalman-filter/
 class CubatureKalmanFilter(BaseFilter):
 
-    x = None
-    P = None
     sigma_points = None
     
     def __init__(self, x, P, H, q, r_vo, r_gps, setup=SetupEnum.SETUP_1):

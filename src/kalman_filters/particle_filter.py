@@ -27,6 +27,7 @@ class ResamplingAlgorithms(Enum):
 
 class ParticleFilter(BaseFilter):
 
+    x = None
     def __init__(
         self, 
         N, 
@@ -69,6 +70,7 @@ class ParticleFilter(BaseFilter):
             self.particles[:, i] = np.random.uniform(x[0], x[1], size=self.N)
 
     def create_gaussian_particles(self, mean, var):
+        self.x = mean
         self.particles = mean.reshape(-1) + np.array([np.random.randn(self.N) for _ in range(var.shape[0])]).T @ var
 
     def predict_setup1_2(self, u, dt, Q):
@@ -276,13 +278,14 @@ class ParticleFilter(BaseFilter):
             # prediction step(time update)
             self._time_update_step(data, t_idx, dt, Q)
             
-            # correction step(measurement update)
-            self._measurement_update_step(data, t_idx, R_vo, R_gps, measurement_type, importance_resampling)
-            
             x_hat, _ = self.estimate()
             mu_x.append(x_hat[0])
             mu_y.append(x_hat[1])
             mu_z.append(x_hat[2])
+            
+            # correction step(measurement update)
+            self._measurement_update_step(data, t_idx, R_vo, R_gps, measurement_type, importance_resampling)
+            
 
             if show_graph is True:
                 if self.N > 100:
@@ -332,18 +335,18 @@ if __name__ == "__main__":
     import os
     from data_loader import DataLoader
 
-    root_path = "../../"
-    kitti_drive = 'example'
-    kitti_data_root_dir = os.path.join(root_path, "example_data")
-    noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
-    dimension=2
-
-    # Undo comment out this to change example data to entire sequence data
     # root_path = "../../"
-    # kitti_drive = '0033'
-    # kitti_data_root_dir = os.path.join(root_path, "data")
+    # kitti_drive = 'example'
+    # kitti_data_root_dir = os.path.join(root_path, "example_data")
     # noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
     # dimension=2
+
+    # Undo comment out this to change example data to entire sequence data
+    root_path = "../../"
+    kitti_drive = '0033'
+    kitti_data_root_dir = os.path.join(root_path, "data")
+    noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
+    dimension=2
 
     data = DataLoader(
         sequence_nr=kitti_drive, 

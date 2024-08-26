@@ -21,8 +21,6 @@ np.random.seed(777)
 
 class UnscentedKalmanFilter(BaseFilter):
 
-    x = None
-    P = None
     sigma_points = None
     chi = None
 

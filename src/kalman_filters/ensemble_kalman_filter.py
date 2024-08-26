@@ -110,7 +110,8 @@ class EnsembleKalmanFilter(BaseFilter):
         measurement_noise = np.random.multivariate_normal(
                                 mean=np.zeros(self.z_dim), 
                                 cov=R, size=self.N)
-        residuals = z - samples + measurement_noise # Nx2
+        
+        residuals = z.reshape(1, -1) - samples + measurement_noise # Nx2
         self.samples = self.samples + residuals @ K.T
         self.x = np.mean(self.samples, axis=0)
         
@@ -148,10 +149,10 @@ class EnsembleKalmanFilter(BaseFilter):
             R_gps = _R_gps
         
         if z_vo is not None:
-            self.update(z=z_vo.reshape(-1), R=R_vo)
+            self.update(z=z_vo, R=R_vo)
         
         if z_gps is not None:
-            self.update(z=z_gps.reshape(-1), R=R_gps)
+            self.update(z=z_gps, R=R_gps)
 
     def run(self, 
             data, 

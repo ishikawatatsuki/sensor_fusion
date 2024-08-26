@@ -1,5 +1,6 @@
-from .extended_kalman_filter import ExtendedKalmanFilter
+from .extended_kalman_filter import ExtendedKalmanFilter, InternalExtendedKalmanFilter
 from .unscented_kalman_filter import UnscentedKalmanFilter
 from .particle_filter import ParticleFilter, ResamplingAlgorithms
 from .ensemble_kalman_filter import EnsembleKalmanFilter
 from .cubature_kalman_filter import CubatureKalmanFilter
+from .wrapper.filter_wrapper import FilterWrapper

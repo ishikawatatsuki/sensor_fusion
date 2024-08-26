@@ -295,6 +295,61 @@ class ExtendedKalmanFilter(BaseFilter):
 
         return error
 
+class InternalExtendedKalmanFilter(ExtendedKalmanFilter):
+    """
+    Extended Kalman Filter declared internally in other filters.
+    The filter is used to propagate current state based on Kinematic equation and estimate forward velocity.
+
+    Args:
+        Arguments are completely same as the EKF.
+    """
+
+    
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        self.t_last = 0
+        self.forward_velocity = 0
+
+    def _time_update_step(self, data, t_idx, dt, Q):
+        ax, ay, az = data.IMU_acc_with_noise_original[t_idx]
+        wx, wy, wz = data.IMU_angular_velocity_with_noise_original[t_idx]
+        u = np.array([
+            ax,
+            ay,
+            az,
+            wx,
+            wy,
+            wz
+        ])
+        prev_p = self.x[:3].copy()
+        self.predict_setup1_2(u=u, dt=dt, Q=Q)
+        self.forward_velocity = np.linalg.norm(self.x[:3] - prev_p) / dt
+        
+
+    def _measurement_update_step(self, data, t_idx, t, R_vo, measurement_type):
+        # z_vo, _R_vo = data.get_vo_measurement_by_index_custom(index=t_idx)
+        # z_vo_prev, _ = data.get_vo_measurement_by_index_custom(index=t_idx-1)
+        
+        z_vo, _R_vo = data.get_vo_measurement_by_index_custom(index=t_idx)
+        if measurement_type is MeasurementDataEnum.COVARIANCE:
+            R_vo = _R_vo
+
+        if z_vo is not None:
+            dt = t - self.t_last
+            z_vo_prev = data.get_prev_vo_measurement_from_current_index(index=t_idx)
+            z = np.concatenate([
+                z_vo,
+                (z_vo-z_vo_prev) / dt,
+            ]) # px, py, pz, vx, vy, vz
+            
+            self.update(z=z, R=R_vo*10)
+            self.t_last = t
+
+    def get_forward_velocity(self):
+        return self.forward_velocity
+    
 
 if __name__ == "__main__":
     import os

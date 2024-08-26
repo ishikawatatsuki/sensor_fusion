@@ -902,7 +902,47 @@ class DataLoader:
 
             return x.copy(), P.copy(), H.copy(), q.copy(), r_vo.copy(), r_gps.copy()
 
+class CustomDataLoader(DataLoader):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def get_vo_measurement_by_index_custom(self, index, measurement_type=MeasurementDataEnum.ALL_DATA):
+        """return VO data
+        Args:
+            measurement_type (_type_, optional): _description_. Defaults to MeasurementDataEnum.ALL_DATA.
+
+        Returns:
+            vo_data: vo data numpy array
+            vo_error_cov_matrix: vo error covariance matrix when measurement_type=COVARIANCE
+        """
+        vo_data = self.VO_measurements_with_noise[index].reshape(-1, 1)
+        
+        if measurement_type is MeasurementDataEnum.ALL_DATA:
+            return (vo_data, None)
+        elif measurement_type is MeasurementDataEnum.DROPOUT:
+            if index not in self.vo_indices:
+                return (None, None)
+            return (vo_data, None)
+        elif measurement_type is MeasurementDataEnum.COVARIANCE:
+            error = self.VO_noise_std if index in self.vo_indices else self.VO_noise_std_uncertain
+            q = np.repeat(error ** 2, self.dimension)
+            return (vo_data, np.eye(self.dimension) * q)
+        
+        return (None, None)
+
+    def get_prev_vo_measurement_from_current_index(self, index, measurement_type=MeasurementDataEnum.ALL_DATA):
+        """ return previous VO data considering dropout 
+        """
+        index = index - 1
+        if measurement_type is not MeasurementDataEnum.DROPOUT:
+            return self.VO_measurements_with_noise[index].reshape(-1, 1)
             
+        while index not in self.vo_indices and index >= 0:
+            index -= 1
+            
+        return self.VO_measurements_with_noise[index].reshape(-1, 1)
+    
 if __name__ == "__main__":
     kitti_drive = 'example'
     kitti_example_data_root_dir = '../../example_data'

@@ -68,6 +68,14 @@ class FilterEnum(Enum):
     @staticmethod
     def get_names():
         return [e.name for e in FilterEnum]
+    
+    @staticmethod
+    def list_approximation_based_filters():
+        return [FilterEnum.EKF, FilterEnum.UKF, FilterEnum.CKF]
+    
+    @staticmethod
+    def list_sampling_based_filters():
+        return [FilterEnum.PF, FilterEnum.EnKF]
 
 class NoiseTypeEnum(Enum):
     """

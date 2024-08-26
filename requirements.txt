@@ -63,6 +63,7 @@ matplotlib==3.8.3
 matplotlib-inline==0.1.6
 mistune==3.0.2
 mpmath==1.3.0
+natsort==8.4.0
 nbclient==0.10.0
 nbconvert==7.16.2
 nbformat==5.10.2
@@ -70,15 +71,19 @@ nest-asyncio==1.6.0
 notebook==7.1.2
 notebook_shim==0.2.4
 numpy==1.26.4
+opencv-contrib-python==4.10.0.84
 opencv-python==4.9.0.80
 overrides==7.7.0
 packaging==24.0
 pandas==2.2.1
+pandoc==2.4
 pandocfilters==1.5.1
 parso==0.8.3
 pexpect==4.9.0
 pillow==10.2.0
 platformdirs==4.2.0
+plumbum==1.8.3
+ply==3.11
 prometheus_client==0.20.0
 prompt-toolkit==3.0.43
 psutil==5.9.8
@@ -89,6 +94,7 @@ Pygments==2.17.2
 pykitti==0.3.1
 pyparsing==3.1.2
 pyproj==3.6.1
+pyserial==3.5
 python-dateutil==2.9.0.post0
 python-json-logger==2.0.7
 pytz==2024.1
