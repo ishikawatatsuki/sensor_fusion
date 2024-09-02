@@ -217,7 +217,6 @@ class ExtendedKalmanFilter(BaseFilter):
         if measurement_type is MeasurementDataEnum.COVARIANCE:
             R_vo = _R_vo
             R_gps = _R_gps
-            print(R_gps)
         
         if z_vo is not None:
             self.update(z=z_vo, R=R_vo)
@@ -296,6 +295,61 @@ class ExtendedKalmanFilter(BaseFilter):
 
         return error
 
+class InternalExtendedKalmanFilter(ExtendedKalmanFilter):
+    """
+    Extended Kalman Filter declared internally in other filters.
+    The filter is used to propagate current state based on Kinematic equation and estimate forward velocity.
+
+    Args:
+        Arguments are completely same as the EKF.
+    """
+
+    
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        self.t_last = 0
+        self.forward_velocity = 0
+
+    def _time_update_step(self, data, t_idx, dt, Q):
+        ax, ay, az = data.IMU_acc_with_noise_original[t_idx]
+        wx, wy, wz = data.IMU_angular_velocity_with_noise_original[t_idx]
+        u = np.array([
+            ax,
+            ay,
+            az,
+            wx,
+            wy,
+            wz
+        ])
+        prev_p = self.x[:3].copy()
+        self.predict_setup1_2(u=u, dt=dt, Q=Q)
+        self.forward_velocity = np.linalg.norm(self.x[:3] - prev_p) / dt
+        
+
+    def _measurement_update_step(self, data, t_idx, t, R_vo, measurement_type):
+        # z_vo, _R_vo = data.get_vo_measurement_by_index_custom(index=t_idx)
+        # z_vo_prev, _ = data.get_vo_measurement_by_index_custom(index=t_idx-1)
+        
+        z_vo, _R_vo = data.get_vo_measurement_by_index_custom(index=t_idx)
+        if measurement_type is MeasurementDataEnum.COVARIANCE:
+            R_vo = _R_vo
+
+        if z_vo is not None:
+            dt = t - self.t_last
+            z_vo_prev = data.get_prev_vo_measurement_from_current_index(index=t_idx)
+            z = np.concatenate([
+                z_vo,
+                (z_vo-z_vo_prev) / dt,
+            ]) # px, py, pz, vx, vy, vz
+            
+            self.update(z=z, R=R_vo*10)
+            self.t_last = t
+
+    def get_forward_velocity(self):
+        return self.forward_velocity
+    
 
 if __name__ == "__main__":
     import os
@@ -303,8 +357,7 @@ if __name__ == "__main__":
 
     root_path = "../../"
     kitti_drive = 'example'
-    kitti_data_root_dir = os.path.join(root_path, "example_data/KITTI")
-    vo_root_dir = os.path.join(root_path, "vo_estimates")
+    kitti_data_root_dir = os.path.join(root_path, "example_data")
     noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
     dimension=2
 
@@ -312,13 +365,11 @@ if __name__ == "__main__":
     # root_path = "../../"
     # kitti_drive = '0033'
     # kitti_data_root_dir = os.path.join(root_path, "data")
-    # vo_root_dir = os.path.join(root_path, "vo_estimates")
     # noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
     # dimension=2
 
     data = DataLoader(sequence_nr=kitti_drive, 
                     kitti_root_dir=kitti_data_root_dir, 
-                    vo_root_dir=vo_root_dir,
                     noise_vector_dir=noise_vector_dir,
                     vo_dropout_ratio=0., 
                     gps_dropout_ratio=0.,

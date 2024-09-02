@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LOCATION_DIR='./data'
+LOCATION_DIR='./data/KITTI'
 
 # KITTI sequence to raw data map
 # Nr.     Sequence name     Start   End

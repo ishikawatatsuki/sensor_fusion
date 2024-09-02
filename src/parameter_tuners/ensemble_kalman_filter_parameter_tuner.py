@@ -29,7 +29,6 @@ class EnsembleKalmanFilterParameterTuner:
         kitti_drive,
         file_export_path,
         kitti_root_dir,
-        vo_root_dir,
         noise_vector_dir,
         setup=SetupEnum.SETUP_1, 
         measurement_type=MeasurementDataEnum.ALL_DATA):
@@ -42,7 +41,6 @@ class EnsembleKalmanFilterParameterTuner:
         self.kitti_drive = kitti_drive
         self.file_export_path = file_export_path
         self.kitti_root_dir = kitti_root_dir
-        self.vo_root_dir = vo_root_dir
         self.noise_vector_dir = noise_vector_dir
         
 
@@ -97,7 +95,6 @@ class EnsembleKalmanFilterParameterTuner:
                 sequence_nr=self.kitti_drive, 
                 vo_dropout_ratio=dropout_ratio,
                 gps_dropout_ratio=dropout_ratio,
-                vo_root_dir=self.vo_root_dir,
                 kitti_root_dir=self.kitti_root_dir,
                 noise_vector_dir=self.noise_vector_dir,
                 visualize_data=False)

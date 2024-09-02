@@ -110,7 +110,8 @@ class EnsembleKalmanFilter(BaseFilter):
         measurement_noise = np.random.multivariate_normal(
                                 mean=np.zeros(self.z_dim), 
                                 cov=R, size=self.N)
-        residuals = z - samples + measurement_noise # Nx2
+        
+        residuals = z.reshape(1, -1) - samples + measurement_noise # Nx2
         self.samples = self.samples + residuals @ K.T
         self.x = np.mean(self.samples, axis=0)
         
@@ -148,10 +149,10 @@ class EnsembleKalmanFilter(BaseFilter):
             R_gps = _R_gps
         
         if z_vo is not None:
-            self.update(z=z_vo.reshape(-1), R=R_vo)
+            self.update(z=z_vo, R=R_vo)
         
         if z_gps is not None:
-            self.update(z=z_gps.reshape(-1), R=R_gps)
+            self.update(z=z_gps, R=R_gps)
 
     def run(self, 
             data, 
@@ -244,8 +245,7 @@ if __name__ == "__main__":
 
     root_path = "../../"
     kitti_drive = 'example'
-    kitti_data_root_dir = os.path.join(root_path, "example_data/KITTI")
-    vo_root_dir = os.path.join(root_path, "vo_estimates")
+    kitti_data_root_dir = os.path.join(root_path, "example_data")
     noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
     dimension=2
     
@@ -253,14 +253,12 @@ if __name__ == "__main__":
     # root_path = "../../"
     # kitti_drive = '0033'
     # kitti_data_root_dir = os.path.join(root_path, "data")
-    # vo_root_dir = os.path.join(root_path, "vo_estimates")
     # noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
     # dimension=2
 
     data = DataLoader(
         sequence_nr=kitti_drive, 
         kitti_root_dir=kitti_data_root_dir, 
-        vo_root_dir=vo_root_dir,
         noise_vector_dir=noise_vector_dir,
         vo_dropout_ratio=0., 
         gps_dropout_ratio=0.,

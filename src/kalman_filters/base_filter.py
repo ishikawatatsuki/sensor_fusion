@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
 from ahrs.filters import Madgwick
 class BaseFilter:
@@ -50,12 +49,6 @@ class BaseFilter:
             [wy, -wz, 0, wx],
             [wz, wy, -wx, 0]
         ])
-        # return np.array([ # w, x, y, z
-        #     [0, -wx, -wy, -wz],
-        #     [wx, 0, -wz, wy],
-        #     [wy, wz, 0, -wx],
-        #     [wz, -wy, wx, 0]
-        # ])
 
     def get_estimated_trajectory(self):
         return np.concatenate([
@@ -148,14 +141,12 @@ if __name__ == "__main__":
     root_path = "../../"
     file_export_path = os.path.join(root_path, "exports/_sequences/04")
     kitti_root_dir = os.path.join(root_path, "data")
-    vo_root_dir = os.path.join(root_path, "vo_estimates")
     noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
     kitti_date = '2011_09_30'
     kitti_drive = '0033'
 
     data = DataLoader(sequence_nr=kitti_drive, 
                     kitti_root_dir=kitti_root_dir, 
-                    vo_root_dir=vo_root_dir,
                     noise_vector_dir=noise_vector_dir,
                     vo_dropout_ratio=0.0, 
                     gps_dropout_ratio=0.0)

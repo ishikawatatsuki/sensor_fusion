@@ -7,7 +7,7 @@ This directory consists of 5 major Kalman Filters:
   * Cubature Kalman Filter (CKF)
 
 ## Run filters
-To run a filter, type `python3 {}.py` in your terminal to execute the python script. By default, the dataset that all the filters refer to is the KITTI example dataset located under the `example_data/KITTI` directory. Since example data contains only small amount of KITTI raw dataset, it is used for a testing purpose. 
+To run a filter, type `python3 {}.py` in your terminal to execute the python script. By default, the dataset that all the filters refer to is the KITTI example dataset located under the `example_data` directory. Since example data contains only small amount of KITTI raw dataset, it is used for a testing purpose. 
 
 To change the dataset with entire trajectory provided by KITTI raw dataset, firstly run the `kitti_data_downloader.sh` shell script to download the KITTI dataset in root directory. The dataset consists of 7.7 GB including two sequences of data, `0016` and `0033`. The downloaded KITTI data will be located under the data directory.
 
@@ -17,8 +17,7 @@ From:
 ```
     root_path = "../../"
     kitti_drive = 'example'
-    kitti_data_root_dir = os.path.join(root_path, "example_data/KITTI")
-    vo_root_dir = os.path.join(root_path, "vo_estimates")
+    kitti_data_root_dir = os.path.join(root_path, "example_data")
     noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
     dimension=2
 
@@ -26,14 +25,12 @@ From:
     # root_path = "../../"
     # kitti_drive = '0033'
     # kitti_data_root_dir = os.path.join(root_path, "data")
-    # vo_root_dir = os.path.join(root_path, "vo_estimates")
     # noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
     # dimension=2
 
     data = DataLoader(
         sequence_nr=kitti_drive, 
         kitti_root_dir=kitti_data_root_dir, 
-        vo_root_dir=vo_root_dir,
         noise_vector_dir=noise_vector_dir,
         vo_dropout_ratio=0., 
         gps_dropout_ratio=0.,
@@ -46,8 +43,7 @@ To:
 ```
     # root_path = "../../"
     # kitti_drive = 'example'
-    # kitti_data_root_dir = os.path.join(root_path, "example_data/KITTI")
-    # vo_root_dir = os.path.join(root_path, "vo_estimates")
+    # kitti_data_root_dir = os.path.join(root_path, "example_data")
     # noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
     # dimension=2
 
@@ -55,14 +51,12 @@ To:
     root_path = "../../"
     kitti_drive = '0033'
     kitti_data_root_dir = os.path.join(root_path, "data")
-    vo_root_dir = os.path.join(root_path, "vo_estimates")
     noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
     dimension=2
 
     data = DataLoader(
         sequence_nr=kitti_drive, 
         kitti_root_dir=kitti_data_root_dir, 
-        vo_root_dir=vo_root_dir,
         noise_vector_dir=noise_vector_dir,
         vo_dropout_ratio=0., 
         gps_dropout_ratio=0.,
@@ -80,7 +74,6 @@ For example, in extended_kalman_filter.py, when we change measurement type to DR
     # Set 50% dropout for Visual Odometry data and 90% dropout for GPS data
     data = DataLoader(sequence_nr=kitti_drive, 
                   kitti_root_dir=kitti_data_root_dir, 
-                  vo_root_dir=vo_root_dir,
                   noise_vector_dir=noise_vector_dir,
                   vo_dropout_ratio=0.5, 
                   gps_dropout_ratio=0.9,
@@ -119,7 +112,6 @@ For COVARIANCE, the extended_kalman_filter.py, for example, will be:
     # Set 50% dropout for Visual Odometry data and 90% dropout for GPS data
     data = DataLoader(sequence_nr=kitti_drive, 
                     kitti_root_dir=kitti_data_root_dir, 
-                    vo_root_dir=vo_root_dir,
                     noise_vector_dir=noise_vector_dir,
                     vo_dropout_ratio=0.5, 
                     gps_dropout_ratio=.9,

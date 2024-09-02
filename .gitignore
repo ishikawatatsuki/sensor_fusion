@@ -13,3 +13,4 @@ _streaming
 playgrounds
 src/_test
 .tmp
+*.log

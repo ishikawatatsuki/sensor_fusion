@@ -1,0 +1,19 @@
+
+sensor_data:
+  log0001:
+    type: outdoor 
+    px4:
+      imu0: log0001_px4_imu0_combined.csv
+      imu1: log0001_px4_imu1_combined.csv
+      gps: 09_00_22_sensor_gps_0.csv
+      vo: 09_00_22_vehicle_visual_odometry_0.csv
+      vehicle_odometry: 09_00_22_vehicle_odometry_0.csv
+      imu0_bias: 09_00_22_estimator_sensor_bias_0.csv
+      imu1_bias: 09_00_22_estimator_sensor_bias_1.csv
+      actuator_motors: 09_00_22_actuator_motors_0.csv
+      actuator_outputs: 09_00_22_actuator_outputs_1.csv
+    custom:
+      timestamp: timestamp_combined_example.csv
+      synched: log0001_sync.csv
+      vo: 
+      uwb: 

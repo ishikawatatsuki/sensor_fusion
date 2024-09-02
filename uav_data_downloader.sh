@@ -6,11 +6,8 @@ mkdir -p $LOCATION_DIR
 
 files=(
   v1.zip
-  log0000.zip
   log0001.zip
-  log0003.zip
-  log0005.zip
-  log0021.zip
+  log0002.zip
 )
 
 for i in ${files[@]}; do
