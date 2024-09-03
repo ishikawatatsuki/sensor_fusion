@@ -8,6 +8,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from scipy.stats import multivariate_normal
 from configs import SetupEnum, MeasurementDataEnum, FilterEnum, NoiseTypeEnum
+from utils.time_reporter import time_measurer
 from utils.error_report import get_error_report, print_error_report
 from filterpy.monte_carlo import (
     multinomial_resample, residual_resample, systematic_resample, stratified_resample
@@ -330,7 +331,12 @@ class ParticleFilter(BaseFilter):
         self.mu_z = mu_z
         
         return error
-
+    
+    @time_measurer
+    def run_with_time(self, *args, **kwargs):
+        return self.run(*args, **kwargs)
+    
+    
 if __name__ == "__main__":
     import os
     from data_loader import DataLoader

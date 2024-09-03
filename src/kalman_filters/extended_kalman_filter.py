@@ -8,6 +8,7 @@ if __name__ == "__main__":
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from utils.time_reporter import time_measurer
 from utils.error_report import get_error_report, print_error_report
 from configs import MeasurementDataEnum, SetupEnum, FilterEnum, NoiseTypeEnum
 
@@ -294,7 +295,11 @@ class ExtendedKalmanFilter(BaseFilter):
         self.mu_z = mu_z
 
         return error
-
+    
+    @time_measurer
+    def run_with_time(self, *args, **kwargs):
+        return self.run(*args, **kwargs)
+    
 class InternalExtendedKalmanFilter(ExtendedKalmanFilter):
     """
     Extended Kalman Filter declared internally in other filters.

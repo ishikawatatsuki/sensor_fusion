@@ -8,6 +8,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from ahrs import Quaternion
 from scipy.linalg import cholesky
+from utils.time_reporter import time_measurer
 from utils.error_report import get_error_report, print_error_report
 from configs import MeasurementDataEnum, SetupEnum, FilterEnum, NoiseTypeEnum
 
@@ -274,6 +275,10 @@ class CubatureKalmanFilter(BaseFilter):
         self.mu_z = mu_z
         
         return error
+    
+    @time_measurer
+    def run_with_time(self, *args, **kwargs):
+        return self.run(*args, **kwargs)
 
 if __name__ == "__main__":
     from data_loader import DataLoader
