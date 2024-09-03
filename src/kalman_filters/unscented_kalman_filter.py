@@ -7,6 +7,7 @@ from tqdm import tqdm
 from ahrs import Quaternion
 import matplotlib.pyplot as plt
 from scipy.linalg import cholesky
+from utils.time_reporter import time_measurer
 from utils.error_report import get_error_report, print_error_report
 from configs import MeasurementDataEnum, SetupEnum, FilterEnum, NoiseTypeEnum
 from filterpy.kalman import MerweScaledSigmaPoints
@@ -291,6 +292,11 @@ class UnscentedKalmanFilter(BaseFilter):
         
         return error
 
+    @time_measurer
+    def run_with_time(self, *args, **kwargs):
+        return self.run(*args, **kwargs)
+    
+    
 if __name__ == "__main__":
     import os
     from data_loader import DataLoader

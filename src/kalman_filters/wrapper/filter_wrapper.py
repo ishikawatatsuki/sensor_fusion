@@ -6,6 +6,7 @@ import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from configs import SetupEnum, MeasurementDataEnum, FilterEnum, NoiseTypeEnum
+from utils.time_reporter import time_measurer
 from utils.error_report import get_error_report, print_error_report
 
 if __name__ == "__main__":
@@ -15,8 +16,6 @@ else:
 
 
 class FilterWrapper:
-
-
 
     def __init__(
         self, 
@@ -97,6 +96,7 @@ class FilterWrapper:
             if sensor_data_available and self.main_filter._allow_resampling(importance_resampling=True):
                 self.main_filter.resample()
 
+    @time_measurer
     def run(self, 
             data,
             measurement_type=MeasurementDataEnum.ALL_DATA, 
