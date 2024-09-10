@@ -12,8 +12,7 @@ class BaseFilter:
     madgwick = Madgwick()
 
     def get_diagonal_matrix(self, vector):
-        i = np.eye(len(vector))
-        return np.array([[val * num for num in i[ind]] for ind, val in enumerate(vector)])
+        return np.eye(len(vector)) * np.array(vector) ** 2
 
     def compute_norm_w(self, w):
         return np.sqrt(np.sum(w**2))

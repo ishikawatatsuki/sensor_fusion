@@ -143,31 +143,72 @@ class ExtendedKalmanFilter(BaseFilter):
             dt (numpy.array): difference of current time and previous time
             Q  (numpy.array): process noise 
         """
-        # propagate state x
-        x, y, theta = self.x[:, 0]
-        v, omega = u
-        r = v / omega  # turning radius
+        if self.dimension == 2:
+            # propagate state x
+            x, y, theta = self.x[:, 0]
+            v, omega = u
+            r = v / omega  # turning radius
 
-        dtheta = omega * dt
-        dx = - r * np.sin(theta) + r * np.sin(theta + dtheta)
-        dy = + r * np.cos(theta) - r * np.cos(theta + dtheta)
-        self.x += np.array([dx, dy, dtheta]).reshape(-1, 1)
+            dtheta = omega * dt
+            dx = - r * np.sin(theta) + r * np.sin(theta + dtheta)
+            dy = + r * np.cos(theta) - r * np.cos(theta + dtheta)
+            self.x += np.array([dx, dy, dtheta]).reshape(-1, 1)
 
-        # propagate covariance P
-        # Jacobian of state transition function
-        F = np.array([
-            [1., 0., - r * np.cos(theta) + r * np.cos(theta + dtheta)],
-            [0., 1., - r * np.sin(theta) + r * np.sin(theta + dtheta)],
-            [0., 0., 1.]
-        ]) 
+            # propagate covariance P
+            # Jacobian of state transition function
+            F = np.array([
+                [1., 0., - r * np.cos(theta) + r * np.cos(theta + dtheta)],
+                [0., 1., - r * np.sin(theta) + r * np.sin(theta + dtheta)],
+                [0., 0., 1.]
+            ]) 
 
-        # Jacobian of state transition function
-        G = np.array([
-            [-np.sin(theta)/omega + np.sin(theta + dtheta)/omega, dt*v*np.cos(theta+dtheta)/omega + v*np.sin(theta)/omega**2 - v*np.sin(theta+dtheta)/omega**2],
-            [np.cos(theta)/omega - np.cos(theta+dtheta)/omega, dt*v*np.sin(theta+dtheta)/omega - v*np.cos(theta)/omega**2 + v*np.cos(theta+dtheta)/omega**2],
-            [0., dt]
-        ]) 
-        self.P = F @ self.P @ F.T + G @ Q @ G.T
+            # Jacobian of state transition function
+            G = np.array([
+                [-np.sin(theta)/omega + np.sin(theta + dtheta)/omega, dt*v*np.cos(theta+dtheta)/omega + v*np.sin(theta)/omega**2 - v*np.sin(theta+dtheta)/omega**2],
+                [np.cos(theta)/omega - np.cos(theta+dtheta)/omega, dt*v*np.sin(theta+dtheta)/omega - v*np.cos(theta)/omega**2 + v*np.cos(theta+dtheta)/omega**2],
+                [0., dt]
+            ]) 
+            self.P = F @ self.P @ F.T + G @ Q @ G.T
+        else:
+            _, _, _, phi, psi = self.x[:, 0]
+            v, wx, wz = u
+            rx = v / wx  # turning radius for x axis
+            rz = v / wz  # turning radius for z axis
+
+            dphi = wx * dt
+            dpsi = wz * dt
+            dx = - rz * np.sin(psi) + rz * np.sin(psi + dpsi)
+            dy = + rz * np.cos(psi) - rz * np.cos(psi + dpsi)
+            dz = + rx * np.cos(phi) - rx * np.cos(phi + dphi)
+            self.x += np.array([dx, dy, dz, dphi, dpsi]).reshape(-1, 1)
+
+            # propagate covariance P
+            # Jacobian of state transition function
+            F = np.array([
+                [1., 0., 0., 0., - rz * np.cos(psi) + rz * np.cos(psi + dpsi)],
+                [0., 1., 0., 0., - rz * np.sin(psi) + rz * np.sin(psi + dpsi)],
+                [0., 0., 1., - rx * np.sin(phi) + rx * np.sin(phi + dphi), 0.],
+                [0., 0., 0., 1., 0.],
+                [0., 0., 0., 0., 1.]
+            ])
+
+            # Jacobian of state transition function
+            G = np.array([
+                [-np.sin(psi)/wz + np.sin(psi + dpsi)/wz, 
+                0., 
+                dt*v*np.cos(psi + dpsi)/wz + v*np.sin(psi)/wz**2 - v*np.sin(psi + dpsi)/wz**2],
+                [np.cos(psi)/wz - np.cos(psi + dpsi)/wz, 
+                0., 
+                dt*v*np.sin(psi + dpsi)/wz - v*np.cos(psi)/wz**2 + v*np.cos(psi + dpsi)/wz**2],
+                [np.cos(phi)/wx - np.cos(phi + dphi)/wx, 
+                dt*v*np.sin(phi + dphi)/wx - v*np.cos(phi)/wx**2 + v*np.cos(phi + dphi)/wx**2, 
+                0.],
+                [0., dt, 0.],
+                [0., 0., dt]
+            ])
+            
+            self.P = F @ self.P @ F.T + G @ Q @ G.T
+            
 
     def update(self, z, R):
         """update x and P based on observation of (x_, y_)
@@ -200,11 +241,19 @@ class ExtendedKalmanFilter(BaseFilter):
             ])
             self.predict_setup1_2(u=u, dt=dt, Q=Q)
         else: #SetupEnum.SETUP_3
-            u = np.array([
-                data.INS_velocities_with_noise[t_idx, 0],
-                data.IMU_angular_velocity_with_noise[t_idx, 2]
-            ])
-            self.predict_setup3(u=u, dt=dt, Q=Q)
+            if self.dimension == 2:
+                u = np.array([
+                    data.INS_velocities_with_noise[t_idx, 0],
+                    data.IMU_angular_velocity_with_noise[t_idx, 2]
+                ])
+            else:
+                u = np.array([
+                    data.INS_velocities_with_noise[t_idx, 0],
+                    data.IMU_angular_velocity_with_noise[t_idx, 0], #wx
+                    data.IMU_angular_velocity_with_noise[t_idx, 2] #wz
+                ])
+                
+            self.predict_setup3(u=u, dt=dt, Q=Q)    
 
     def _measurement_update_step(self, data, t_idx, R_vo, R_gps, measurement_type):
         z_vo, _R_vo = data.get_vo_measurement_by_index(
@@ -262,7 +311,6 @@ class ExtendedKalmanFilter(BaseFilter):
             self._measurement_update_step(data, t_idx, R_vo, R_gps, measurement_type)
             
             t_last = t
-        
         
         error = \
             get_error_report(
@@ -385,7 +433,11 @@ if __name__ == "__main__":
     
     x_setup1, P_setup1, H_setup1, q1, r_vo1, r_gps1 = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=filter_type, noise_type=noise_type)
     x_setup2, P_setup2, H_setup2, q2, r_vo2, r_gps2 = data.get_initial_data(setup=SetupEnum.SETUP_2, filter_type=filter_type, noise_type=noise_type)
-    x_setup3, P_setup3, H_setup3, q3, r_vo3, r_gps3 = data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=filter_type, noise_type=noise_type)
+    x_setup3, P_setup3, H_setup3, q3, r_vo3, r_gps3 = data.get_initial_data(
+        setup=SetupEnum.SETUP_3, 
+        filter_type=filter_type, 
+        noise_type=noise_type
+    )
     
     measurement_type=MeasurementDataEnum.ALL_DATA
     debug_mode=True

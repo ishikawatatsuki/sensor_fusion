@@ -828,7 +828,7 @@ class DataLoader:
         q, r_vo, r_gps = self._get_noise_vectors(setup=setup, filter_type=filter_type, noise_type=noise_type)
 
         if setup is SetupEnum.SETUP_1 or setup is SetupEnum.SETUP_2:
-            px, py, pz = self.VO_measurements[0, :]
+            px, py, pz = self.GPS_measurements_in_meter[0, :]
             q1, q2, q3, q4 = self.IMU_quaternion[0]
             x = np.array([
                 [px], #Px
@@ -865,8 +865,8 @@ class DataLoader:
         else:
             if self.dimension == 2:
                 x = np.array([
-                    self.VO_measurements[0, 0], #Px
-                    self.VO_measurements[0, 1], #Py
+                    self.GPS_measurements_in_meter[0, 0], #Px
+                    self.GPS_measurements_in_meter[0, 1], #Py
                     self.IMU_outputs[0, 5]
                 ])
                 x = x.reshape(-1, 1)
@@ -875,15 +875,12 @@ class DataLoader:
                 P = np.eye(x.shape[0]) * 0.1
                 
                 # transition matrix H
-                H = np.array([
-                    [1., 0., 0.],
-                    [0., 1., 0.]
-                ])
+                H = np.eye(x.shape[0])[:2, :]
             else:
                 x = np.array([
-                    self.VO_measurements[0, 0], #Px
-                    self.VO_measurements[0, 1], #Py
-                    self.VO_measurements[0, 2], #Pz
+                    self.GPS_measurements_in_meter[0, 0], #Px
+                    self.GPS_measurements_in_meter[0, 1], #Py
+                    self.GPS_measurements_in_meter[0, 2], #Pz
                     self.IMU_outputs[0, 3], #pitch
                     self.IMU_outputs[0, 5], #yaw
                 ])
@@ -892,12 +889,13 @@ class DataLoader:
                 # covariance for state vector x
                 P = np.eye(x.shape[0]) * 0.1
                 
-                H = np.array([
-                    [1., 0., 0., 0., 0.],
-                    [0., 1., 0., 0., 0.],
-                    [0., 0., 1., 0., 0.],
-                ])
-                r_vo = np.array([1., 1., 1.])
+                H = np.eye(x.shape[0])[:3, :]
+                
+                # TODO: optimize process error for setup3 in 3D
+                # EKF: forward velocity, angular rate along x and z
+                # Others: px, py, pz, phi, psi
+                q = np.array([1., 0.1, 0.1]) if filter_type is FilterEnum.EKF else np.array([1., 1., 1., 0.1, 0.1])
+                r_vo = np.array([1., 1., 100.])
                 r_gps = np.array([0.1, 0.1, 0.1])
 
             return x.copy(), P.copy(), H.copy(), q.copy(), r_vo.copy(), r_gps.copy()

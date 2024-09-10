@@ -103,32 +103,66 @@ class CubatureKalmanFilter(BaseFilter):
         self.P = P + Q # 10x10 additive process noise
 
     def predict_setup3(self, u, dt, Q):
-        sigma_points = self.compute_sigma_points() # 7x3
-        x, y, theta = sigma_points.T
-        x = x.reshape(-1, 1)
-        y = y.reshape(-1, 1)
-        theta = theta.reshape(-1, 1)
-        v, omega = u
-        r = v / omega  # turning radius
+        if self.dimension == 2:
+            sigma_points = self.compute_sigma_points() # 7x3
+            x, y, theta = sigma_points.T
+            x = x.reshape(-1, 1)
+            y = y.reshape(-1, 1)
+            theta = theta.reshape(-1, 1)
+            v, omega = u
+            r = v / omega  # turning radius
 
-        dtheta = omega * dt
-        dx = - r * np.sin(theta) + r * np.sin(theta + dtheta)
-        dy = + r * np.cos(theta) - r * np.cos(theta + dtheta)
-        x += dx
-        y += dy
-        theta += dtheta
+            dtheta = omega * dt
+            dx = - r * np.sin(theta) + r * np.sin(theta + dtheta)
+            dy = + r * np.cos(theta) - r * np.cos(theta + dtheta)
+            x += dx
+            y += dy
+            theta += dtheta
+            
+            self.sigma_points = np.concatenate([x, y, theta], axis=1)
+
+            self.x = np.sum(self.W * self.sigma_points, axis=0).reshape(-1, 1) # 3x1
+
+            P = np.zeros((self.N, self.N)) # 3x3
+            for i, sigma_point in enumerate(self.sigma_points):
+                # x = sigma_point.reshape(-1, 1)
+                # P += self.W * (np.outer(x, x.T) - np.outer(self.x, self.x.T))
+                var = sigma_point.reshape(-1, 1) - self.x
+                P += self.W * (var @ var.T)
+            self.P = P + Q
+        else:
+            chi = self.compute_sigma_points()
+            x, y, z, phi, psi = chi.T
+            x = x.reshape(-1, 1)
+            y = y.reshape(-1, 1)
+            z = z.reshape(-1, 1)
+            phi = phi.reshape(-1, 1)
+            psi = psi.reshape(-1, 1)
         
-        self.sigma_points = np.concatenate([x, y, theta], axis=1)
+            v, wx, wz = u
+            rx = v / wx
+            rz = v / wz
+            dphi = wx * dt
+            dpsi = wz * dt
+            dx = - rz * np.sin(psi) + rz * np.sin(psi + dpsi)
+            dy = + rz * np.cos(psi) - rz * np.cos(psi + dpsi)
+            dz = + rx * np.cos(phi) - rx * np.cos(phi + dphi)
+            
+            x += dx
+            y += dy
+            z += dz
+            phi += dphi
+            psi += dpsi
 
-        self.x = np.sum(self.W * self.sigma_points, axis=0).reshape(-1, 1) # 3x1
-
-        P = np.zeros((self.N, self.N)) # 3x3
-        for i, sigma_point in enumerate(self.sigma_points):
-            # x = sigma_point.reshape(-1, 1)
-            # P += self.W * (np.outer(x, x.T) - np.outer(self.x, self.x.T))
-            var = sigma_point.reshape(-1, 1) - self.x
-            P += self.W * (var @ var.T)
-        self.P = P + Q # 10x10 additive process noise
+            self.sigma_points = np.concatenate([x, y, z, phi, psi], axis=1)
+            
+            self.x = np.sum(self.W * self.sigma_points, axis=0).reshape(-1, 1) # 3x1
+            
+            P = np.zeros((self.N, self.N)) # 5x5
+            for sigma_point in self.sigma_points:
+                var = sigma_point.reshape(-1, 1) - self.x
+                P += self.W * (var @ var.T)
+            self.P = P + Q
 
     def update(self, z, R):
         sigma_points = self.compute_sigma_points()
@@ -183,10 +217,18 @@ class CubatureKalmanFilter(BaseFilter):
             ])
             self.predict_setup1_2(u=u, dt=dt, Q=Q)
         else: #SetupEnum.SETUP_3
-            u = np.array([
-                data.INS_velocities_with_noise[t_idx, 0],
-                data.IMU_angular_velocity_with_noise[t_idx, 2]
-            ])
+            if self.dimension == 2:
+                u = np.array([
+                    data.INS_velocities_with_noise[t_idx, 0],
+                    data.IMU_angular_velocity_with_noise[t_idx, 2]
+                ])
+            else:
+                u = np.array([
+                    data.INS_velocities_with_noise[t_idx, 0],
+                    data.IMU_angular_velocity_with_noise[t_idx, 0], #wx
+                    data.IMU_angular_velocity_with_noise[t_idx, 2] #wz
+                ])
+                
             self.predict_setup3(u=u, dt=dt, Q=Q)
             
     def _measurement_update_step(self, data, t_idx, R_vo, R_gps, measurement_type):
@@ -326,8 +368,9 @@ if __name__ == "__main__":
     )
     error_ckf1_0 = ckf1_0.run(
         data=data, 
-        measurement_type=measurement_type, 
-        debug_mode=debug_mode)
+        debug_mode=debug_mode,
+        measurement_type=measurement_type
+    )
     
     ckf1_0.visualize_trajectory(
         data=data, 
@@ -344,7 +387,11 @@ if __name__ == "__main__":
         r_gps=r_gps2,
         setup=SetupEnum.SETUP_2,
     )
-    error_ckf2_0 = ckf2_0.run(data=data, measurement_type=measurement_type, debug_mode=True)
+    error_ckf2_0 = ckf2_0.run(
+        data=data, 
+        debug_mode=debug_mode,
+        measurement_type=measurement_type
+    )
 
     ckf2_0.visualize_trajectory(
         data=data, 
@@ -361,7 +408,11 @@ if __name__ == "__main__":
         r_gps=r_gps3,
         setup=SetupEnum.SETUP_3,
     )
-    error_ckf3_0 = ckf3_0.run(data=data, measurement_type=measurement_type, debug_mode=True)
+    error_ckf3_0 = ckf3_0.run(
+        data=data, 
+        debug_mode=debug_mode,
+        measurement_type=measurement_type
+    )
 
     ckf3_0.visualize_trajectory(
         data=data, 
