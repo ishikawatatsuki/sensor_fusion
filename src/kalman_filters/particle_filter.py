@@ -118,19 +118,43 @@ class ParticleFilter(BaseFilter):
             dt: delta time
             Q: process noise matrix
         """
-        v, omega = u
-        r = v / omega  # turning radius
-        theta = self.particles[:, 2]
-        dtheta = omega * dt
-        dx = - r * np.sin(theta) + r * np.sin(theta + dtheta)
-        dy = + r * np.cos(theta) - r * np.cos(theta + dtheta)
-        delta_x = np.concatenate([
-            dx.reshape(-1, 1),
-            dy.reshape(-1, 1), 
-            (np.ones(self.N) * dtheta).reshape(-1, 1)], axis=1)
-        process_noise = np.random.multivariate_normal(np.zeros(Q.shape[0]), Q, self.N)
-        self.particles += delta_x + process_noise
-
+        if self.dimension == 2:
+            v, omega = u
+            r = v / omega  # turning radius
+            theta = self.particles[:, 2]
+            dtheta = omega * dt
+            dx = - r * np.sin(theta) + r * np.sin(theta + dtheta)
+            dy = + r * np.cos(theta) - r * np.cos(theta + dtheta)
+            
+            delta_x = np.concatenate([
+                dx.reshape(-1, 1),
+                dy.reshape(-1, 1), 
+                (np.ones(self.N) * dtheta).reshape(-1, 1)
+            ], axis=1)
+            process_noise = np.random.multivariate_normal(np.zeros(Q.shape[0]), Q, self.N)
+            self.particles += delta_x + process_noise
+        else:
+            v, wx, wz = u
+            rx = v / wx  # turning radius for x axis
+            rz = v / wz  # turning radius for z axis
+            phi, psi = self.particles[:, 3:].T
+            
+            dphi = wx * dt
+            dpsi = wz * dt
+            dx = - rz * np.sin(psi) + rz * np.sin(psi + dpsi)
+            dy = + rz * np.cos(psi) - rz * np.cos(psi + dpsi)
+            dz = + rx * np.cos(phi) - rx * np.cos(phi + dphi)
+            
+            delta_x = np.concatenate([
+                dx.reshape(-1, 1),
+                dy.reshape(-1, 1), 
+                dz.reshape(-1, 1), 
+                (np.ones(self.N) * dphi).reshape(-1, 1),
+                (np.ones(self.N) * dpsi).reshape(-1, 1),
+            ], axis=1)
+            process_noise = np.random.multivariate_normal(np.zeros(Q.shape[0]), Q, self.N)
+            self.particles += delta_x + process_noise
+            
     def update(self, z, R):
         """ 
             calculate the likelihood p(zk|xk)
@@ -210,10 +234,18 @@ class ParticleFilter(BaseFilter):
             ])
             self.predict_setup1_2(u=u, dt=dt, Q=Q)
         else: #SetupEnum.SETUP_3
-            u = np.array([
-                data.INS_velocities_with_noise[t_idx, 0],
-                data.IMU_angular_velocity_with_noise[t_idx, 2]
-            ])
+            if self.dimension == 2:
+                u = np.array([
+                    data.INS_velocities_with_noise[t_idx, 0],
+                    data.IMU_angular_velocity_with_noise[t_idx, 2]
+                ])
+            else:
+                u = np.array([
+                    data.INS_velocities_with_noise[t_idx, 0],
+                    data.IMU_angular_velocity_with_noise[t_idx, 0], #wx
+                    data.IMU_angular_velocity_with_noise[t_idx, 2] #wz
+                ])
+            
             self.predict_setup3(u=u, dt=dt, Q=Q)
             
     def _measurement_update_step(self, data, t_idx, R_vo, R_gps, measurement_type, importance_resampling):
@@ -341,18 +373,18 @@ if __name__ == "__main__":
     import os
     from data_loader import DataLoader
 
-    # root_path = "../../"
-    # kitti_drive = 'example'
-    # kitti_data_root_dir = os.path.join(root_path, "example_data")
-    # noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
-    # dimension=2
-
-    # Undo comment out this to change example data to entire sequence data
     root_path = "../../"
-    kitti_drive = '0033'
-    kitti_data_root_dir = os.path.join(root_path, "data")
+    kitti_drive = 'example'
+    kitti_data_root_dir = os.path.join(root_path, "example_data")
     noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
     dimension=2
+
+    # Undo comment out this to change example data to entire sequence data
+    # root_path = "../../"
+    # kitti_drive = '0033'
+    # kitti_data_root_dir = os.path.join(root_path, "data")
+    # noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
+    # dimension=2
 
     data = DataLoader(
         sequence_nr=kitti_drive, 

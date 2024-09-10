@@ -73,22 +73,49 @@ class EnsembleKalmanFilter(BaseFilter):
         self.x = np.mean(self.samples, axis=0)
         
     def predict_setup3(self, u, dt, Q):
-        v, omega = u
-        r = v / omega  # turning radius
-        theta = self.samples[:, 2]
-        dtheta = omega * dt
-        dx = - r * np.sin(theta) + r * np.sin(theta + dtheta)
-        dy = + r * np.cos(theta) - r * np.cos(theta + dtheta)
-        delta_x = np.concatenate([
-            dx.reshape(-1, 1), 
-            dy.reshape(-1, 1), 
-            (np.ones(self.N) * dtheta).reshape(-1, 1)], axis=1)
-        process_noise = np.random.multivariate_normal(
-                                                mean=np.zeros(self.x.shape[0]), 
-                                                cov=Q, 
-                                                size=self.N)
-        self.samples += delta_x + process_noise
-        self.x = np.mean(self.samples, axis=0)
+        if self.dimension == 2:
+            v, omega = u
+            r = v / omega  # turning radius
+            theta = self.samples[:, 2]
+            dtheta = omega * dt
+            dx = - r * np.sin(theta) + r * np.sin(theta + dtheta)
+            dy = + r * np.cos(theta) - r * np.cos(theta + dtheta)
+            delta_x = np.concatenate([
+                dx.reshape(-1, 1), 
+                dy.reshape(-1, 1), 
+                (np.ones(self.N) * dtheta).reshape(-1, 1)
+            ], axis=1)
+            process_noise = np.random.multivariate_normal(
+                                                    mean=np.zeros(self.x.shape[0]), 
+                                                    cov=Q, 
+                                                    size=self.N)
+            self.samples += delta_x + process_noise
+            self.x = np.mean(self.samples, axis=0)
+        else:
+            phi, psi = self.samples[:, 3:].T
+            v, wx, wz = u
+            rx = v / wx  # turning radius for x axis
+            rz = v / wz  # turning radius for z axis
+
+            dphi = wx * dt
+            dpsi = wz * dt
+            dx = - rz * np.sin(psi) + rz * np.sin(psi + dpsi)
+            dy = + rz * np.cos(psi) - rz * np.cos(psi + dpsi)
+            dz = + rx * np.cos(phi) - rx * np.cos(phi + dphi)
+            
+            delta_x = np.concatenate([
+                dx.reshape(-1, 1), 
+                dy.reshape(-1, 1), 
+                dz.reshape(-1, 1),
+                (np.ones(self.N) * dphi).reshape(-1, 1),
+                (np.ones(self.N) * dpsi).reshape(-1, 1)
+            ], axis=1)
+            process_noise = np.random.multivariate_normal(
+                                                    mean=np.zeros(self.x.shape[0]), 
+                                                    cov=Q, 
+                                                    size=self.N)
+            self.samples += delta_x + process_noise
+            self.x = np.mean(self.samples, axis=0) # mean value of the samples
         
     def update(self, z, R):
         samples = self.samples @ self.H.T # Nx2
@@ -130,10 +157,18 @@ class EnsembleKalmanFilter(BaseFilter):
             ])
             self.predict_setup1_2(u=u, dt=dt, Q=Q)
         else: #SetupEnum.SETUP_3
-            u = np.array([
-                data.INS_velocities_with_noise[t_idx, 0],
-                data.IMU_angular_velocity_with_noise[t_idx, 2]
-            ])
+            if self.dimension == 2:
+                u = np.array([
+                    data.INS_velocities_with_noise[t_idx, 0],
+                    data.IMU_angular_velocity_with_noise[t_idx, 2]
+                ])
+            else:
+                u = np.array([
+                    data.INS_velocities_with_noise[t_idx, 0],
+                    data.IMU_angular_velocity_with_noise[t_idx, 0], #wx
+                    data.IMU_angular_velocity_with_noise[t_idx, 2] #wz
+                ])
+                
             self.predict_setup3(u=u, dt=dt, Q=Q)
     
     def _measurement_update_step(self, data, t_idx, R_vo, R_gps, measurement_type):

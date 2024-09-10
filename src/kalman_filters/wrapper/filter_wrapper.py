@@ -27,6 +27,8 @@ class FilterWrapper:
         self.main_filter = main_filter
         self.filter_type = filter_type
         self.omit_gps = omit_gps
+        
+        self.dimension = main_filter.dimension
     
         self.ekf = None
 
@@ -59,10 +61,17 @@ class FilterWrapper:
 
     def _time_update_step(self, data, t_idx, dt, Q):
         vf = self.ekf.get_forward_velocity()
-        u = np.array([
-            data.INS_velocities_with_noise[t_idx, 0],
-            data.IMU_angular_velocity_with_noise[t_idx, 2]
-        ])
+        if self.dimension == 2:
+            u = np.array([
+                data.INS_velocities_with_noise[t_idx, 0],
+                data.IMU_angular_velocity_with_noise[t_idx, 2]
+            ])
+        else:
+            u = np.array([
+                data.INS_velocities_with_noise[t_idx, 0],
+                data.IMU_angular_velocity_with_noise[t_idx, 0], #wx
+                data.IMU_angular_velocity_with_noise[t_idx, 2] #wz
+            ])
         self.main_filter.predict_setup3(u=u, dt=dt, Q=Q)
         
         self.fv_history.append(vf)
@@ -101,7 +110,8 @@ class FilterWrapper:
             data,
             measurement_type=MeasurementDataEnum.ALL_DATA, 
             debug_mode=False,
-            show_graph=False):
+            show_graph=False
+        ):
 
         filter_name = FilterEnum.get_names()[self.filter_type.value - 1]
         setup_name = SetupEnum.get_name(self.main_filter.setup)
@@ -151,7 +161,7 @@ class FilterWrapper:
                     np.array([self.main_filter.mu_x, self.main_filter.mu_y]))\
             if self.main_filter.H.shape[0] == 2 else\
             get_error_report(
-                data.GPS_measurements_in_meter.T[:3, :len(self.mu_x)], 
+                data.GPS_measurements_in_meter.T[:3, :len(self.main_filter.mu_x)], 
                 np.array([self.main_filter.mu_x, self.main_filter.mu_y, self.main_filter.mu_z])) 
             
         if debug_mode:
@@ -170,13 +180,13 @@ class FilterWrapper:
     def _add_estimate_log(self):
         if self.filter_type is FilterEnum.PF:
             x_hat, _ = self.main_filter.estimate()
-            _x, _y, _z = x_hat
+            _x, _y, _z = x_hat[0], x_hat[1], x_hat[2]
         elif self.filter_type is FilterEnum.EnKF:
             x_hat = self.main_filter.x.copy()
-            _x, _y, _z = x_hat
+            _x, _y, _z = x_hat[0], x_hat[1], x_hat[2]
         else:
             x_hat = self.main_filter.x.copy()
-            _x, _y, _z = x_hat[:, 0]
+            _x, _y, _z = x_hat[0, 0], x_hat[1, 0], x_hat[2, 0]
 
         self.main_filter.mu_x.append(_x)
         self.main_filter.mu_y.append(_y)
@@ -239,8 +249,11 @@ if __name__ == "__main__":
     import os
     from data_loader import CustomDataLoader
     from kalman_filters import (
+        ExtendedKalmanFilter,
         UnscentedKalmanFilter,
-        ParticleFilter, ResamplingAlgorithms
+        ParticleFilter, ResamplingAlgorithms,
+        EnsembleKalmanFilter,
+        CubatureKalmanFilter
     )
 
     # root_path = "../../../"
@@ -254,7 +267,7 @@ if __name__ == "__main__":
     kitti_drive = '0033'
     kitti_data_root_dir = os.path.join(root_path, "data")
     noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
-    dimension=2
+    dimension=3
 
     data = CustomDataLoader(
         sequence_nr=kitti_drive, 
@@ -268,40 +281,40 @@ if __name__ == "__main__":
     
     debug_mode=True
     
-    x, P, H, q, r_vo, r_gps = data.get_initial_data(
-        setup=SetupEnum.SETUP_3, 
-        filter_type=FilterEnum.PF,
-        noise_type=NoiseTypeEnum.CURRENT
-    )
+    # x, P, H, q, r_vo, r_gps = data.get_initial_data(
+    #     setup=SetupEnum.SETUP_3, 
+    #     filter_type=FilterEnum.PF,
+    #     noise_type=NoiseTypeEnum.CURRENT
+    # )
 
-    pf = ParticleFilter(
-        N=512, 
-        x_dim=x.shape[0], 
-        H=H.copy(), 
-        q=q,
-        r_vo=r_vo,
-        r_gps=r_gps,
-        setup=SetupEnum.SETUP_3,
-        resampling_algorithm=ResamplingAlgorithms.STRATIFIED
-    )
-    pf.create_gaussian_particles(mean=x.copy(), var=P.copy())
-    f = FilterWrapper(
-        main_filter=pf,
-        filter_type=FilterEnum.PF,
-        omit_gps=False
-    )
-    f.run(
-        data=data, 
-        debug_mode=True, 
-        show_graph=True,
-        measurement_type=MeasurementDataEnum.DROPOUT
-    )
-    f.visualize_trajectory(
-        data=data, 
-        dimension=dimension, 
-        interval=5, 
-        title="PF Setup3 trajectories"
-    )
+    # pf = ParticleFilter(
+    #     N=512, 
+    #     x_dim=x.shape[0], 
+    #     H=H.copy(), 
+    #     q=q,
+    #     r_vo=r_vo,
+    #     r_gps=r_gps,
+    #     setup=SetupEnum.SETUP_3,
+    #     resampling_algorithm=ResamplingAlgorithms.STRATIFIED
+    # )
+    # pf.create_gaussian_particles(mean=x.copy(), var=P.copy())
+    # f = FilterWrapper(
+    #     main_filter=pf,
+    #     filter_type=FilterEnum.PF,
+    #     omit_gps=False
+    # )
+    # f.run(
+    #     data=data, 
+    #     debug_mode=True, 
+    #     show_graph=True,
+    #     measurement_type=MeasurementDataEnum.DROPOUT
+    # )
+    # f.visualize_trajectory(
+    #     data=data, 
+    #     dimension=dimension, 
+    #     interval=5, 
+    #     title="PF Setup3 trajectories"
+    # )
     
     # x, P, H, q, r_vo, r_gps = data.get_initial_data(
     #     setup=SetupEnum.SETUP_3, 
@@ -330,3 +343,91 @@ if __name__ == "__main__":
     #     show_graph=True,
     #     measurement_type=MeasurementDataEnum.DROPOUT
     # )
+    
+    # x, P, H, q, r_vo, r_gps = data.get_initial_data(
+    #     setup=SetupEnum.SETUP_3, 
+    #     filter_type=FilterEnum.EKF,
+    #     noise_type=NoiseTypeEnum.CURRENT
+    # )
+
+    # _ekf = ExtendedKalmanFilter(
+    #     x=x.copy(), 
+    #     P=P.copy(), 
+    #     H=H.copy(),
+    #     q=q,
+    #     r_vo=r_vo,
+    #     r_gps=r_gps,
+    #     setup=SetupEnum.SETUP_3
+    # )
+    # ekf_wrapper = FilterWrapper(
+    #     main_filter=_ekf,
+    #     filter_type=FilterEnum.EKF,
+    #     omit_gps=False,
+    # )
+    # error_wrapped_ekf, inference_time_wrapped_ekf = ekf_wrapper.run(
+    #     data=data, 
+    #     debug_mode=True, 
+    #     show_graph=True,
+    #     measurement_type=MeasurementDataEnum.DROPOUT
+    # )
+    
+    x, P, H, q, r_vo, r_gps = data.get_initial_data(
+        setup=SetupEnum.SETUP_3, 
+        filter_type=FilterEnum.EnKF,
+        noise_type=NoiseTypeEnum.CURRENT
+    )
+
+    enkf = EnsembleKalmanFilter(
+        N=64, 
+        x=x.copy(), 
+        P=P.copy(), 
+        H=H.copy(),
+        q=q,
+        r_vo=r_vo,
+        r_gps=r_gps,
+        setup=SetupEnum.SETUP_3
+    )
+    f = FilterWrapper(
+        main_filter=enkf,
+        filter_type=FilterEnum.EnKF,
+        omit_gps=False
+    )
+    f.run(
+        data=data, 
+        debug_mode=True, 
+        show_graph=True,
+        measurement_type=MeasurementDataEnum.DROPOUT
+    )
+    f.visualize_trajectory(
+        data=data, 
+        dimension=dimension, 
+        interval=5, 
+        title="PF Setup3 trajectories"
+    )
+    
+    
+    x, P, H, q, r_vo, r_gps = data.get_initial_data(
+        setup=SetupEnum.SETUP_3, 
+        filter_type=FilterEnum.CKF,
+        noise_type=NoiseTypeEnum.CURRENT
+    )
+    ckf = CubatureKalmanFilter(
+        x=x.copy(), 
+        P=P.copy(), 
+        H=H.copy(), 
+        q=q,
+        r_vo=r_vo,
+        r_gps=r_gps,
+        setup=SetupEnum.SETUP_3
+    )
+    f = FilterWrapper(
+        main_filter=ckf,
+        filter_type=FilterEnum.UKF,
+    )
+    f.run(
+        data=data, 
+        debug_mode=True, 
+        show_graph=True,
+        measurement_type=MeasurementDataEnum.DROPOUT
+    )
+    
