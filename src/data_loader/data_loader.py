@@ -161,6 +161,8 @@ class DataLoader:
     gps_dropout_ratio = None
     vo_indices = []
     gps_indices = []
+    
+    pose = []
 
     noise_vector_dir = None
 
@@ -242,6 +244,8 @@ class DataLoader:
         vo = np.load(self.config['vo_path'])
         gt = np.load(self.config['gt_path'])
         self.N_original = gt.shape[1]
+        
+        pose = []
         for index, oxts_data in enumerate(self.dataset.oxts):
             if index < self.N_original:
                 packet = oxts_data.packet
@@ -268,6 +272,7 @@ class DataLoader:
                     packet.vl,
                     packet.vu
                 ])
+                pose.append(oxts_data.T_w_imu)
             
         
         self.GPS_measurements_in_meter_original = self.transform_gps_data_into_imu_coord(np.array(gt).T)
@@ -287,6 +292,8 @@ class DataLoader:
         timestamps = np.array(self.dataset.timestamps[:self.N_original])
         elapsed = np.array(timestamps) - timestamps[0]
         self.ts_original = [t.total_seconds() for t in elapsed] # dt
+        
+        self.pose = np.array(pose)
 
     def transform_imu_into_gps(self, data):
         if self.debug_mode:
@@ -336,7 +343,8 @@ class DataLoader:
         print(f'INS angle: {self.INS_angles.shape}')
         print(f'INS velocity: {self.INS_velocities.shape}')
 
-    def get_quaternion_from_euler_angle(self, angle):
+    @staticmethod
+    def get_quaternion_from_euler_angle(angle):
         roll, pitch, yaw = angle
         cr = np.cos(roll * 0.5)
         sr = np.sin(roll * 0.5)
@@ -351,6 +359,15 @@ class DataLoader:
         z = cr * cp * sy - sr * sp * cy
 
         return np.array([w, x, y, z])
+    
+    @staticmethod
+    def get_euler_angle_from_quaternion(q):
+        w, x, y, z = q
+        roll = np.arctan2(2*(w*x + y*z), 1 - 2*(x**2 + y**2))
+        pitch = -np.pi/2 + 2*np.arctan2(np.sqrt(1 + 2*(w*y - x*z)), np.sqrt(1-2*(w*y - x*z)))
+        yaw = np.arctan2(2*(w*z + x*y), 1-2*(y**2 + z**2))
+        
+        return np.array([roll, pitch, yaw])
 
     def _downsample(self, arr, ratio):
         indices = [int(i) for i in np.linspace(0, len(arr)-1, int(len(arr) * ratio))]
@@ -427,7 +444,7 @@ class DataLoader:
         
         # angular_rate = AngularRate(gyr=self.IMU_angular_velocity_with_noise)
         # self.IMU_quaternion = angular_rate.Q
-        quaternions = [self.get_quaternion_from_euler_angle(angle) for angle in self.INS_angle_with_noise]
+        quaternions = [DataLoader.get_quaternion_from_euler_angle(angle) for angle in self.INS_angle_with_noise]
         self.IMU_quaternion = np.array(quaternions)
         
         self.GPS_measurements_in_meter = gps_measurement_in_meter
@@ -511,7 +528,7 @@ class DataLoader:
 
         # angular_rate = AngularRate(gyr=self.IMU_angular_velocity_with_noise)
         # self.IMU_quaternion = angular_rate.Q
-        quaternions = [self.get_quaternion_from_euler_angle(angle) for angle in self.INS_angle_with_noise]
+        quaternions = [DataLoader.get_quaternion_from_euler_angle(angle) for angle in self.INS_angle_with_noise]
         self.IMU_quaternion = np.array(quaternions)
 
         self.GPS_measurements_in_meter = gps_measurement_in_meter
@@ -632,7 +649,7 @@ class DataLoader:
         self.INS_angle_with_noise_original = self.INS_angles.copy()
         self.INS_angle_with_noise_original += angle_noise
         
-        quaternions = [self.get_quaternion_from_euler_angle(angle) for angle in self.INS_angle_with_noise_original]
+        quaternions = [DataLoader.get_quaternion_from_euler_angle(angle) for angle in self.INS_angle_with_noise_original]
         self.IMU_quaternion_original = np.array(quaternions)
 
         if self.debug_mode:
@@ -740,7 +757,32 @@ class DataLoader:
         '''
         self.VO_noise_std_uncertain = vo_uncertainty_std if vo_uncertainty_std is not None else self.VO_default_noise_std_uncertain
         self.GPS_measurement_noise_std_uncertain = gps_uncertainty_std if gps_uncertainty_std is not None else self.GPS_default_measurement_noise_std_uncertain
-        
+    
+    def get_control_input_by_index(self, index, setup):
+        if setup is SetupEnum.SETUP_1 or setup is SetupEnum.SETUP_2:
+            ax, ay, az = self.IMU_acc_with_noise[index]
+            wx, wy, wz = self.IMU_angular_velocity_with_noise[index]
+            u = np.array([
+                ax,
+                ay,
+                az,
+                wx,
+                wy,
+                wz
+            ])
+        else: #SetupEnum.SETUP_3
+            if self.dimension == 2:
+                u = np.array([
+                    self.INS_velocities_with_noise[index, 0],
+                    self.IMU_angular_velocity_with_noise[index, 2]
+                ])
+            else:
+                u = np.array([
+                    self.INS_velocities_with_noise[index, 0],
+                    self.IMU_angular_velocity_with_noise[index, 0], #wx
+                    self.IMU_angular_velocity_with_noise[index, 2] #wz
+                ])
+        return u
     
     def get_gps_measurement_by_index(
         self, 
@@ -803,6 +845,9 @@ class DataLoader:
             return (vo_data, np.eye(self.dimension) * q)
         
         return (None, None)
+    
+    def get_trajectory_to_compare(self) -> np.ndarray:
+        return self.GPS_measurements_in_meter.T
     
     def _get_noise_vectors(self, setup, filter_type, noise_type):
         noise_type_suffix = NoiseTypeEnum.get_suffix()[noise_type.value - 1]

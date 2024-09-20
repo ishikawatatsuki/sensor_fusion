@@ -220,32 +220,12 @@ class UnscentedKalmanFilter(BaseFilter):
         self.errors.append(np.sqrt(np.sum(residual**2)))
         
     def _time_update_step(self, data, t_idx, dt, Q):
-        if self.setup is SetupEnum.SETUP_1 or self.setup is SetupEnum.SETUP_2:
-            ax, ay, az = data.IMU_acc_with_noise[t_idx]
-            wx, wy, wz = data.IMU_angular_velocity_with_noise[t_idx]
-            u = np.array([
-                ax,
-                ay,
-                az,
-                wx,
-                wy,
-                wz
-            ])
-            self.predict_setup1_2(u=u, dt=dt, Q=Q)
-        else: #SetupEnum.SETUP_3
-            if self.dimension == 2:
-                u = np.array([
-                    data.INS_velocities_with_noise[t_idx, 0],
-                    data.IMU_angular_velocity_with_noise[t_idx, 2]
-                ])
-            else:
-                u = np.array([
-                    data.INS_velocities_with_noise[t_idx, 0],
-                    data.IMU_angular_velocity_with_noise[t_idx, 0], #wx
-                    data.IMU_angular_velocity_with_noise[t_idx, 2] #wz
-                ])
-            
-            self.predict_setup3(u=u, dt=dt, Q=Q)
+        
+        u = data.get_control_input_by_index(index=t_idx, setup=self.setup)
+        predict = self.predict_setup1_2 if self.setup is SetupEnum.SETUP_1 or\
+                                            self.setup is SetupEnum.SETUP_2 else self.predict_setup3
+                                            
+        predict(u=u, dt=dt, Q=Q)
     
     def _measurement_update_step(self, data, t_idx, R_vo, R_gps, measurement_type):
         z_vo, _R_vo = data.get_vo_measurement_by_index(
@@ -304,11 +284,11 @@ class UnscentedKalmanFilter(BaseFilter):
             
         error = \
             get_error_report(
-                    data.GPS_measurements_in_meter.T[:2, :len(mu_x)], 
+                    data.get_trajectory_to_compare()[:2, :len(mu_x)], 
                     np.array([mu_x, mu_y]))\
             if self.H.shape[0] == 2 else\
             get_error_report(
-                data.GPS_measurements_in_meter.T[:3, :len(mu_x)], 
+                data.get_trajectory_to_compare()[:3, :len(mu_x)], 
                 np.array([mu_x, mu_y, mu_z])) 
             
         if debug_mode:
@@ -316,7 +296,7 @@ class UnscentedKalmanFilter(BaseFilter):
 
         if show_graph is True:
             fig, ax1 = plt.subplots(1, 1, figsize=(12, 9))
-            xs, ys, _ = data.GPS_measurements_in_meter.T
+            xs, ys, _ = data.get_trajectory_to_compare()
             ax1.plot(xs, ys, lw=2, label='ground-truth trajectory', color='black')
             xs, ys, _ = data.VO_measurements.T
             ax1.plot(xs, ys, lw=2, label='VO trajectory', color='b')
