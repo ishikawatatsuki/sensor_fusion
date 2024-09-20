@@ -802,8 +802,7 @@ class DataLoader:
         if setup is SetupEnum.SETUP_1:
             return (None, None)
         
-        gps_data = self.GPS_mesurement_in_meter_with_noise[index, :self.dimension]\
-                        .reshape(-1, 1)
+        gps_data = self.GPS_mesurement_in_meter_with_noise[index, :self.dimension].reshape(-1, 1)
                         
         if measurement_type is MeasurementDataEnum.ALL_DATA:
             return (gps_data, None)
@@ -873,6 +872,7 @@ class DataLoader:
         q, r_vo, r_gps = self._get_noise_vectors(setup=setup, filter_type=filter_type, noise_type=noise_type)
 
         if setup is SetupEnum.SETUP_1 or setup is SetupEnum.SETUP_2:
+            # px, py, pz = self.GPS_measurements_in_meter[0, :]
             px, py, pz = self.GPS_measurements_in_meter[0, :]
             q1, q2, q3, q4 = self.IMU_quaternion[0]
             x = np.array([
@@ -889,29 +889,20 @@ class DataLoader:
             ]) # 10x1
             
             P = np.eye(x.shape[0]) * 0.1
-            
-            if self.dimension == 2:
+            # transition matrix from predicted state vector to measurement space
+            H = np.eye(x.shape[0])[:self.dimension, :]
+            if self.dimension == 3:
                 # transition matrix from predicted state vector to measurement space
-                H = np.array([
-                    [1., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-                    [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.]
-                ])
-            else:
-                # transition matrix from predicted state vector to measurement space
-                H = np.array([
-                    [1., 0., 0., 0., 0., 0., 0., 0., 0., 0.],
-                    [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],
-                    [0., 0., 1., 0., 0., 0., 0., 0., 0., 0.]
-                ])
                 r_vo = np.array([1., 1., 10.])
                 r_gps = np.array([0.1, 0.1, 0.1])
 
             return x.copy(), P.copy(), H.copy(), q.copy(), r_vo.copy(), r_gps.copy()
         else:
+            px, py, pz = self.GPS_measurements_in_meter[0, :]
             if self.dimension == 2:
                 x = np.array([
-                    self.GPS_measurements_in_meter[0, 0], #Px
-                    self.GPS_measurements_in_meter[0, 1], #Py
+                    px,
+                    py,
                     self.IMU_outputs[0, 5]
                 ])
                 x = x.reshape(-1, 1)
@@ -923,9 +914,9 @@ class DataLoader:
                 H = np.eye(x.shape[0])[:2, :]
             else:
                 x = np.array([
-                    self.GPS_measurements_in_meter[0, 0], #Px
-                    self.GPS_measurements_in_meter[0, 1], #Py
-                    self.GPS_measurements_in_meter[0, 2], #Pz
+                    px,
+                    py,
+                    pz,
                     self.IMU_outputs[0, 3], #pitch
                     self.IMU_outputs[0, 5], #yaw
                 ])
