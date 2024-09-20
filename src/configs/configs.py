@@ -129,3 +129,19 @@ class SamplingEnum(Enum):
 class Configs:
     decimal_place = 3
     processing_time_decimal_place = 5
+    
+class IMU_Type(Enum):
+    OXTS = "oxts"
+    IMU0 = "icm_42688_p"
+    IMU1 = "icm_20948"
+    IMU2 = "icm_20602"
+    IMU3 = "icm_42688"
+    
+    @staticmethod
+    def is_voxl(type: str):
+        return type in [IMU_Type.IMU0.value, IMU_Type.IMU1.value]
+    
+    @staticmethod
+    def is_px4(type: str):
+        return type in [IMU_Type.IMU2.value, IMU_Type.IMU3.value]
+    
