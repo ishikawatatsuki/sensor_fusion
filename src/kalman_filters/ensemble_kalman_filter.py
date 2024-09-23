@@ -262,18 +262,18 @@ if __name__ == "__main__":
     import os
     from data_loader import DataLoader
 
-    # root_path = "../../"
-    # kitti_drive = 'example'
-    # kitti_data_root_dir = os.path.join(root_path, "example_data")
-    # noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
-    # dimension=2
-    
-    # Undo comment out this to change example data to entire sequence data
     root_path = "../../"
-    kitti_drive = '0033'
-    kitti_data_root_dir = os.path.join(root_path, "data")
+    kitti_drive = 'example'
+    kitti_data_root_dir = os.path.join(root_path, "example_data")
     noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
     dimension=2
+    
+    # Undo comment out this to change example data to entire sequence data
+    # root_path = "../../"
+    # kitti_drive = '0033'
+    # kitti_data_root_dir = os.path.join(root_path, "data")
+    # noise_vector_dir = os.path.join(root_path, "exports/_noise_optimizations/noise_vectors")
+    # dimension=2
 
     data = DataLoader(
         sequence_nr=kitti_drive, 
@@ -284,7 +284,7 @@ if __name__ == "__main__":
         dimension=dimension)
 
     filter_type=FilterEnum.EnKF
-    noise_type=NoiseTypeEnum.CURRENT
+    noise_type=NoiseTypeEnum.DEFAULT
     
     x_setup1, P_setup1, H_setup1, q1, r_vo1, r_gps1 = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=filter_type, noise_type=noise_type)
     x_setup2, P_setup2, H_setup2, q2, r_vo2, r_gps2 = data.get_initial_data(setup=SetupEnum.SETUP_2, filter_type=filter_type, noise_type=noise_type)

@@ -244,7 +244,7 @@ class DataLoader:
         vo = np.load(self.config['vo_path'])
         gt = np.load(self.config['gt_path'])
         self.N_original = gt.shape[1]
-        
+
         pose = []
         for index, oxts_data in enumerate(self.dataset.oxts):
             if index < self.N_original:
@@ -369,11 +369,12 @@ class DataLoader:
         
         return np.array([roll, pitch, yaw])
 
-    def _downsample(self, arr, ratio):
+    #### NOTE: CHANGE SAMPLING METHODS
+    def _apply_downsampling(self, arr, ratio):
         indices = [int(i) for i in np.linspace(0, len(arr)-1, int(len(arr) * ratio))]
         return np.array(arr[indices])
     
-    def downsample(self, visualize=False):
+    def _downsample(self, visualize=False):
         
         ratio = np.round(1 - self.downsampleing_ratio, 1)
         
@@ -382,27 +383,27 @@ class DataLoader:
         else:
             print(f"Data is sampled and synchronized at {str(int(10 * ratio))}Hz.")
 
-        downsampled_ts = self._downsample(np.array(self.ts_original), ratio).tolist()
-        downsampled_gps = self._downsample(
+        downsampled_ts = self._apply_downsampling(np.array(self.ts_original), ratio).tolist()
+        downsampled_gps = self._apply_downsampling(
             self.GPS_mesurement_in_meter_with_noise_original, ratio)
-        downsampled_vo = self._downsample(
+        downsampled_vo = self._apply_downsampling(
             self.VO_measurements_with_noise_original, 
             ratio)
-        downsampled_ins_velocity = self._downsample(
+        downsampled_ins_velocity = self._apply_downsampling(
             self.INS_velocities_with_noise_original, 
             ratio)
-        downsampled_ins_angle = self._downsample(
+        downsampled_ins_angle = self._apply_downsampling(
             self.INS_angle_with_noise_original,
             ratio)
-        downsampled_imu_angular_velocity = self._downsample(
+        downsampled_imu_angular_velocity = self._apply_downsampling(
             self.IMU_angular_velocity_with_noise_original, 
             ratio)
-        downsampled_imu_acceleration = self._downsample(
+        downsampled_imu_acceleration = self._apply_downsampling(
             self.IMU_acc_with_noise_original, 
             ratio)
 
-        gps_measurement_in_meter = self._downsample(self.GPS_measurements_in_meter_original, ratio)
-        vo_measurement = self._downsample(self.VO_measurements_original, ratio)
+        gps_measurement_in_meter = self._apply_downsampling(self.GPS_measurements_in_meter_original, ratio)
+        vo_measurement = self._apply_downsampling(self.VO_measurements_original, ratio)
 
         if visualize:
             fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
@@ -450,7 +451,7 @@ class DataLoader:
         self.GPS_measurements_in_meter = gps_measurement_in_meter
         self.VO_measurements = vo_measurement
         
-    def _upsample(self, a, factor=10):
+    def _apply_upsampling(self, a, factor=10):
         b = np.empty((0, a.shape[1]))
         for i in range(0, len(a)-1):
             b = np.concatenate([b, np.linspace(a[i], a[i+1], factor+1)[:factor]], axis=0)
@@ -458,33 +459,33 @@ class DataLoader:
         b = np.concatenate([b, a[len(a)-1].reshape(1, -1)], axis=0)
         return b
 
-    def upsample(self, visualize=False):
+    def _upsample(self, visualize=False):
 
         print(f"Data is sampled and synchronized at {str(int(10 * self.upsampling_factor))}Hz")
-        upsampled_ts = self._upsample(np.array(self.ts_original).reshape(-1, 1), factor=self.upsampling_factor).reshape(-1).tolist()
-        upsampled_gps = self._upsample(
+        upsampled_ts = self._apply_upsampling(np.array(self.ts_original).reshape(-1, 1), factor=self.upsampling_factor).reshape(-1).tolist()
+        upsampled_gps = self._apply_upsampling(
             self.GPS_mesurement_in_meter_with_noise_original,
             factor=self.upsampling_factor)
-        upsampled_vo = self._upsample(
+        upsampled_vo = self._apply_upsampling(
             self.VO_measurements_with_noise_original,
             factor=self.upsampling_factor)
-        upsampled_ins_velocity = self._upsample(
+        upsampled_ins_velocity = self._apply_upsampling(
             self.INS_velocities_with_noise_original,
             factor=self.upsampling_factor)
-        upsampled_ins_angule = self._upsample(
+        upsampled_ins_angule = self._apply_upsampling(
             self.INS_angle_with_noise_original,
             factor=self.upsampling_factor)
-        upsampled_imu_angular_velocity = self._upsample(
+        upsampled_imu_angular_velocity = self._apply_upsampling(
             self.IMU_angular_velocity_with_noise_original, 
             factor=self.upsampling_factor)
-        upsampled_imu_acceleration = self._upsample(
+        upsampled_imu_acceleration = self._apply_upsampling(
             self.IMU_acc_with_noise_original, 
             factor=self.upsampling_factor)
         
-        gps_measurement_in_meter = self._upsample(
+        gps_measurement_in_meter = self._apply_upsampling(
             self.GPS_measurements_in_meter_original, 
             factor=self.upsampling_factor)
-        vo_measurement = self._upsample(
+        vo_measurement = self._apply_upsampling(
             self.VO_measurements_original, 
             factor=self.upsampling_factor)
 
@@ -542,44 +543,35 @@ class DataLoader:
         assert 0 <= ratio and ratio < 1, "Ratio must be less than or equal to 1."
         self.downsampleing_ratio = ratio
 
+    def _set_default_data(self):
+        self.N = self.N_original
+        self.ts = self.ts_original
+        self.GPS_mesurement_in_meter_with_noise = self.GPS_mesurement_in_meter_with_noise_original
+        self.VO_measurements_with_noise = self.VO_measurements_with_noise_original
+        self.IMU_acc_with_noise = self.IMU_acc_with_noise_original
+        self.IMU_angular_velocity_with_noise = self.IMU_angular_velocity_with_noise_original
+        self.INS_velocities_with_noise = self.INS_velocities_with_noise_original
+        self.IMU_quaternion = self.IMU_quaternion_original
+
+        self.GPS_measurements_in_meter = self.GPS_measurements_in_meter_original
+        self.VO_measurements = self.VO_measurements_original
+    
     def set_data_sampling(self, sampling=SamplingEnum.DEFAULT_DATA):
         match sampling:
             case SamplingEnum.DEFAULT_DATA:
-                self.N = self.N_original
-                self.ts = self.ts_original
-                self.GPS_mesurement_in_meter_with_noise = self.GPS_mesurement_in_meter_with_noise_original
-                self.VO_measurements_with_noise = self.VO_measurements_with_noise_original
-                self.IMU_acc_with_noise = self.IMU_acc_with_noise_original
-                self.IMU_angular_velocity_with_noise = self.IMU_angular_velocity_with_noise_original
-                self.INS_velocities_with_noise = self.INS_velocities_with_noise_original
-                self.IMU_quaternion = self.IMU_quaternion_original
-
-                self.GPS_measurements_in_meter = self.GPS_measurements_in_meter_original
-                self.VO_measurements = self.VO_measurements_original
-                
+                self._set_default_data()
                 print("Data sampling is set to normal mode.")
             case SamplingEnum.DOWNSAMPLED_DATA:
-                self.downsample()
+                self._downsample()
 
                 print("Data sampling is set to downsampling mode.")
             case SamplingEnum.UPSAMPLED_DATA:
-                self.upsample()
+                self._upsample()
 
                 print("Data sampling is set to upsampling mode.")
             
             case _: #SamplingEnum.DEFAULT_DATA
-                self.N = self.N_original
-                self.ts = self.ts_original
-                self.GPS_mesurement_in_meter_with_noise = self.GPS_mesurement_in_meter_with_noise_original
-                self.VO_measurements_with_noise = self.VO_measurements_with_noise_original
-                self.IMU_acc_with_noise = self.IMU_acc_with_noise_original
-                self.IMU_angular_velocity_with_noise = self.IMU_angular_velocity_with_noise_original
-                self.INS_velocities_with_noise = self.INS_velocities_with_noise_original
-                self.IMU_quaternion = self.IMU_quaternion_original
-                
-                self.GPS_measurements_in_meter = self.GPS_measurements_in_meter_original
-                self.VO_measurements = self.VO_measurements_original
-
+                self._set_default_data()
                 print("Data sampling is set to normal mode.")
 
         self.current_sampling = sampling
@@ -872,7 +864,6 @@ class DataLoader:
         q, r_vo, r_gps = self._get_noise_vectors(setup=setup, filter_type=filter_type, noise_type=noise_type)
 
         if setup is SetupEnum.SETUP_1 or setup is SetupEnum.SETUP_2:
-            # px, py, pz = self.GPS_measurements_in_meter[0, :]
             px, py, pz = self.GPS_measurements_in_meter[0, :]
             q1, q2, q3, q4 = self.IMU_quaternion[0]
             x = np.array([
@@ -997,7 +988,7 @@ if __name__ == "__main__":
         visualize_data=True,
         dimension=2)
     
-    # data.set_data_sampling(sampling=SamplingEnum.UPSAMPLED_DATA)
+    data.set_data_sampling(sampling=SamplingEnum.UPSAMPLED_DATA)
     data.set_data_sampling(sampling=SamplingEnum.DOWNSAMPLED_DATA)
     x, P, H, q, r_vo, r_gps = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=FilterEnum.EKF)
     

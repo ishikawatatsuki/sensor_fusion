@@ -377,14 +377,14 @@ if __name__ == "__main__":
     )
     
     filter_type=FilterEnum.PF
-    noise_type=NoiseTypeEnum.CURRENT
+    noise_type=NoiseTypeEnum.OPTIMIZED
     
     x_setup1, P_setup1, H_setup1, q1, r_vo1, r_gps1 = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=filter_type, noise_type=noise_type)
     x_setup2, P_setup2, H_setup2, q2, r_vo2, r_gps2 = data.get_initial_data(setup=SetupEnum.SETUP_2, filter_type=filter_type, noise_type=noise_type)
     x_setup3, P_setup3, H_setup3, q3, r_vo3, r_gps3 = data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=filter_type, noise_type=noise_type)
 
     n_samples_setup1_0 = 512
-    resampling_algorithm_setup1_0 = ResamplingAlgorithms.STRATIFIED
+    resampling_algorithm_setup1_0 = ResamplingAlgorithms.RESIDUAL
     n_samples_setup2_0 = 512
     resampling_algorithm_setup2_0 = ResamplingAlgorithms.MULTINOMIAL
     n_samples_setup3_0 = 64
@@ -394,7 +394,7 @@ if __name__ == "__main__":
     importance_resampling = True
     debug_mode=True
     interval=5
-
+    
     pf1_0 = ParticleFilter(N=n_samples_setup1_0, 
                             x_dim=x_setup1.shape[0], 
                             H=H_setup1.copy(), 
