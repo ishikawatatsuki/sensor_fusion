@@ -1,5 +1,4 @@
 from enum import Enum
-
 class MeasurementDataEnum(Enum):
     """
         MeasurementDataEnum determines how to feed sensor data to a filter in measurement update step of a filtering process.
@@ -98,7 +97,6 @@ suffix = {
     NoiseTypeEnum.CURRENT: "_current",
     NoiseTypeEnum.OPTIMIZED: "_optimized"
 }
-
 class ErrorEnum(Enum):
     """
         ErrorEnum specifies an error metric.
@@ -129,6 +127,7 @@ class SamplingEnum(Enum):
 class Configs:
     decimal_place = 3
     processing_time_decimal_place = 5
+    declination_angle = 9.98 # magnetic declination angle in Estonia represented in degree
     
 class IMU_Type(Enum):
     OXTS = "oxts"
@@ -144,4 +143,32 @@ class IMU_Type(Enum):
     @staticmethod
     def is_px4(type: str):
         return type in [IMU_Type.IMU2.value, IMU_Type.IMU3.value]
+
+class CoordinateSystemEnum(Enum):
+    ENU = "ENU"
+    NED = "NED"
+
+class SensorType(Enum):
+    
+    VOXL_IMU0 = "voxl_imu0"
+    VOXL_IMU1 = "voxl_imu1"
+    VOXL_QVIO = "voxl_qvio"
+    VOXL_STEREO = "voxl_stereo"
+    
+    PX4_IMU0 = "px4_imu0"
+    PX4_IMU1 = "px4_imu1"
+    PX4_GPS = "px4_gps"
+    PX4_IMU0_BIAS = "px4_imu0_bias"
+    PX4_IMU1_BIAS = "px4_imu1_bias"
+    PX4_MAG = "px4_mag"
+    PX4_VO = "px4_vo"
+    PX4_VEHICLE_ODOM = "px4_vehicle_odom"
+    PX4_ACTUATOR_MOTORS = "px4_actuator_motors"
+    PX4_ACTUATOR_OUTPUTS = "px4_actuator_outputs"
+
+class DatasetType(Enum):
+    
+    KITTI = "KITTI"
+    CUSTOM_UAV = "CUSTOM_UAV"
+    # EUROC_MAV = "EUROC_MAV"
     

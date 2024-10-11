@@ -1,17 +1,21 @@
 oxts:
   gyroscope:
-    bias:  # dps/sqrt(Hz)
+    noise:  # dps/sqrt(Hz)
   accelerometer:
-    bias: # g/sqrt(Hz)
+    noise: # g/sqrt(Hz)
 icm_42688_p:
   gyroscope:
-    bias: 0.0028 # dps/sqrt(Hz)
+    noise: 0.0028 # 2.8 mdps/√Hz
+    drift: # slope of drifted angles
+      - -1.3801807704944905e-05
+      - -7.475486656293114e-06
+      - 4.370655118959254e-06
     offset: 
       - 0.014050065539777279 
       - 0.0064830784685909748
       - -0.00048456306103616953
   accelerometer:
-    bias: 0.00007 # g/sqrt(Hz)
+    noise: 0.00007 # 70 µg/√Hz
     offset:
       - -0.02550126425921917
       - -0.064352676272392273
@@ -20,15 +24,19 @@ icm_42688_p:
       - 1.0020710229873657
       - 1.00100314617157
       - 0.99844717979431152
+    drift: # slope of drifted linear velocity
+      - -7.136316764312107e-05
+      - 4.1358806913765575e-05
+      - -0.009682796338814185
 icm_20948:
   gyroscope:
-    bias: 0.015 # dps/sqrt(Hz)
+    noise: 0.015 # dps/sqrt(Hz)
     offset:
       - 0.0017129974439740181
       - -0.0185990184545517
       - 0.0029008034616708755
   accelerometer:
-    bias: 0.00023 # g/sqrt(Hz)
+    noise: 0.00023 # g/sqrt(Hz)
     offset:
       - -0.10173489153385162
       - -0.18611966073513031
@@ -39,13 +47,13 @@ icm_20948:
       - 1.0025405883789062
 icm_20602:
   gyroscope:
-    bias: 0.004 # dps/sqrt(Hz)
+    noise: 0.004 # dps/sqrt(Hz)
     offset:
       - 0.
       - 0.
       - 0.
   accelerometer:
-    bias: 0.0001 # g/sqrt(Hz)
+    noise: 0.0001 # g/sqrt(Hz)
     offset:
       - 0.
       - 0.
@@ -56,13 +64,13 @@ icm_20602:
       - 1.
 icm_42688:
   gyroscope:
-    bias: 0.004 # dps/sqrt(Hz)
+    noise: 0.004 # dps/sqrt(Hz)
     offset:
       - 0.
       - 0.
       - 0.
   accelerometer:
-    bias: 0.0001 # g/sqrt(Hz)
+    noise: 0.0001 # g/sqrt(Hz)
     offset:
       - 0.
       - 0.

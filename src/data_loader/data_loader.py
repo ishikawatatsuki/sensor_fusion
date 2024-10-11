@@ -689,8 +689,8 @@ class DataLoader:
         
         for idx in range(1, 4):  
             i = idx - 1
-            ax[i].plot(self.ts, self.IMU_outputs[:, idx-1:idx], lw=1, label='ground-truth')
-            ax[i].plot(self.ts, self.IMU_acc_with_noise[:, idx-1:idx], lw=0, marker='.', alpha=0.4, label='observed')
+            ax[i].plot(self.ts, self.IMU_outputs[:, idx-1:idx], lw=1, label='ground-truth', color='black')
+            ax[i].plot(self.ts, self.IMU_acc_with_noise[:, idx-1:idx], lw=1, alpha=0.4, label='observed', color='blue')
             ax[i].set_xlabel('time elapsed [sec]')
             ax[i].set_ylabel(acc_y_labels[i])
             ax[i].legend()
@@ -702,8 +702,8 @@ class DataLoader:
         
         for idx in range(3):  
             i = idx + 4
-            ax[idx].plot(self.ts, self.IMU_outputs[:, i-1:i], lw=1, label='ground-truth')
-            ax[idx].plot(self.ts, self.IMU_angular_velocity_with_noise[:, idx:idx+1], lw=0, marker='.', alpha=0.4, label='observed')
+            ax[idx].plot(self.ts, self.IMU_outputs[:, i-1:i], lw=1, label='ground-truth', color='black')
+            ax[idx].plot(self.ts, self.IMU_angular_velocity_with_noise[:, idx:idx+1], lw=1, alpha=0.4, label='observed', color='blue')
             ax[idx].set_xlabel('time elapsed [sec]')
             ax[idx].set_ylabel(angualr_vel_y_labels[idx])
             ax[idx].legend()
@@ -715,8 +715,8 @@ class DataLoader:
         
         for idx in range(1, 4):  
             i = idx - 1
-            ax[i].plot(self.ts, self.INS_velocities[:, idx-1:idx], lw=1, label='ground-truth')
-            ax[i].plot(self.ts, self.INS_velocities_with_noise[:, idx-1:idx], lw=0, marker='.', alpha=0.4, label='observed')
+            ax[i].plot(self.ts, self.INS_velocities[:, idx-1:idx], lw=1, label='ground-truth', color='black')
+            ax[i].plot(self.ts, self.INS_velocities_with_noise[:, idx-1:idx], lw=1, alpha=0.4, label='observed', color='blue')
             ax[i].set_xlabel('time elapsed [sec]')
             ax[i].set_ylabel(linear_velocity_y_labels[i])
             ax[i].legend()

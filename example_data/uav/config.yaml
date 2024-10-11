@@ -14,6 +14,6 @@ sensor_data:
       actuator_outputs: 09_00_22_actuator_outputs_1.csv
     custom:
       timestamp: timestamp_combined_example.csv
-      synched: log0001_sync.csv
+      synced: log0001_sync.csv
       vo: 
       uwb: 
