@@ -144,32 +144,11 @@ class EnsembleKalmanFilter(BaseFilter):
         self.x = np.mean(self.samples, axis=0)
         
     def _time_update_step(self, data, t_idx, dt, Q):
-        if self.setup is SetupEnum.SETUP_1 or self.setup is SetupEnum.SETUP_2:
-            ax, ay, az = data.IMU_acc_with_noise[t_idx]
-            wx, wy, wz = data.IMU_angular_velocity_with_noise[t_idx]
-            u = np.array([
-                ax,
-                ay,
-                az,
-                wx,
-                wy,
-                wz
-            ])
-            self.predict_setup1_2(u=u, dt=dt, Q=Q)
-        else: #SetupEnum.SETUP_3
-            if self.dimension == 2:
-                u = np.array([
-                    data.INS_velocities_with_noise[t_idx, 0],
-                    data.IMU_angular_velocity_with_noise[t_idx, 2]
-                ])
-            else:
-                u = np.array([
-                    data.INS_velocities_with_noise[t_idx, 0],
-                    data.IMU_angular_velocity_with_noise[t_idx, 0], #wx
-                    data.IMU_angular_velocity_with_noise[t_idx, 2] #wz
-                ])
-                
-            self.predict_setup3(u=u, dt=dt, Q=Q)
+        u = data.get_control_input_by_index(index=t_idx, setup=self.setup)
+        predict = self.predict_setup1_2 if self.setup is SetupEnum.SETUP_1 or\
+                                                self.setup is SetupEnum.SETUP_2 else self.predict_setup3
+        
+        predict(u=u, dt=dt, Q=Q)
     
     def _measurement_update_step(self, data, t_idx, R_vo, R_gps, measurement_type):
         z_vo, _R_vo = data.get_vo_measurement_by_index(
@@ -248,11 +227,11 @@ class EnsembleKalmanFilter(BaseFilter):
             
         error = \
             get_error_report(
-                    data.GPS_measurements_in_meter.T[:2, :len(mu_x)], 
+                    data.get_trajectory_to_compare()[:2, :len(mu_x)], 
                     np.array([mu_x, mu_y]))\
             if self.H.shape[0] == 2 else\
             get_error_report(
-                data.GPS_measurements_in_meter.T[:3, :len(mu_x)], 
+                data.get_trajectory_to_compare()[:3, :len(mu_x)], 
                 np.array([mu_x, mu_y, mu_z])) 
 
         if debug_mode is True:
@@ -305,7 +284,7 @@ if __name__ == "__main__":
         dimension=dimension)
 
     filter_type=FilterEnum.EnKF
-    noise_type=NoiseTypeEnum.CURRENT
+    noise_type=NoiseTypeEnum.DEFAULT
     
     x_setup1, P_setup1, H_setup1, q1, r_vo1, r_gps1 = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=filter_type, noise_type=noise_type)
     x_setup2, P_setup2, H_setup2, q2, r_vo2, r_gps2 = data.get_initial_data(setup=SetupEnum.SETUP_2, filter_type=filter_type, noise_type=noise_type)

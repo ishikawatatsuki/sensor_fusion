@@ -10,7 +10,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from utils.time_reporter import time_measurer
 from utils.error_report import get_error_report, print_error_report
-from configs import MeasurementDataEnum, SetupEnum, FilterEnum, NoiseTypeEnum
+from configs import MeasurementDataEnum, SetupEnum, FilterEnum, NoiseTypeEnum, DatasetType
 
 if __name__ == "__main__":
     from base_filter import BaseFilter
@@ -37,6 +37,7 @@ class ExtendedKalmanFilter(BaseFilter):
         r_vo, 
         r_gps, 
         setup=SetupEnum.SETUP_1,
+        dataset_type=DatasetType.KITTI,
         ):
         """ 
         Args:
@@ -58,6 +59,8 @@ class ExtendedKalmanFilter(BaseFilter):
         self.Q = self.get_diagonal_matrix(q)
         self.R_vo = self.get_diagonal_matrix(r_vo)
         self.R_gps = self.get_diagonal_matrix(r_gps)
+        
+        self.dataset_type = dataset_type
         
     def predict_setup1_2(self, u, dt, Q):
         """estimate x and P based on previous stete of x and control input u
@@ -208,7 +211,9 @@ class ExtendedKalmanFilter(BaseFilter):
             ])
             
             self.P = F @ self.P @ F.T + G @ Q @ G.T
-            
+    
+    def set_observation_matrix(self, H):
+        self.H = H
 
     def update(self, z, R):
         """update x and P based on observation of (x_, y_)
@@ -227,35 +232,16 @@ class ExtendedKalmanFilter(BaseFilter):
         # update covariance P
         self.P = self.P - K @ self.H @ self.P
 
-    def _time_update_step(self, data, t_idx, dt, Q):
-        if self.setup is SetupEnum.SETUP_1 or self.setup is SetupEnum.SETUP_2:
-            ax, ay, az = data.IMU_acc_with_noise[t_idx]
-            wx, wy, wz = data.IMU_angular_velocity_with_noise[t_idx]
-            u = np.array([
-                ax,
-                ay,
-                az,
-                wx,
-                wy,
-                wz
-            ])
-            self.predict_setup1_2(u=u, dt=dt, Q=Q)
-        else: #SetupEnum.SETUP_3
-            if self.dimension == 2:
-                u = np.array([
-                    data.INS_velocities_with_noise[t_idx, 0],
-                    data.IMU_angular_velocity_with_noise[t_idx, 2]
-                ])
-            else:
-                u = np.array([
-                    data.INS_velocities_with_noise[t_idx, 0],
-                    data.IMU_angular_velocity_with_noise[t_idx, 0], #wx
-                    data.IMU_angular_velocity_with_noise[t_idx, 2] #wz
-                ])
-                
-            self.predict_setup3(u=u, dt=dt, Q=Q)    
+    def _time_update_step(self, data, t_idx, dt):
+        u = data.get_control_input_by_index(index=t_idx, setup=self.setup)
+        predict = self.predict_setup1_2 if self.setup is SetupEnum.SETUP_1 or\
+                                                self.setup is SetupEnum.SETUP_2 else self.predict_setup3
+        
+        predict(u=u, dt=dt, Q=self.Q)
 
-    def _measurement_update_step(self, data, t_idx, R_vo, R_gps, measurement_type):
+    def _measurement_update_step(self, data, t_idx, measurement_type):
+        R_vo, R_gps = self.R_vo.copy(), self.R_gps.copy()
+        
         z_vo, _R_vo = data.get_vo_measurement_by_index(
             index=t_idx, 
             measurement_type=measurement_type)
@@ -280,12 +266,6 @@ class ExtendedKalmanFilter(BaseFilter):
             debug_mode=False,
             show_graph=False):
 
-        # measurement noise
-        R_vo = self.R_vo
-        R_gps = self.R_gps
-        # process noise
-        Q = self.Q
-
         mu_x = [self.x[0, 0],]
         mu_y = [self.x[1, 0],]
         mu_z = [self.x[2, 0],]
@@ -299,7 +279,7 @@ class ExtendedKalmanFilter(BaseFilter):
             dt = t - t_last
 
             # prediction step(time update)
-            self._time_update_step(data, t_idx, dt, Q)
+            self._time_update_step(data, t_idx, dt)
             
             
             x_hat = self.x.copy()
@@ -308,17 +288,17 @@ class ExtendedKalmanFilter(BaseFilter):
             mu_z.append(x_hat[2, 0])
             
             # correction step(measurement update)
-            self._measurement_update_step(data, t_idx, R_vo, R_gps, measurement_type)
+            self._measurement_update_step(data, t_idx, measurement_type)
             
             t_last = t
         
         error = \
             get_error_report(
-                    data.GPS_measurements_in_meter.T[:2, :len(mu_x)], 
+                    data.get_trajectory_to_compare()[:2, :len(mu_x)], 
                     np.array([mu_x, mu_y]))\
             if self.H.shape[0] == 2 else\
             get_error_report(
-                data.GPS_measurements_in_meter.T[:3, :len(mu_x)], 
+                data.get_trajectory_to_compare()[:3, :len(mu_x)], 
                 np.array([mu_x, mu_y, mu_z])) 
         
         if debug_mode is True:
@@ -326,7 +306,7 @@ class ExtendedKalmanFilter(BaseFilter):
 
         if show_graph is True:
             fig, ax1 = plt.subplots(1, 1, figsize=(12, 9))
-            xs, ys, _ = data.GPS_measurements_in_meter.T
+            xs, ys, _ = data.get_trajectory_to_compare()
             ax1.plot(xs, ys, lw=2, label='ground-truth trajectory', color='black')
             xs, ys, _ = data.VO_measurements.T
             ax1.plot(xs, ys, lw=2, label='VO trajectory', color='b')
@@ -356,8 +336,6 @@ class InternalExtendedKalmanFilter(ExtendedKalmanFilter):
     Args:
         Arguments are completely same as the EKF.
     """
-
-    
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -397,7 +375,7 @@ class InternalExtendedKalmanFilter(ExtendedKalmanFilter):
                 (z_vo-z_vo_prev) / dt,
             ]) # px, py, pz, vx, vy, vz
             
-            self.update(z=z, R=R_vo*10)
+            self.update(z=z, R=R_vo)
             self.t_last = t
 
     def get_forward_velocity(self):

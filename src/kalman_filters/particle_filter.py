@@ -221,32 +221,11 @@ class ParticleFilter(BaseFilter):
         return not importance_resampling or (importance_resampling and self.calculate_ess() < self.N * self.n_threshold)
     
     def _time_update_step(self, data, t_idx, dt, Q):
-        if self.setup is SetupEnum.SETUP_1 or self.setup is SetupEnum.SETUP_2:
-            ax, ay, az = data.IMU_acc_with_noise[t_idx]
-            wx, wy, wz = data.IMU_angular_velocity_with_noise[t_idx]
-            u = np.array([
-                ax,
-                ay,
-                az,
-                wx,
-                wy,
-                wz
-            ])
-            self.predict_setup1_2(u=u, dt=dt, Q=Q)
-        else: #SetupEnum.SETUP_3
-            if self.dimension == 2:
-                u = np.array([
-                    data.INS_velocities_with_noise[t_idx, 0],
-                    data.IMU_angular_velocity_with_noise[t_idx, 2]
-                ])
-            else:
-                u = np.array([
-                    data.INS_velocities_with_noise[t_idx, 0],
-                    data.IMU_angular_velocity_with_noise[t_idx, 0], #wx
-                    data.IMU_angular_velocity_with_noise[t_idx, 2] #wz
-                ])
-            
-            self.predict_setup3(u=u, dt=dt, Q=Q)
+        u = data.get_control_input_by_index(index=t_idx, setup=self.setup)
+        predict = self.predict_setup1_2 if self.setup is SetupEnum.SETUP_1 or\
+                                                self.setup is SetupEnum.SETUP_2 else self.predict_setup3
+        
+        predict(u=u, dt=dt, Q=Q)
             
     def _measurement_update_step(self, data, t_idx, R_vo, R_gps, measurement_type, importance_resampling):
         z_vo, _R_vo = data.get_vo_measurement_by_index(
@@ -296,9 +275,10 @@ class ParticleFilter(BaseFilter):
         # process noise
         Q = self.Q
 
-        mu_x = [data.VO_measurements[0, 0],]
-        mu_y = [data.VO_measurements[0, 1],]
-        mu_z = [data.VO_measurements[0, 2],]
+        gt = data.get_trajectory_to_compare()
+        mu_x = [gt[0, 0],]
+        mu_y = [gt[1, 0],]
+        mu_z = [gt[2, 0],]
         
         t_last = 0.
 
@@ -337,11 +317,11 @@ class ParticleFilter(BaseFilter):
 
         error = \
             get_error_report(
-                    data.GPS_measurements_in_meter.T[:2, :len(mu_x)], 
+                    gt[:2, :len(mu_x)], 
                     np.array([mu_x, mu_y]))\
             if self.H.shape[0] == 2 else\
             get_error_report(
-                data.GPS_measurements_in_meter.T[:3, :len(mu_x)], 
+                gt[:3, :len(mu_x)], 
                 np.array([mu_x, mu_y, mu_z])) 
         
         if debug_mode is True:
@@ -397,14 +377,14 @@ if __name__ == "__main__":
     )
     
     filter_type=FilterEnum.PF
-    noise_type=NoiseTypeEnum.CURRENT
+    noise_type=NoiseTypeEnum.OPTIMIZED
     
     x_setup1, P_setup1, H_setup1, q1, r_vo1, r_gps1 = data.get_initial_data(setup=SetupEnum.SETUP_1, filter_type=filter_type, noise_type=noise_type)
     x_setup2, P_setup2, H_setup2, q2, r_vo2, r_gps2 = data.get_initial_data(setup=SetupEnum.SETUP_2, filter_type=filter_type, noise_type=noise_type)
     x_setup3, P_setup3, H_setup3, q3, r_vo3, r_gps3 = data.get_initial_data(setup=SetupEnum.SETUP_3, filter_type=filter_type, noise_type=noise_type)
 
     n_samples_setup1_0 = 512
-    resampling_algorithm_setup1_0 = ResamplingAlgorithms.STRATIFIED
+    resampling_algorithm_setup1_0 = ResamplingAlgorithms.RESIDUAL
     n_samples_setup2_0 = 512
     resampling_algorithm_setup2_0 = ResamplingAlgorithms.MULTINOMIAL
     n_samples_setup3_0 = 64
@@ -414,7 +394,7 @@ if __name__ == "__main__":
     importance_resampling = True
     debug_mode=True
     interval=5
-
+    
     pf1_0 = ParticleFilter(N=n_samples_setup1_0, 
                             x_dim=x_setup1.shape[0], 
                             H=H_setup1.copy(), 

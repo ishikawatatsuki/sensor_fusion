@@ -61,17 +61,9 @@ class FilterWrapper:
 
     def _time_update_step(self, data, t_idx, dt, Q):
         vf = self.ekf.get_forward_velocity()
-        if self.dimension == 2:
-            u = np.array([
-                data.INS_velocities_with_noise[t_idx, 0],
-                data.IMU_angular_velocity_with_noise[t_idx, 2]
-            ])
-        else:
-            u = np.array([
-                data.INS_velocities_with_noise[t_idx, 0],
-                data.IMU_angular_velocity_with_noise[t_idx, 0], #wx
-                data.IMU_angular_velocity_with_noise[t_idx, 2] #wz
-            ])
+        u = data.get_control_input_by_index(t_idx, setup=SetupEnum.SETUP_3)
+        u[0] = vf
+
         self.main_filter.predict_setup3(u=u, dt=dt, Q=Q)
         
         self.fv_history.append(vf)

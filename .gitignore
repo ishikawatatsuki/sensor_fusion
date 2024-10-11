@@ -10,7 +10,7 @@ runner
 serial_manager
 experimental_implementations
 _streaming
-playgrounds
+*playgrounds
 src/_test
 .tmp
 *.log
