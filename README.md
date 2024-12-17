@@ -103,8 +103,11 @@ Copy the URL starting with `http://127.0.0.1:8888/lab?token=` and access the URL
 
 ## To test python script individually
 
-To test python script individually, execute the following command to enter the container:
+To test python script individually, run the following commands in root directory:
 ```
-make container_up
+python -m venv venv # This creates new python environment
+source venv/bin/activate # Activate the environment
+pip install -r requirements.txt # Install all the dependencies
 ```
-The command enables you to enter the container and enables bash shell so that you can enter linux command to freely navigate in the repository. To run python scripts under the src directory, simply type `python3 {filename}.py`.
+The aforementioned commands setup an environment to enable you to run the script.
+To run python scripts under the src directory, simply type `python3 {filename}.py`.
