@@ -1,0 +1,156 @@
+mode:
+  log_level: debug
+  log_sensor_data: True
+  save_estimation: True
+  save_output_debug_frames: False
+  sensor_data_output_filepath: ./_debugging/sensor_output_thesis_ckf.txt
+
+visualization:
+  realtime: False
+  output_filepath: ../outputs/KITTI/images/trajectories/test/enkf
+  save_frames: True
+  save_trajectory: True
+  show_vo_trajectory: False
+  show_angle_estimation: True
+  show_end_result: True
+  show_vio_frame: False
+  show_particles: False
+  set_lim_in_plot: True
+  show_innovation_history: False 
+  limits:
+
+dataset:
+  type: kitti
+  mode: stream # NOTE: choose from (stream, live), and live is not implemented yet.
+  root_path: ../data/KITTI
+  variant: "0033" # variant: 0098, 0099 for dropout experiment
+  sensors:
+    # uav
+    voxl_imu0:
+      selected: False
+      dropout_ratio: 0
+      window_size: 1
+    voxl_imu1:
+      selected: False
+      dropout_ratio: 0
+      window_size: 1
+    voxl_qvio_overlay: 
+      selected: False
+      dropout_ratio: 0
+      window_size: 1
+    px4_imu0: 
+      selected: False
+      dropout_ratio: 0
+      window_size: 1
+    px4_imu1: 
+      selected: False
+      dropout_ratio: 0
+      window_size: 1
+    px4_gps: 
+      selected: False
+      dropout_ratio: 0
+      window_size: 1
+    px4_mag: 
+      selected: False
+      dropout_ratio: 0
+      window_size: 1
+    px4_vo: 
+      selected: False
+      dropout_ratio: 0
+      window_size: 1
+    uav_custom_vo:
+      selected: False
+      dropout_ratio: 0
+      window_size: 1
+
+    # kitti
+    oxts_imu:
+      selected: True # select when motion_model is kinematics
+      dropout_ratio: 0
+      window_size: 1
+    oxts_ins: 
+      selected: False # select when motion_model is velocity
+      dropout_ratio: 0
+      window_size: 1
+    oxts_gps: 
+      selected: True
+      dropout_ratio: 0
+      window_size: 1
+    kitti_stereo:
+      selected: False
+      dropout_ratio: 0.4
+      window_size: 1
+    kitti_custom_vo:
+      selected: True
+      dropout_ratio: 0
+      window_size: 1
+    kitti_color_image: # this is nothing to do with filter, but for visualization
+      selected: False
+      dropout_ratio: 0
+      window_size: 1
+
+    kitti_upward_leftward_velocity: # this is used only in experiment
+      selected: False
+      dropout_ratio: 0
+      window_size: 1
+
+report:
+  export_error: True
+  error_output_root_path: ../outputs/KITTI
+  kitti_pose_result_folder: test/enkf/
+  location_only: False 
+
+filter:
+  type: enkf # Select from: ekf, ukf, pf, enkf, ckf
+  dimension: 2
+  motion_model: velocity # kinematics or velocity
+  noise_type: default # default, dynamic, optimal 
+  innovation_masking: False
+  vo_velocity_only_update_when_failure: False
+  params:
+    #ukf
+    alpha: 1.
+    beta: 2.0
+    kappa: 0.0
+    #pf
+    particle_size: 1024
+    resampling_algorithm: stratified # Select from: multinomial, redidual, systematic, stratified
+    scale_for_ess_threshold: 0.5 # from 0. to 1.
+    #enkf
+    ensemble_size: 128
+
+
+visual_odometry:
+  mode:
+    type: stereo # monocular
+    save_traj: True
+    save_poses_kitti_format: True
+    save_output_debug_frames: True
+    output_directory: results/seq_09_with_car_median
+    log_level: debug
+
+  stereo:
+    algorithm: SGBM # BM
+    speckle_window_size: 100
+    median_filter: 3
+    wsl_filter: False
+    dynamic_depth: True
+
+  detector:
+    algorithm: sift # orb, superpoint, AKAZE, SURF
+    no_of_keypoints: max
+    homography: True 
+    error_threshold: 30
+    circular_matching: False
+
+  matcher:
+    algorithm: bf # FLANN
+    ratio_test: 0.45 # set to 0 to disable
+    dynamic_ratio: True
+
+  motion_estimation:
+    algorithm: iterative # Only 3D-2D correspondance currently available
+    depth_limit: 500 #  depth_threshold < depth_limit
+    depth_threshold: 125 # in meters
+    x_correspondence_threshold: 200 # in pixels, set to zero to disable
+    invalidate_cars: False

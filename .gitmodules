@@ -1,0 +1,3 @@
+[submodule "libs/kitti-odom-eval"]
+	path = libs/kitti-odom-eval
+	url = https://github.com/ishikawatatsuki/kitti-odom-eval.git

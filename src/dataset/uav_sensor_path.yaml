@@ -1,0 +1,54 @@
+
+log0001:
+  type: outdoor 
+  px4:
+    imu0_gyro: 09_00_22_sensor_gyro_0.csv
+    imu0_acc: 09_00_22_sensor_accel_0.csv
+    imu1_gyro: 09_00_22_sensor_gyro_1.csv
+    imu1_acc: 09_00_22_sensor_accel_1.csv
+    gps: 09_00_22_sensor_gps_0.csv
+    visual_odometry: 09_00_22_vehicle_visual_odometry_0.csv
+    actuator_motors: 09_00_22_actuator_motors_0.csv
+    actuator_outputs: 09_00_22_actuator_outputs_1.csv
+    mag: 09_00_22_sensor_mag_0.csv
+  voxl:
+    imu0: imu0/data.csv
+    imu1: imu1/data.csv
+    stereo: stereo/data.csv
+    qvio_overlay: qvio_overlay/data.csv
+
+log0002:
+  type: outdoor
+  px4:
+    imu0_gyro: 09_05_06_sensor_gyro_0.csv
+    imu0_acc: 09_05_06_sensor_accel_0.csv
+    imu1_gyro: 09_05_06_sensor_gyro_1.csv
+    imu1_acc: 09_05_06_sensor_accel_1.csv
+    gps: 09_05_06_sensor_gps_0.csv
+    visual_odometry: 09_05_06_vehicle_visual_odometry_0.csv
+    actuator_motors: 09_05_06_actuator_motors_0.csv
+    actuator_outputs: 09_05_06_actuator_outputs_1.csv
+    mag: 09_05_06_sensor_mag_0.csv
+  voxl:
+    imu0: imu0/data.csv
+    imu1: imu1/data.csv
+    stereo: stereo/data.csv
+    qvio_overlay: qvio_overlay/data.csv
+
+log0003:
+  type: indoor
+  px4:
+    imu0_gyro: ""
+    imu0_acc: ""
+    imu1_gyro: ""
+    imu1_acc: ""
+    gps: ""
+    visual_odometry: ""
+    actuator_motors: ""
+    actuator_outputs: ""
+    mag: ""
+  voxl:
+    imu0: imu0/data.csv
+    imu1: imu1/data.csv
+    stereo: stereo/data.csv
+    qvio_overlay: qvio_overlay/data.csv
