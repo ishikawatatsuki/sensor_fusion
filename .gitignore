@@ -11,10 +11,12 @@ _playgrounds
 src/_test
 .tmp
 *.log
+data
+*/.DS_Store
 
 _debugging
 outputs/EuRoC/*
 outputs/KITTI/*
 !outputs/KITTI/errors
 outputs/UAV/*
-visual_odometry
+src/visual_odometry/models

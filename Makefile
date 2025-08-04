@@ -27,21 +27,21 @@ kitti_eval_up:
 	--mount type=bind,source=./run_evaluate_kitti_errors.sh,target=/app/run_evaluate_kitti_errors.sh \
 	-it ${CONTAINER_KITTI_EVAL_TAG}:1.0
 
-# container_up:
-# 	docker run --rm \
-# 	--user root \
-# 	--mount type=bind,source=./src,target=/app/src \
-# 	--mount type=bind,source=./outputs,target=/app/outputs \
-# 	--mount type=bind,source=./data,target=/app/data \
-# 	--volume="/etc/group:/etc/group:ro" \
-# 	--volume="/etc/passwd:/etc/passwd:ro" \
-# 	--volume="/etc/shadow:/etc/shadow:ro" \
-# 	--volume="/etc/sudoers.d:/etc/sudoers.d:ro" \
-# 	--volume="/tmp/.X11-unix:/tmp/.X11-unix" \
-# 	--env="DISPLAY=$(DISPLAY)" \
-# 	--workdir /app/src \
-# 	--name kalman_filter \
-# 	-it ${CONTAINER_TAG}:1.0 bash 
+container_up:
+	docker run --rm \
+	--user root \
+	--mount type=bind,source=./src,target=/app/src \
+	--mount type=bind,source=./outputs,target=/app/outputs \
+	--mount type=bind,source=./data,target=/app/data \
+	--volume="/etc/group:/etc/group:ro" \
+	--volume="/etc/passwd:/etc/passwd:ro" \
+	--volume="/etc/shadow:/etc/shadow:ro" \
+	--volume="/etc/sudoers.d:/etc/sudoers.d:ro" \
+	--volume="/tmp/.X11-unix:/tmp/.X11-unix" \
+	--env="DISPLAY=$(DISPLAY)" \
+	--workdir /app/src \
+	--name kalman_filter \
+	-it ${CONTAINER_TAG}:1.0 bash 
 
 jupyter_up:
 	docker run --rm --user root -p 8888:8888 -v .:/app -it ${CONTAINER_TAG}:1.0 jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --notebook-dir=/app --allow-root
