@@ -1,3 +1,4 @@
+import logging
 import cv2
 import yaml
 import numpy as np
@@ -431,6 +432,8 @@ class VO_Config:
         self.use_advanced_detector = use_advanced_detector
         self.solve_pose_max_iterations = solve_pose_max_iterations
         self.params = params
+
+        logging.debug(f"VO_Config initialized with: {self}")
 
     @classmethod
     def from_json(cls, json_data: dict):

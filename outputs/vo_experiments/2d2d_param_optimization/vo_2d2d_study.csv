@@ -1,0 +1,2 @@
+number,value,datetime_start,datetime_complete,duration,params_detector_matcher,params_essential_matrix_prob,params_essential_matrix_threshold,state
+0,inf,2025-08-05 17:44:01.770977,2025-08-05 17:45:22.844513,0 days 00:01:21.073536,"('BRISK', 'BF')",0.8600000000000001,1.5,COMPLETE

@@ -1,23 +1,27 @@
+import os
+import sys
 import cv2
 import logging
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass
 from enum import Enum
-from depth_estimator import DepthEstimator
-from object_detection import DynamicObjectDetector
 from einops import rearrange
+from sklearn.metrics import mean_absolute_error
 
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+from src.visual_odometry.depth_estimator import DepthEstimator
+from src.visual_odometry.object_detection import DynamicObjectDetector
+from src.visual_odometry.vo_utils import DetectorType, MatcherType, RANSAC_FlagType, draw_reprojection, print_reprojection_error
 
 from src.common.constants import KITTI_SEQUENCE_MAPS
 from src.common.config import VO_Config
 from src.internal.extended_common.extended_config import DatasetConfig
 from src.common.datatypes import ImageData
 
-from vo_utils import draw_reprojection, print_reprojection_error
 
 class EstimatorType(Enum):
     EpipolarGeometryBased = '2d2d'
@@ -54,24 +58,29 @@ class VisualOdometry:
             dataset_config: DatasetConfig,
             debug: bool = False
             ):
+        
         self.config = config
         self.min_depth_threshold = config.params.get('min_depth_threshold', 1)
         self.max_depth_threshold = config.params.get('max_depth_threshold', 50)
+        self.ransac_reproj_threshold = config.params.get('ransac_reproj_threshold', 1.0)
+        self.confidence = config.params.get('confidence', 0.999)
+        self.reprojection_error = config.params.get('reprojection_error', 4.0)
+        self.itterations_count = config.params.get('itterations_count', 100)
+        self.flag = RANSAC_FlagType.from_string(config.params.get('flag', 'SOLVEPNP_ITERATIVE'))
+
+
         self.dataset_config = dataset_config
         self.motion_estimator = EstimatorType.from_string(config.estimator)
-        self.object_detector = DynamicObjectDetector(model_path="yolo11n-seg.pt", dynamic_classes=["person", "car", "bicycle", "motorbike", "bus", "truck"], conf=0.6)
+        self.object_detector = DynamicObjectDetector(model_path="/Volumes/Data_EXT/data/workspaces/sensor_fusion/src/visual_odometry/yolo11n-seg.pt", dynamic_classes=["person", "car", "bicycle", "motorbike", "bus", "truck"], conf=0.6)
 
     
         self.advanced_detector = config.use_advanced_detector
         if self.advanced_detector:
+            self.detector = DetectorType.create_detector_from_str(config.feature_detector)
+            self.matcher = MatcherType.create_matcher_from_str(config.feature_matcher)
 
-            # Create SIFT detector
-            self.detector = cv2.SIFT().create(nfeatures=1000, sigma=1.6)
+            print(f"Using advanced detector: {self.detector} and matcher: {self.matcher}")
 
-            # FLANN matcher
-            index_params = dict(algorithm=1, trees=5)  # FLANN_INDEX_KDTREE = 1
-            search_params = dict(checks=50)
-            self.matcher = cv2.FlannBasedMatcher(index_params, search_params)
 
         if self.motion_estimator == EstimatorType.PnP:
             self.depth_estimator = DepthEstimator(config=config)
@@ -134,7 +143,7 @@ class VisualOdometry:
 
     def _estimate_2d2d_pose(self, prev_pts: np.ndarray, next_pts: np.ndarray) -> np.ndarray:
 
-        E, mask = cv2.findEssentialMat(next_pts, prev_pts, self.K, method=cv2.RANSAC, prob=0.999, threshold=1.0)
+        E, mask = cv2.findEssentialMat(next_pts, prev_pts, self.K, method=cv2.RANSAC, prob=self.confidence, threshold=self.ransac_reproj_threshold)
         if E is None:
             logging.debug("Essential matrix estimation failed.")
             return None
@@ -185,11 +194,11 @@ class VisualOdometry:
         try:
             for _ in range(self.config.solve_pose_max_iterations):
                 success, rvec, tvec, inliers = cv2.solvePnPRansac(
-                    pts3d, pts2d, self.K, None,
-                    reprojectionError=4.0,
-                    confidence=0.999,
-                    iterationsCount=100,
-                    flags=cv2.SOLVEPNP_ITERATIVE
+                    pts3d, next_pts, self.K, None,
+                    reprojectionError=self.reprojection_error,
+                    confidence=self.confidence,
+                    iterationsCount=self.itterations_count,
+                    flags=self.flag.value,
                 )
 
                 logging.debug(f"rvec: {rvec.shape}, tvec: {tvec.shape} sucess: {success}")
@@ -197,7 +206,7 @@ class VisualOdometry:
                     break
 
                 pts3d = pts3d[inliers.flatten()]
-                pts2d = pts2d[inliers.flatten()]
+                next_pts = next_pts[inliers.flatten()]
                 prev_inliers = inliers
 
                 logging.debug(f"Inliers: {len(inliers) if inliers is not None else 0}")
@@ -338,19 +347,24 @@ if __name__ == "__main__":
             
     config = VO_Config(
         type='monocular',
-        estimator='2d2d',
+        estimator='2d3d',
         camera_id='left',
         depth_estimator='zoe_depth',
-        use_advanced_detector=True,
+        use_advanced_detector=False,
+        feature_detector='ORB',
+        feature_matcher='BF',
         params={
             'max_features': 1000,
-            'ransac_reproj_threshold': 1.0,
-            'confidence': 0.999,
-            'min_inliers': 50
+            'confidence': 0.99,
+            'min_depth_threshold': 1.0,
+            'max_depth_threshold': 50.0,
+            'reprojection_error': 4.0,
+            'itterations_count': 100,
+            'flag': 'SOLVEPNP_ITERATIVE'
         }
     )
 
-    vo = VisualOdometry(config=config, dataset_config=dataset_config, debug=True)
+    vo = VisualOdometry(config=config, dataset_config=dataset_config, debug=False)
     logging.debug("Visual Odometry initialized.")
 
     image_root_path = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/KITTI"
@@ -374,28 +388,30 @@ if __name__ == "__main__":
     # time.sleep(0.1)  # Simulate a delay between frames
     # vo.compute_pose(ImageData(image=frame2, timestamp=time.time()))
 
+    ground_truth_position = []
+    estimated_position = []
     estimated_pose = []
-    current_pose = np.eye(4)  # Initialize with identity matrix
-
-    pos = []
-
+    current_pose = np.eye(4)
+    current_pose[:3, 3] = gt_pos[0]
 
     max_points = 200
-    vis = VO_Visualizer()
-    vis.start()
+    if vo.is_debugging:
+        vis = VO_Visualizer()
+        vis.start()
 
     for i, image_file in enumerate(tqdm(image_files)):
+        idx = (i + 1) % len(gt_pos)
         frame_path = os.path.join(image_path, image_file)
         frame = cv2.imread(frame_path)
         pose = vo.compute_pose(ImageData(image=frame, timestamp=time.time()))
         if pose is not None:
             current_pose = current_pose @ pose
             estimated_pose.append(current_pose[:3, :].flatten())
-            pos.append(current_pose[:3, 3])
+            estimated_position.append(current_pose[:3, 3])
+            ground_truth_position.append(gt_pos[idx])
 
             debugging_data = vo.get_debugging_data()
-            if debugging_data is not None:
-                idx = (i + 1) % len(gt_pos)
+            if debugging_data.prev_pts is not None:
                 x, y, z = current_pose[:3, 3]
                 _est_pose = np.array([x, z])
                 px, py, pz = gt_pos[idx, 0], gt_pos[idx, 1], gt_pos[idx, 2]
@@ -404,16 +420,24 @@ if __name__ == "__main__":
                 vis.send(vis_data)
                 time.sleep(0.05)
 
-    pos = np.array(pos)
     estimated_pose = np.array(estimated_pose)
-    logging.debug(f"Estimated Positions shape: {pos.shape}")
-    logging.debug(f"Estimated Pose shape: {estimated_pose.shape}")
+    
+    ground_truth_position = np.array(ground_truth_position)
+    estimated_position = np.array(estimated_position)
 
-    # Plot the estimated trajectory
+    logging.info(f"Estimated Positions shape: {ground_truth_position.shape}")
+    logging.info(f"Estimated Pose shape: {estimated_position.shape}")
+
+    mae = mean_absolute_error(ground_truth_position, estimated_position)
+    logging.info(f"Mean Absolute Error (MAE) of the estimated positions: {mae:.4f}m")
+
+    
+
+    # # Plot the estimated trajectory
     plt.figure(figsize=(10, 8))
-    px, py, pz = gt_pos.T
+    px, py, pz = ground_truth_position.T
     plt.plot(px, pz, marker='o', markersize=1, label='Ground Truth Trajectory', color='black')
-    px, py, pz = pos[:, 0], pos[:, 1], pos[:, 2]
+    px, py, pz = estimated_position.T
     plt.plot(px, pz, marker='o', markersize=1, label='Estimated Trajectory', color='blue')
     plt.title('Estimated Trajectory from Visual Odometry')
     plt.xlabel('X Position (m)')
