@@ -5,6 +5,8 @@ import pandas as pd
 from tqdm import tqdm
 import numpy as np
 import argparse
+import matplotlib.pyplot as plt
+
 from ..visual_odometry import VisualOdometry
 from ..vo_utils import DetectorType, MatcherType
 from src.common.constants import KITTI_SEQUENCE_MAPS
@@ -45,8 +47,13 @@ class VisualOdometryObjective2d2D:
     def __init__(
         self, 
         dataset_dir: str, 
+        output_dir: str,
     ):  
         self.dataset_dir = dataset_dir
+        self.image_output_dir = os.path.join(output_dir, "images")
+        if not os.path.exists(self.image_output_dir):
+            os.makedirs(self.image_output_dir, exist_ok=True)
+        
         self.detector_list = DetectorType.get_names()
         self.matcher_list = MatcherType.get_names()
 
@@ -65,6 +72,7 @@ class VisualOdometryObjective2d2D:
         max_depth_threshold = trial.suggest_float("max_depth_threshold", 10., 100.0, step=5.0)
         min_depth_threshold = trial.suggest_float("min_depth_threshold", 0.5, 3.0, step=0.5)
         flags = trial.suggest_categorical("flags", ["SOLVEPNP_ITERATIVE", "SOLVEPNP_EPNP", "SOLVEPNP_P3P", "SOLVEPNP_AP3P"])
+        matching_threshold = trial.suggest_float("matching_threshold", 0.1, 0.5, step=0.05)
 
         dataset_config = DatasetConfig(
             type='kitti',
@@ -89,6 +97,7 @@ class VisualOdometryObjective2d2D:
                 'reprojection_error': reprojection_error,
                 'itterations_count': itterations_count,
                 'flags': flags,
+                'matching_threshold': matching_threshold
             }
         )
 
@@ -120,6 +129,22 @@ class VisualOdometryObjective2d2D:
         ground_truth_position = np.array(ground_truth_position)
         estimated_position = np.array(estimated_position)
 
+        filename = f"{feature_detector}_{feature_matcher}_confidence_{confidence}_reprojection_error_{reprojection_error}_iterations_{itterations_count}_max_depth_{max_depth_threshold}_min_depth_{min_depth_threshold}_flags_{flags}.png"
+
+        plt.figure(figsize=(10, 8))
+        px, py, pz = ground_truth_position.T
+        plt.plot(px, pz, marker='o', markersize=1, label='Ground Truth Trajectory', color='black')
+        px, py, pz = estimated_position.T
+        plt.plot(px, pz, marker='o', markersize=1, label='Estimated Trajectory', color='blue')
+        plt.title('Estimated Trajectory from Visual Odometry')
+        plt.xlabel('X Position (m)')
+        plt.ylabel('Y Position (m)')
+        plt.axis('equal')
+        plt.grid()
+        plt.legend()
+        plt.savefig(os.path.join(self.image_output_dir, filename))
+        plt.close()
+
         return mean_absolute_error(ground_truth_position, estimated_position)  # Mean Absolute Error (MAE) of the estimated positions
 
 if __name__ == "__main__":
@@ -129,7 +154,8 @@ if __name__ == "__main__":
         os.makedirs(args.output_dir, exist_ok=True)
 
     obj = VisualOdometryObjective2d2D(
-        dataset_dir=args.dataset_dir
+        dataset_dir=args.dataset_dir,
+        output_dir=args.output_dir,
     )
 
     study = optuna.create_study(direction="minimize")

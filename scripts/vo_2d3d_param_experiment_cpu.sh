@@ -1,12 +1,6 @@
 #!/bin/bash
-#SBATCH --gpus 1
-#--gres=gpu:A100:1
-#--constraint=A100-80
-#SBATCH --cpus-per-gpu 4
-#SBATCH -p gpu
+#SBATCH -p common
 #SBATCH -t 2-00:00:00
-#SBATCH --mem=20GB 
-
 module load rocky8 micromamba
 
 SENSOR_FUSION_DIR=/gpfs/mariana/home/taishi/workspace/researches/sensor_fusion

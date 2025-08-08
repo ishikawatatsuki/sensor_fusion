@@ -13,6 +13,8 @@ src/_test
 *.log
 data
 */.DS_Store
+*.out
+*.stat
 
 _debugging
 outputs/EuRoC/*
@@ -20,3 +22,4 @@ outputs/KITTI/*
 !outputs/KITTI/errors
 outputs/UAV/*
 src/visual_odometry/models
+outputs/vo_experiments

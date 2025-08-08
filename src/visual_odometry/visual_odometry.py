@@ -66,12 +66,13 @@ class VisualOdometry:
         self.confidence = config.params.get('confidence', 0.999)
         self.reprojection_error = config.params.get('reprojection_error', 4.0)
         self.itterations_count = config.params.get('itterations_count', 100)
+        self.matching_threshold = config.params.get('matching_threshold', 0.3)
         self.flag = RANSAC_FlagType.from_string(config.params.get('flag', 'SOLVEPNP_ITERATIVE'))
 
 
         self.dataset_config = dataset_config
         self.motion_estimator = EstimatorType.from_string(config.estimator)
-        self.object_detector = DynamicObjectDetector(model_path="/Volumes/Data_EXT/data/workspaces/sensor_fusion/src/visual_odometry/yolo11n-seg.pt", dynamic_classes=["person", "car", "bicycle", "motorbike", "bus", "truck"], conf=0.6)
+        self.object_detector = DynamicObjectDetector(model_path="/gpfs/mariana/home/taishi/workspace/researches/sensor_fusion/src/visual_odometry/yolo11n-seg.pt", dynamic_classes=["person", "car", "bicycle", "motorbike", "bus", "truck"], conf=0.6)
 
     
         self.advanced_detector = config.use_advanced_detector
@@ -261,10 +262,10 @@ class VisualOdometry:
 
             good_points = []
             for m, n in matches:
-                if m.distance < 0.3 * n.distance:
+                if m.distance < self.matching_threshold * n.distance:
                     good_points.append(m)
 
-            if len(good_points) < 8:
+            if len(good_points) < 5:
                 print("Not enough good matches")
                 return None
 
@@ -329,9 +330,6 @@ if __name__ == "__main__":
     import os
     from tqdm import tqdm
     import matplotlib.pyplot as plt
-    
-    sys.path.append('/Volumes/Data_EXT/data/workspaces/sensor_fusion/src')
-
     from src.internal.visualizers.vo_visualizer import VO_Visualizer, VO_VisualizationData
 
 
@@ -341,7 +339,7 @@ if __name__ == "__main__":
     dataset_config = DatasetConfig(
         type='kitti',
         mode='stream',
-        root_path='/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/KITTI',
+        root_path='/gpfs/mariana/home/taishi/workspace/researches/sensor_fusion/data/KITTI',
         variant='0033',
     )
             
@@ -367,7 +365,7 @@ if __name__ == "__main__":
     vo = VisualOdometry(config=config, dataset_config=dataset_config, debug=False)
     logging.debug("Visual Odometry initialized.")
 
-    image_root_path = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/KITTI"
+    image_root_path = "/gpfs/mariana/home/taishi/workspace/researches/sensor_fusion/data/KITTI"
     image_path = os.path.join(image_root_path, "2011_09_30/2011_09_30_drive_0033_sync/image_00/data")
     image_files = sorted([f for f in os.listdir(image_path) if f.endswith('.png')])
 
@@ -445,4 +443,5 @@ if __name__ == "__main__":
     plt.axis('equal')
     plt.grid()
     plt.legend()
-    plt.show()
+    # plt.show()
+    plt.savefig('estimated_trajectory.png')

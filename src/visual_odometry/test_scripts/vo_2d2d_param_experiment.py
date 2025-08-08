@@ -6,6 +6,7 @@ import pandas as pd
 from tqdm import tqdm
 import numpy as np
 import argparse
+import matplotlib.pyplot as plt
 
 from src.visual_odometry.visual_odometry import VisualOdometry
 from src.visual_odometry.vo_utils import DetectorType, MatcherType
@@ -46,8 +47,14 @@ class VisualOdometryObjective2d2D:
     def __init__(
         self, 
         dataset_dir: str, 
+        output_dir: str,
     ):  
         self.dataset_dir = dataset_dir
+        self.output_dir = output_dir
+        self.image_output_dir = os.path.join(output_dir, "images")
+        if not os.path.exists(self.image_output_dir):
+            os.makedirs(self.image_output_dir, exist_ok=True)
+            
         back_list = [DetectorType.SURF.name]
         self.detector_list = [desc for desc in DetectorType.get_names() if desc not in back_list]
         self.matcher_list = MatcherType.get_names()
@@ -65,6 +72,7 @@ class VisualOdometryObjective2d2D:
         (feature_detector, feature_matcher) = trial.suggest_categorical("detector_matcher", detector_matcher_pairs)
         essential_matrix_prob = trial.suggest_float("essential_matrix_prob", 0.8, 0.9999, step=0.01)
         essential_matrix_threshold = trial.suggest_float("essential_matrix_threshold", 1.0, 3.0, step=0.5)
+        matching_threshold = trial.suggest_float("matching_threshold", 0.1, 0.5, step=0.05)
 
         dataset_config = DatasetConfig(
             type='kitti',
@@ -85,6 +93,7 @@ class VisualOdometryObjective2d2D:
                 'max_features': 1000,
                 'ransac_reproj_threshold': essential_matrix_threshold,
                 'confidence': essential_matrix_prob,
+                'matching_threshold': matching_threshold
             }
         )
 
@@ -116,6 +125,21 @@ class VisualOdometryObjective2d2D:
         ground_truth_position = np.array(ground_truth_position)
         estimated_position = np.array(estimated_position)
 
+        filename = f"{feature_detector}_{feature_matcher}_essential_matrix_prob_{essential_matrix_prob}_threshold_{essential_matrix_threshold}.png"
+
+        plt.figure(figsize=(10, 8))
+        px, py, pz = ground_truth_position.T
+        plt.plot(px, pz, marker='o', markersize=1, label='Ground Truth Trajectory', color='black')
+        px, py, pz = estimated_position.T
+        plt.plot(px, pz, marker='o', markersize=1, label='Estimated Trajectory', color='blue')
+        plt.title('Estimated Trajectory from Visual Odometry')
+        plt.xlabel('X Position (m)')
+        plt.ylabel('Y Position (m)')
+        plt.axis('equal')
+        plt.grid()
+        plt.legend()
+        plt.savefig(os.path.join(self.image_output_dir, filename))
+
         return mean_absolute_error(ground_truth_position, estimated_position)  # Mean Absolute Error (MAE) of the estimated positions
 
 if __name__ == "__main__":
@@ -125,7 +149,8 @@ if __name__ == "__main__":
         os.makedirs(args.output_dir, exist_ok=True)
 
     obj = VisualOdometryObjective2d2D(
-        dataset_dir=args.dataset_dir
+        dataset_dir=args.dataset_dir,
+        output_dir=args.output_dir,
     )
 
     study = optuna.create_study(direction="minimize")
