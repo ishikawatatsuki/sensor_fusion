@@ -10,7 +10,6 @@ from typing import Union
 from dataclasses import dataclass
 from scipy.spatial.transform import Rotation
 import multiprocessing as mp
-from scipy.spatial.transform import Rotation
 
 class FilterType(Enum):
     """
@@ -58,17 +57,11 @@ class CoordinateSystem(Enum):
 class DatasetType(Enum):
     
     KITTI = "KITTI"
+    EUROC = "EUROC"
 
     # UAV = "UAV"
-    # EUROC = "EUROC"
     # KAGARU = "KAGARU"
-    # OAK = "OAK"
-    # ROSARIO = "ROSARIO"
-    # TUMVI = "TUMVI"
     # BLACKBIRD = "BLACKBIRD"
-    # KUMAR = "KUMAR"
-    
-    EXPERIMENT = "EXPERIMENT"
 
     @staticmethod
     def get_names():
@@ -88,10 +81,8 @@ class DatasetType(Enum):
         match(d):
             case DatasetType.KITTI:
                 return CoordinateSystem.ENU
-            # case DatasetType.UAV:
-            #     return CoordinateSystem.NED
-            # case DatasetType.EUROC:
-            #     return CoordinateSystem.NED
+            case DatasetType.EUROC:
+                return CoordinateSystem.NED
             case _:
                 return CoordinateSystem.ENU
 
@@ -122,9 +113,31 @@ class KITTI_SensorType(IntEnum):
         except:
             return None
 
+@inheritable_enum
+class EuRoC_SensorType(IntEnum):
+    EuRoC_IMU = auto()
+    EuRoC_STEREO = auto()
+    EuRoC_LEICA = auto()
+
+    EuRoC_CUSTOM_VO = auto()
+    
+    @staticmethod
+    def get_enum_name_list():
+        return [s.lower() for s in list(EuRoC_SensorType.__members__.keys())]
+    
+    @classmethod
+    def get_euroc_sensor_from_str(cls, sensor_str: str):
+        s = sensor_str.lower()
+        try: 
+            index = EuRoC_SensorType.get_enum_name_list().index(s)
+            return cls(index + 1)
+        except:
+            return None
+        
+
 
 # @copy_enum_members(KITTI_SensorType, UAV_SensorType)
-class SensorType(KITTI_SensorType):
+class SensorType(KITTI_SensorType, EuRoC_SensorType):
     
     GROUND_TRUTH = 100
 
@@ -132,13 +145,16 @@ class SensorType(KITTI_SensorType):
     def get_all_sensors():
         all_members = []
         all_members += KITTI_SensorType.__members__.values()
+        all_members += EuRoC_SensorType.__members__.values()
         all_members += [SensorType.GROUND_TRUTH]
         return all_members
     
     @staticmethod
     def is_imu_data(t):
         return t.name in [
-            SensorType.OXTS_IMU.name
+            SensorType.OXTS_IMU.name,
+            SensorType.OXTS_IMU_UNSYNCED.name,
+            SensorType.EuRoC_IMU.name,
         ]
     
     @staticmethod
@@ -146,31 +162,38 @@ class SensorType(KITTI_SensorType):
         return SensorType.is_imu_data(t)
     
     @staticmethod
-    def is_positioning_data(t):
-        return SensorType.is_gps_data(t)
-
+    def is_leica_data(t):
+        return t.name == SensorType.EuRoC_LEICA.name
+    
     @staticmethod
     def is_gps_data(t):
         return t.name in [
             SensorType.OXTS_GPS.name,
+            SensorType.OXTS_GPS_UNSYNCED.name
         ]
+    
+    @staticmethod
+    def is_positioning_data(t):
+        return SensorType.is_gps_data(t) or SensorType.is_leica_data(t)
     
     @staticmethod
     def is_stereo_image_data(t):
         return t.name in [
             SensorType.KITTI_STEREO.name,
+            SensorType.EuRoC_STEREO.name,
         ]
     
     @staticmethod
     def is_visualization_data(t):
         return t.name in [
-            SensorType.KITTI_COLOR_IMAGE.name
+            SensorType.KITTI_COLOR_IMAGE.name,
         ]
     
     @staticmethod
     def is_vo_data(t):
         return t.name in [
-            SensorType.KITTI_VO.name
+            SensorType.KITTI_VO.name,
+            SensorType.EuRoC_CUSTOM_VO.name
         ]
     
     @staticmethod
@@ -198,6 +221,8 @@ class SensorType(KITTI_SensorType):
         match(dataset):
             case DatasetType.KITTI:
                 return KITTI_SensorType.get_kitti_sensor_from_str
+            case DatasetType.EUROC:
+                return EuRoC_SensorType.get_euroc_sensor_from_str
             case _:
                 return KITTI_SensorType.get_kitti_sensor_from_str
             
@@ -210,8 +235,8 @@ class SensorType(KITTI_SensorType):
         match(dataset):
             case DatasetType.KITTI:
                 return KITTI_SensorType(sensor_id).name
-            case DatasetType.EXPERIMENT:
-                return KITTI_SensorType(sensor_id).name
+            case DatasetType.EUROC:
+                return EuRoC_SensorType(sensor_id).name
             case _:
                 return ""
             
@@ -219,18 +244,14 @@ class SensorType(KITTI_SensorType):
 class CoordinateFrame(Enum):
     IMU = "IMU"
     GPS = "GPS"
-    LEICA = "LEICA"
-    BEACON = "BEACON"
     STEREO_LEFT = "STEREO_LEFT"
     STEREO_RIGHT = "STEREO_RIGHT"
-    MAGNETOMETER = "MAGNETOMETER"
 
     INERTIAL = "INERTIAL"  # Inertial world frame
 
 class MotionModel(Enum):
     KINEMATICS = "KINEMATICS"
     VELOCITY = "VELOCITY"
-    DRONE_KINEMATICS = "DRONE_KINEMATICS"
     
     @classmethod
     def get_motion_model(cls, s: str):
@@ -299,7 +320,6 @@ class State:
         Returns:
             State: new state object
         """
-        motion_model = MotionModel.get_motion_model(filter_config.motion_model)
         
         p = np.zeros((3, 1))
         v = np.zeros((3, 1))
@@ -307,11 +327,7 @@ class State:
         b_w = np.zeros((3, 1))
         b_a = np.zeros((3, 1))
 
-        w = None
-        if motion_model == MotionModel.DRONE_KINEMATICS:
-            w = np.zeros((3, 1))
-
-        return cls(p=p, v=v, q=q, w=w, b_w=b_w, b_a=b_a)
+        return cls(p=p, v=v, q=q, b_w=b_w, b_a=b_a)
 
     @classmethod
     def get_new_state_from_array(cls, x: np.ndarray):
@@ -519,49 +535,49 @@ class State:
     
 
 class Pose:
-  """
-  3d rigid transform.
-  """
-  def __init__(self, R, t):
-    assert R.shape == np.eye(3).shape, "Please set 3x3 rotation matrix"
-    assert t.shape[0] == 3, "Please set 3x1 translation vector"
+    """
+    3d rigid transform.
+    """
+    def __init__(self, R, t):
+        assert R.shape == np.eye(3).shape, "Please set 3x3 rotation matrix"
+        assert t.shape[0] == 3, "Please set 3x1 translation vector"
+        
+        self.R = R
+        self.t = t if len(t.shape) == 1 else t.reshape(-1, )
+
+    def matrix(self, pose_only=False):
+        m = np.zeros((3, 4)) if pose_only else np.identity(4)
+        m[:3, :3] = self.R
+        m[:3, 3] = self.t
+        return m
+
+    def inverse(self):
+        return Pose(self.R.T, -self.R.T @ self.t)
+
+    def __mul__(self, T1):
+        R = self.R @ T1.R
+        t = self.R @ T1.t + self.t
+        return Pose(R, t)
+
+    @classmethod
+    def from_state(cls, state: State):
+        R = state.get_rotation_matrix()
+        t = state.p.flatten()
+        return cls(R=R, t=t)
     
-    self.R = R
-    self.t = t if len(t.shape) == 1 else t.reshape(-1, )
-
-  def matrix(self, pose_only=False):
-    m = np.zeros((3, 4)) if pose_only else np.identity(4)
-    m[:3, :3] = self.R
-    m[:3, 3] = self.t
-    return m
-
-  def inverse(self):
-    return Pose(self.R.T, -self.R.T @ self.t)
-
-  def __mul__(self, T1):
-    R = self.R @ T1.R
-    t = self.R @ T1.t + self.t
-    return Pose(R, t)
-
-  @classmethod
-  def from_state(cls, state: State):
-    R = state.get_rotation_matrix()
-    t = state.p.flatten()
-    return cls(R=R, t=t)
-  
-  def from_ned_to_enu(self):
-    return Pose(R=np.array([
-      [0, 1, 0],
-      [1, 0, 0],
-      [0, 0, -1]
-    ]), t=np.zeros((3, 1))) * Pose(R=self.R, t=self.t)
-    
-  def from_enu_to_ned(self):
-    return Pose(R=np.array([
-      [0, 1, 0],
-      [1, 0, 0],
-      [0, 0, -1]
-    ]), t=np.zeros((3, 1))) * Pose(R=self.R, t=self.t)
+    def from_ned_to_enu(self):
+        return Pose(R=np.array([
+            [0, 1, 0],
+            [1, 0, 0],
+            [0, 0, -1]
+            ]), t=np.zeros((3, 1))) * Pose(R=self.R, t=self.t)
+        
+    def from_enu_to_ned(self):
+        return Pose(R=np.array([
+            [0, 1, 0],
+            [1, 0, 0],
+            [0, 0, -1]
+            ]), t=np.zeros((3, 1))) * Pose(R=self.R, t=self.t)
 
 @dataclass
 class SensorConfig:
@@ -570,12 +586,13 @@ class SensorConfig:
     window_size: int
     args: dict
 
-    def __init__(self,
-                 name: str,
-                 dropout_ratio: float = 0.,
-                 window_size: int = 1,
-                 args: dict = {}
-                 ):
+    def __init__(
+            self,
+            name: str,
+            dropout_ratio: float = 0.,
+            window_size: int = 1,
+            args: dict = {}
+        ):
         self.name = name
         self.dropout_ratio = dropout_ratio
         self.window_size = window_size
@@ -644,14 +661,20 @@ class ImageData:
     image: np.ndarray
     timestamp: float
 
+# @dataclass
+# class VisualOdometryData:
+#     last_pose: Pose
+#     relative_pose: Pose
+#     confidence: float
+#     timestamp: int
+#     received_timestamp: int
+#     processed_timestamp: int
+
 @dataclass
 class VisualOdometryData:
-    last_pose: Pose
     relative_pose: Pose
-    confidence: float
     timestamp: int
-    received_timestamp: int
-    processed_timestamp: int
+    dt: float
 
 @dataclass
 class SensorData:
@@ -770,3 +793,79 @@ class FusionResponse:
         self.gps_data = gps_data
         self.geo_fencing_data = geo_fencing_data
         self.leica_data = leica_data
+
+
+
+if __name__ == "__main__":
+
+    def _main1():
+        t1 = np.array([0.5, 0.5, 0.5])
+        t2 = np.array([1., 1., 1.])
+        R1 = np.eye(3)
+        R2 = np.eye(3)
+        p1 = Pose(R=R1, t=t1)
+        p2 = Pose(R=R2, t=t2)
+        p3 = p1 * p2
+        
+        t1 = np.array([0.5, 0.5, 0.5])
+        t2 = np.array([1., 1., 1.])
+        R1 = np.eye(3)
+        R2 = np.eye(3)
+        p1 = Pose(R=R1, t=t1)
+        p2 = Pose(R=R2, t=t2)
+        p3 = p1 * p2
+        euler1 = State.get_euler_angle_from_rotation_matrix(p1.R)
+        euler2 = State.get_euler_angle_from_rotation_matrix(p3.R)
+        
+        expected_delta_translation = t2
+        expected_delta_angle = euler2 - euler1
+        
+        result = p1.inverse() * p3
+        calculated_delta_translation = result.t
+        calculated_delta_angle = State.get_euler_angle_from_rotation_matrix(result.R).flatten()
+        
+        print(f"Expected translation: {expected_delta_translation}, calculated: {calculated_delta_translation}")
+        print(f"Expected angle: {expected_delta_angle.flatten()}, calculated: {calculated_delta_angle}")
+        
+        
+        t1 = np.array([1.6378729, 4.406781, -6.663874])
+        t2 = np.array([1.6137391, 4.4345922, -6.661531])
+        q1 = np.array([-0.51108545, 0.06378497, -0.020988196, -0.85690296])
+        q2 = np.array([-0.5117634, 0.07358955, -0.020333096, -0.8557274])
+        q1 /= np.linalg.norm(q1)
+        q2 /= np.linalg.norm(q2)
+        R1 = State.get_rotation_matrix_from_quaternion_vector(q1)
+        R2 = State.get_rotation_matrix_from_quaternion_vector(q2)
+        p1 = Pose(R=R1, t=t1)
+        p3 = Pose(R=R2, t=t2)
+        
+        euler1 = State.get_euler_angle_from_quaternion_vector(q1)
+        euler2 = State.get_euler_angle_from_quaternion_vector(q2)
+        
+        expected_delta_translation = np.linalg.inv(R1) @ (t2 - t1)
+        expected_delta_angle = euler2 - euler1
+        
+        p2 = p1.inverse() * p3
+        calculated_delta_translation = p2.t
+        calculated_delta_angle = State.get_euler_angle_from_rotation_matrix(p2.R).flatten()
+        
+        print(f"Expected translation: {expected_delta_translation}, calculated: {calculated_delta_translation}")
+        print(f"Expected angle: {expected_delta_angle.flatten()}, calculated: {calculated_delta_angle}")
+        
+        
+    def _main2():
+        p1 = Pose(R=np.array([
+        [0.866, -0.5, 0.],
+        [0.5, 0.866, 0.],
+        [0., 0., 1.]
+        ]), t=np.ones((3, 1)))
+        
+        p2 = p1.from_ned_to_enu()
+        p3 = p2.from_enu_to_ned()
+        print(p2.R)
+        print(p3.R)
+        
+        
+    # _main1()
+    
+    _main2()

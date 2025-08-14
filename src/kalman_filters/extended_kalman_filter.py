@@ -1,29 +1,26 @@
 import os
 import sys
 import numpy as np
-sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
+from ahrs.filters import EKF
 
-from base_filter import BaseFilter
-from custom_types import SensorType
-from config import FilterConfig, DatasetConfig
-from interfaces import State, MotionModel
-
+from .base_filter import BaseFilter
+from ..common import (
+    State, MeasurementUpdateField,
+    MeasurementUpdateField,
+)
 
 class ExtendedKalmanFilter(BaseFilter):
     
     def __init__(
         self, 
-        config: FilterConfig,
-        dataset_config: DatasetConfig,
         *args,
         **kwargs,
         ):
         super().__init__(
-            config=config, 
-            dataset_config=dataset_config, 
             *args, 
             **kwargs
         )
+        self.predict = self._get_motion_model()
     
     def kinematics_motion_model(self, u: np.ndarray, dt: float, Q: np.ndarray):
         """estimate x and P based on previous stete of x and control input u
@@ -36,10 +33,22 @@ class ExtendedKalmanFilter(BaseFilter):
         p = self.x.p
         v = self.x.v
         q = self.x.q
+        b_w = self.x.b_w
+        b_a = self.x.b_a
+
         a = u[:3]
         w = u[3:]
-        a = a.reshape(-1, 1)
+        a = a.reshape(-1, 1) 
         w = w.reshape(-1, 1)
+
+        # Take into account the IMU sensor error
+        imu_sensor_error = self.get_imu_sensor_error()
+        b_a_k = imu_sensor_error.acc_bias + b_a
+        b_w_k = imu_sensor_error.gyro_bias + b_w
+
+        a -= b_a_k + imu_sensor_error.acc_noise
+        w -= b_w_k + imu_sensor_error.gyro_noise
+
         R = self.x.get_rotation_matrix()
         omega = self.get_quaternion_update_matrix(w)
         norm_w = self.compute_norm_w(w)
@@ -48,39 +57,76 @@ class ExtendedKalmanFilter(BaseFilter):
         B = (1/norm_w)*np.sin(norm_w*dt/2) * omega
         
         acc_val = (R @ a - self.g)
-        acc_val = self.correct_acceleration(acc_val=acc_val, q=q)
-        
-        p_k = p + v * dt + acc_val*dt**2 / 2
+        p_k = p + v * dt #+ acc_val*dt**2 / 2
         v_k = v + acc_val * dt
         q_k = np.array(A + B) @ q
         q_k /= np.linalg.norm(q_k)
-        
-        self.x = State(p=p_k, v=v_k, q=q_k)
+
+        self.x = State(p=p_k, v=v_k, q=q_k, b_w=b_w_k, b_a=b_a_k)
         
         ax, ay, az, wx, wy, wz = u
         q1, q2, q3, q4 = q.flatten()
-        q1_2, q2_2, q3_2, q4_2 = q.flatten()**2 
         dt2 = dt**2
         cos_w = np.cos(norm_w*dt/2)
         sin_w = np.sin(norm_w*dt/2)/norm_w
         wz_sin = wz*sin_w
         wy_sin = wy*sin_w
         wx_sin = wx*sin_w
+
         # Jacobian matrix of function f(x,u) with respect to the state variables.
-        F = np.array([
-            [1., 0., 0., dt, 0., 0., dt2*(2*ax*q1-2*ay*q4+2*az*q3)/2, dt2*(2*ax*q2+2*ay*q3+2*az*q4)/2, dt2*(-2*ax*q3+2*ay*q2+2*az*q1)/2, dt2*(-2*ax*q4-2*ay*q1+2*az*q2)/2],
-            [0., 1., 0., 0., dt, 0., dt2*(2*ax*q4+2*ay*q1-2*az*q2)/2, dt2*(2*ax*q3-2*ay*q2-2*az*q1)/2, dt2*(2*ax*q2+2*ay*q3+2*az*q4)/2, dt2*(2*az*q1-2*ay*q4+2*az*q3)/2],
-            [0., 0., 1., 0., 0., dt, dt2*(-2*ax*q3+2*ay*q2+2*az*q1)/2, dt2*(2*ax*q4+2*ay*q1-2*az*q2)/2, dt2*(-2*ax*q1+2*ay*q4-2*az*q3)/2, dt2*(2*ax*q2+2*ay*q3+2*az*q4)/2],
+        F = np.eye(self.x.get_vector_size())
+        F[0, 3] = dt
+        F[0, 6] = dt2*(2*ax*q1-2*ay*q4+2*az*q3)/2
+        F[0, 7] = dt2*(2*ax*q2+2*ay*q3+2*az*q4)/2
+        F[0, 8] = dt2*(-2*ax*q3+2*ay*q2+2*az*q1)/2
+        F[0, 9] = dt2*(-2*ax*q4-2*ay*q1+2*az*q2)/2
 
-            [0., 0., 0., 1., 0., 0., dt*(2*ax*q1-2*ay*q4+2*az*q3), dt*(2*ax*q2+2*ay*q3+2*az*q4), dt*(-2*ax*q3+2*ay*q2+2*az*q1), dt*(-2*ax*q4-2*ay*q1+2*az*q2)],
-            [0., 0., 0., 0., 1., 0., dt*(2*ax*q4+2*ay*q1-2*az*q2), dt*(2*ax*q3-2*ay*q2-2*az*q1), dt*(2*ax*q2+2*ay*q3+2*az*q4), dt*(2*ax*q1-2*ay*q4+2*az*q3)],
-            [0., 0., 0., 0., 0., 1., dt*(-2*ax*q3+2*ay*q2+2*az*q1), dt*(2*ax*q4+2*ay*q1-2*ay*q2), dt*(-2*ax*q1+2*ay*q4-2*az*q3), dt*(2*ax*q2+2*ay*q3+2*az*q4)],
+        F[1, 4] = dt
+        F[1, 6] = dt2*(2*ax*q4+2*ay*q1-2*az*q2)/2
+        F[1, 7] = dt2*(2*ax*q3-2*ay*q2-2*az*q1)/2
+        F[1, 8] = dt2*(2*ax*q2+2*ay*q3+2*az*q4)/2
+        F[1, 9] = dt2*(2*az*q1-2*ay*q4+2*az*q3)/2
 
-            [0., 0., 0., 0., 0., 0., cos_w, wz_sin, -wy_sin, wx_sin],
-            [0., 0., 0., 0., 0., 0., -wz_sin, cos_w, wx_sin, wy_sin],
-            [0., 0., 0., 0., 0., 0., wy_sin, -wx_sin, cos_w, wz_sin],
-            [0., 0., 0., 0., 0., 0., -wx_sin, -wy_sin, -wz_sin, cos_w]
-        ])
+        F[2, 5] = dt
+        F[2, 6] = dt2*(-2*ax*q3+2*ay*q2+2*az*q1)/2
+        F[2, 7] = dt2*(2*ax*q4+2*ay*q1-2*az*q2)/2
+        F[2, 8] = dt2*(-2*ax*q1+2*ay*q4-2*az*q3)/2
+        F[2, 9] = dt2*(2*ax*q2+2*ay*q3+2*az*q4)/2
+
+        F[3, 6] = dt*(2*ax*q1-2*ay*q4+2*az*q3)
+        F[3, 7] = dt*(2*ax*q2+2*ay*q3+2*az*q4)
+        F[3, 8] = dt*(-2*ax*q3+2*ay*q2+2*az*q1)
+        F[3, 9] = dt*(-2*ax*q4-2*ay*q1+2*az*q2)
+
+        F[4, 6] = dt*(2*ax*q4+2*ay*q1-2*az*q2)
+        F[4, 7] = dt*(2*ax*q3-2*ay*q2-2*az*q1)
+        F[4, 8] = dt*(2*ax*q2+2*ay*q3+2*az*q4)
+        F[4, 9] = dt*(2*ax*q1-2*ay*q4+2*az*q3)
+
+        F[5, 6] = dt*(-2*ax*q3+2*ay*q2+2*az*q1)
+        F[5, 7] = dt*(2*ax*q4+2*ay*q1-2*ay*q2)
+        F[5, 8] = dt*(-2*ax*q1+2*ay*q4-2*az*q3)
+        F[5, 9] = dt*(2*ax*q2+2*ay*q3+2*az*q4)
+
+        F[6, 6] = cos_w
+        F[6, 7] = wz_sin
+        F[6, 8] = -wy_sin
+        F[6, 9] = wx_sin
+
+        F[7, 6] = -wz_sin
+        F[7, 7] = cos_w
+        F[7, 8] = wx_sin
+        F[7, 9] = wy_sin
+
+        F[8, 6] = wy_sin
+        F[8, 7] = -wx_sin
+        F[8, 8] = cos_w
+        F[8, 9] = wz_sin
+
+        F[9, 6] = -wx_sin
+        F[9, 7] = -wy_sin
+        F[9, 8] = -wz_sin
+        F[9, 9] = cos_w
         
         # Jacobian matrix of function f(x,u) with respect to the control input variables.
         # G = np.array([
@@ -99,7 +145,6 @@ class ExtendedKalmanFilter(BaseFilter):
         # ])
         # predict state covariance matrix P
         self.P = F @ self.P @ F.T + Q # G @ Q @ G.T
-        
     '''
         def velocity_motion_model(self, u: np.ndarray, dt: float):
         """estimate x and P based on previous stete of x and control input u
@@ -253,12 +298,22 @@ class ExtendedKalmanFilter(BaseFilter):
         p = self.x.p
         v = self.x.v
         q = self.x.q
+        b_w = self.x.b_w
+        b_a = self.x.b_a
         
         a = u[:3]
         w = u[3:]
         wx, wy, wz = w
         a = a.reshape(-1, 1)
         w = w.reshape(-1, 1)
+
+        # Take into account the IMU sensor error
+        imu_sensor_error = self.get_imu_sensor_error()
+        b_a_k = imu_sensor_error.acc_bias + b_a
+        b_w_k = imu_sensor_error.gyro_bias + b_w
+
+        a -= b_a_k + imu_sensor_error.acc_noise
+        w -= b_w_k + imu_sensor_error.gyro_noise
         
         vf = self.get_forward_velocity(v)
         
@@ -268,7 +323,6 @@ class ExtendedKalmanFilter(BaseFilter):
         R = self.x.get_rotation_matrix()
         
         acc_val = (R @ a - self.g)
-        # acc_val = self.correct_acceleration(acc_val=acc_val, q=q)
         
         v_k = v + acc_val * dt
         
@@ -291,8 +345,8 @@ class ExtendedKalmanFilter(BaseFilter):
         
         q_k = np.array(A + B) @ q
         q_k /= np.linalg.norm(q_k)
-        
-        self.x = State(p=p_k, v=v_k, q=q_k)
+
+        self.x = State(p=p_k, v=v_k, q=q_k, b_w=b_w_k, b_a=b_a_k)
         
 
         # propagate covariance P
@@ -308,7 +362,7 @@ class ExtendedKalmanFilter(BaseFilter):
         qw_qz_qx_qy_minus = -2*qw*qz-2*qx*qy
         qw_qx_qy_qz = 2*qw*qx+2*qy*qz
         qw_qx_qy_qz_minus = -2*qw*qx-2*qy*qz
-        F = np.eye(10)
+        F = np.eye(self.x.get_vector_size())
         
         F[0, 3] = - vx*(qw_qz_qx_qy)/(wz*np.sqrt(qw_qz_qx_qy**2+q_x_squared**2)*vf)\
                     + vx*np.sin(dt*wz+np.arctan2(qw_qz_qx_qy, q_x_squared)) / (wz*vf)
@@ -456,28 +510,12 @@ class ExtendedKalmanFilter(BaseFilter):
         G[9, 5] = -qy*np.sin(dt*norm_w/2)/norm_w
         '''
         self.P = F @ self.P @ F.T + Q # G @ Q @ G.T
-    
-    def time_update(self, u: np.ndarray, dt: float, Q: np.ndarray):
-        """
-            u: np.ndarray -> control input, assuming IMU input
-            dt: int       -> delta time in second 
-        """
-        predict = self.kinematics_motion_model if self.motion_model is MotionModel.KINEMATICS else\
-                    self.velocity_motion_model
+
+    def measurement_update(self, data: MeasurementUpdateField):
+        z = data.z
+        R = data.R
+        sensor_type = data.sensor_type
         
-        predict(u=u, dt=dt, Q=Q)
-        
-    def measurement_update(
-            self, 
-            z: np.ndarray, 
-            R: np.ndarray,
-            sensor_type: SensorType
-        ):
-        """
-            z: np.ndarray           -> measurement input
-            R: np.ndarray           -> measurement noise covariance matrix
-            sensor_type: SensorType -> state transformation matrix, which transform state vector x to measurement space
-        """
         z_dim = z.shape[0]
         x = self.x.get_state_vector()
         H = self.get_transition_matrix(sensor_type, z_dim=z_dim)
@@ -494,79 +532,6 @@ class ExtendedKalmanFilter(BaseFilter):
         self.x = State.get_new_state_from_array(x)
         # update covariance P
         self.P = self.P - K @ H @ self.P
-        
-        self.innovations.append(np.sum(residuals))
 
-
-if __name__ == "__main__":
-    sys.path.append(os.path.join(os.path.dirname(__file__), '../dataset'))
-    
-    from dataset import (
-        UAVDataset,
-        KITTIDataset
-    )
-    from custom_types import (
-        UAV_SensorType,
-        KITTI_SensorType
-    )
-    from config import DatasetConfig
-    
-    import time
-    import logging
-    
-    logger = logging.getLogger(__name__)
-    logging.basicConfig(format='%(asctime)s > %(message)s', 
-                        datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
-    
-    def _runner(
-        kf: ExtendedKalmanFilter,
-        dataset: KITTIDataset|UAVDataset
-    ):
-        # NOTE: Start loading data
-        dataset.start()
-        time.sleep(0.5)
-        
-        try:
-            while True:
-                if dataset.is_queue_empty():
-                    break
-                
-                sensor_data = dataset.get_sensor_data(kf.x)
-                if SensorType.is_stereo_image_data(sensor_data.type):
-                # NOTE: enqueue stereo data and process vo estimation
-                    ...
-                elif SensorType.is_time_update(sensor_data.type):
-                # NOTE: process time update step
-                    kf.time_update(*sensor_data.data)
-                
-                elif SensorType.is_measurement_update(sensor_data.type):
-                # NOTE: process measurement update step
-                    kf.measurement_update(*sensor_data.data)
-                
-                logger.info(f"[{dataset.output_queue.qsize():05}] time: {sensor_data.timestamp}, sensor: {sensor_data.type}\n")
-        
-        except Exception as e:
-            logger.warning(e)
-        finally:
-            logger.info("Process finished!")
-            dataset.stop()
-            
-    config = FilterConfig(type='ekf', dimension=2, motion_model='kinematics', noise_type=False, params=None)
-    dataset_config = DatasetConfig(type='uav', mode='stream', root_path='../../data/UAV', variant="log0001", sensors=[UAV_SensorType.VOXL_IMU0, UAV_SensorType.PX4_MAG, UAV_SensorType.PX4_VO])
-    dataset = UAVDataset(
-        config=dataset_config,
-        uav_sensor_path="../dataset/uav_sensor_path.yaml"
-    )
-    inital_state = dataset.get_initial_state(config.motion_model, filter_type=config.type)
-    
-    ekf = ExtendedKalmanFilter(
-        config=config, 
-        x=inital_state.x, 
-        P=inital_state.P, 
-        q=inital_state.q
-    )
-    
-    _runner(
-        kf=ekf,
-        dataset=dataset
-    )
+        # self.innovations.append(np.sum(residuals))
+        self.innovations.append(residuals[:3])

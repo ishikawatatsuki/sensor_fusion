@@ -1,21 +1,24 @@
-# references: 
-# [1] https://docs.ufpr.br/~danielsantos/ProbabilisticRobotics.pdf
-
 import os
 import sys
+import abc
+import logging
 import numpy as np
+from typing import Tuple
 import matplotlib.pyplot as plt
-sys.path.append(os.path.join(os.path.dirname(__file__), '../interfaces'))
 
-from custom_types import FilterType, SensorType, CoordinateSystem, DatasetType
-from config import FilterConfig, DatasetConfig
-from interfaces import Pose, State, MotionModel
-from constants import (
+from ..common import (
+    FilterConfig, 
+    HardwareConfig, 
+    SensorType,
+    FilterType,
+    CoordinateSystem,
+    IMUSensorErrors,
+    Pose, State, MotionModel, TimeUpdateField, MeasurementUpdateField,
+    MeasurementUpdateField,
     DECLINATION_OFFSET_RADIAN_IN_ESTONIA
 )
 
-
-class BaseFilter:
+class BaseFilter(abc.ABC):
     mu_x = None
     mu_y = None
     mu_z = None
@@ -27,10 +30,10 @@ class BaseFilter:
     def __init__(
             self, 
             config: FilterConfig,
-            dataset_config: DatasetConfig,
+            hardware_config: HardwareConfig,
             x: State,
             P: np.ndarray,
-            coordinate_system: CoordinateSystem = CoordinateSystem.ENU
+            coordinate_system: CoordinateSystem = CoordinateSystem.ENU,
         ):
         """ 
         Args:
@@ -44,25 +47,97 @@ class BaseFilter:
         self.P = P
         
         self.coordinate_system = coordinate_system
-        self.g = self._get_gravitational_vector().reshape(-1, 1)
+        self.g = self._get_gravitational_vector(type=hardware_config.type).reshape(-1, 1)
         
         self.config = config
-        self.dataset_config = dataset_config
-        self.dataset_type = DatasetType.get_type_from_str(self.dataset_config.type)
+        self.hardware_config = hardware_config
+
         self.dimension = self.config.dimension
         self.innovation_masking = self.config.innovation_masking
         self.motion_model = MotionModel.get_motion_model(self.config.motion_model)
         self.filter_type = FilterType.get_filter_type_from_str(self.config.type)
         assert self.filter_type is not None, "Please specify proper Kalman filter type."
         
+        self.predict = self._get_motion_model()
+
+    def _get_motion_model(self):
         
-    def _get_gravitational_vector(self) -> np.ndarray:
-        match (self.coordinate_system):
-            case CoordinateSystem.ENU:
-                return np.array([0., 0., 9.81])
-            case CoordinateSystem.NED:
-                return np.array([0., 0., -9.81])
+        match (self.motion_model):
+            case MotionModel.KINEMATICS:
+                return self.kinematics_motion_model
+            case MotionModel.VELOCITY:
+                return self.velocity_motion_model
             case _:
+                raise ValueError(f"No motion model found for {self.motion_model}")
+
+    @abc.abstractmethod
+    def kinematics_motion_model(self, dt: float, u: np.ndarray, Q: np.ndarray):
+        """Motion model that follows basics of Kinematics equations.
+
+        Args:
+            u (np.ndarray): control input that contains IMU measurements (linear acceleration and angular velocity)
+            dt (float): delta time
+            Q (np.ndarray): Process noise covariance matrix
+        """
+        pass
+    
+    @abc.abstractmethod
+    def velocity_motion_model(self, dt: float, u: np.ndarray, Q: np.ndarray):
+        """Motion model that follows Velocity motion model.
+
+        Args:
+            u (np.ndarray): control input that contains IMU measurements (linear acceleration and angular velocity)
+            dt (float): delta time
+            Q (np.ndarray): Process noise covariance matrix
+        """
+        pass
+    
+    # @abc.abstractmethod
+    # def drone_kinematics_motion_model(self, dt: float, u: np.ndarray, Q: np.ndarray):
+    #     """Drone kinematics equation
+    #     This motion model is based on the paper: https://iopscience.iop.org/article/10.1088/1757-899X/270/1/012007/pdf
+    #     Args:
+    #         u (np.ndarray): Rotation speed(rad/s) of each rotor of a drone
+    #         dt (float): Delta time (s)
+    #         Q (np.ndarray): Process noise covariance matrix
+    #     """
+    #     pass
+    
+    def time_update(self, data: TimeUpdateField):
+        """Time update step of Kalman filter
+        Args:
+            - TimeUpdateField containing:
+                u  (np.ndarray): control input
+                dt (float): time difference
+                Q: (np.ndarray): process noise covariance matrix
+        """
+        
+        self.predict(u=data.u, dt=data.dt, Q=data.Q)
+        
+    @abc.abstractmethod
+    def measurement_update(self, data: MeasurementUpdateField):
+        """Measurement update step of Kalman filter
+        Args:
+            data (MeasurementUpdateField)
+                z (np.ndarray): measurement input
+                R (np.ndarray): measurement noise covariance matrix
+                sensor_type (SensorType): state transformation matrix, which transform state vector x to measurement space
+        """
+        pass
+    
+    def _get_gravitational_vector(self, type: str) -> np.ndarray:
+        match (type):
+            case "kitti":
+                logging.info("Setting gravitational vector for KITTI")
+                return np.array([0., 0., 9.81])
+            case "uav":
+                logging.info("Setting gravitational vector for UAV")
+                return np.array([0., 0., -9.81])
+            case "euroc":
+                logging.info("Setting gravitational vector for EuRoC")
+                return np.array([0., 0., 9.81])
+            case _:
+                logging.info("Setting a default gravitational vector")
                 return np.array([0., 0., 9.81])
 
     def _get_params(self, params: dict|None, key: str, default_value):
@@ -220,6 +295,9 @@ class BaseFilter:
     
     def _get_upward_leftward_update_H(self):
         return np.eye(self.P.shape[0])[4:6, :] # vy, vz
+
+    def _get_angle_update_H(self):
+        return np.eye(self.P.shape[0])[6:10, :] # qw, qx, qy, qz
     
     def get_transition_matrix(
             self, 
@@ -231,42 +309,36 @@ class BaseFilter:
                 h(x) = H*x.T
         """
         match(sensor_type.name):
-            case SensorType.PX4_MAG.name:
-                return self._get_magnetometer_update_yaw_H()
-            case SensorType.KITTI_CUSTOM_VO.name:
+            case SensorType.KITTI_VO.name:
                 update_H = self._get_velocity_update_H if z_dim == 3 else\
                             self._get_position_velocity_update_H
                 return update_H()
-            case SensorType.PX4_VO.name:
-                update_H = self._get_velocity_update_H if z_dim == 3 else\
-                            self._get_position_velocity_update_H
-                return update_H()
-            case SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY.name | SensorType.VIZTRACK_UPWARD_LEFTWARD_VELOCITY.name:
+            case SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY.name:
                 return self._get_upward_leftward_update_H()
             case _:
                 # NOTE: all transition matrix for GPS, UWB, any position update is handled by this.
                 return self._get_position_update_H()
 
     def get_innovation_mask(self, sensor_type: SensorType, z_dim: int):
+        """Returns innovation mask for the given sensor type."""
         if not self.innovation_masking:
-            return np.ones(10)
-        
+            return np.ones(self.P.shape[0])
+        x_dim = self.P.shape[0]
+        mask = None
         match(sensor_type.name):
-            case SensorType.PX4_MAG.name:
-                return np.array([0., 0., 0., 0., 0., 0., 1., 1., 1., 1.])
-            case SensorType.KITTI_CUSTOM_VO.name:
+            case SensorType.KITTI_VO.name:
                 if z_dim == 3:
-                    return np.array([0., 0., 0., 1., 1., 1., 0., 0., 0., 0.])
-                return np.array([1., 1., 1., 1., 1., 1., 0., 0., 0., 0.])
-            case SensorType.PX4_VO.name:
-                if z_dim == 3:
-                    return np.array([0., 0., 0., 1., 1., 1., 0., 0., 0., 0.])
-                return np.array([1., 1., 1., 1., 1., 1., 0., 0., 0., 0.])
-            case SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY.name | SensorType.VIZTRACK_UPWARD_LEFTWARD_VELOCITY.name:
-                return np.array([0., 0., 0., 0., 1., 1., 0., 0., 0., 0.])
+                    mask = np.array([0., 0., 0., 1., 1., 1., 0., 0., 0., 0.])
+                mask = np.array([1., 1., 1., 1., 1., 1., 0., 0., 0., 0.])
+            case SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY.name:
+                mask = np.array([0., 0., 0., 0., 1., 1., 0., 0., 0., 0.])
             case _:
                 # NOTE: all transition matrix for GPS, UWB, any position update is handled by this.
-                return np.array([1., 1., 1., 0., 0., 0., 0., 0., 0., 0.])
+                mask = np.array([1., 1., 1., 0., 0., 0., 0., 0., 0., 0.])
+
+        if mask is None:
+            raise ValueError(f"Unsupported sensor type: {sensor_type.name}")
+        return np.pad(mask, (0, x_dim - mask.shape[0]), 'constant')
         
     def get_current_estimate(self) -> Pose:
         return Pose.from_state(state=self.x)
@@ -305,14 +377,29 @@ class BaseFilter:
         a_xy = np.array([R_z[i] @ a_xy[i] for i in range(a_xy.shape[0])]) # Nx2
         return np.hstack([a_xy, acc_z.reshape(-1, 1)])
         
-    def correct_acceleration(self, acc_val: np.ndarray, q: np.ndarray) -> np.ndarray:
-        
-        match (self.dataset_type):
-            case DatasetType.KITTI | DatasetType.EXPERIMENT:
-                return self._correct_acceleration_for_kitti(acc_val=acc_val, q_list=q)
-            case _:
-                return acc_val
-                
+    def get_imu_sensor_error(self) -> IMUSensorErrors:
+        """Get IMU noise according to the IMU specification.
+        """
+        size = (3, 1)
+        acc_bias = np.random.normal(0, self.hardware_config.imu_config.sigma_accel_bias ** 2, size=size)
+        gyro_bias = np.random.normal(0, self.hardware_config.imu_config.sigma_gyro_bias ** 2, size=size)
+        acc_noise = np.random.normal(0, self.hardware_config.imu_config.sigma_accel ** 2, size=size)
+        gyro_noise = np.random.normal(0, self.hardware_config.imu_config.sigma_gyro ** 2, size=size)
+
+        return IMUSensorErrors(
+            acc_bias=acc_bias, 
+            gyro_bias=gyro_bias, 
+            acc_noise=acc_noise, 
+            gyro_noise=gyro_noise
+        )
+
+    def correct_velocity(self):
+        """Correct velocity based on the current state.
+        """
+        if self.x.v is None:
+            return
+        v_norm = np.linalg.norm(self.x.v)
+        self.x.v = np.array([0., 0., v_norm]).reshape(-1, 1)
 
 if __name__ == "__main__":
     x = State(p=np.zeros(3), v=np.zeros(3), q=np.array([1., 0., 0., 0.]))

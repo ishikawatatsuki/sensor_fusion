@@ -12,7 +12,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.common.config import VO_Config
+from src.common.config import VisualOdometryConfig
 
 class DepthEstimatorType(Enum):
     DepthAnything = 'depth_anything'
@@ -36,7 +36,7 @@ class DepthEstimatorType(Enum):
 
 class DepthEstimator:
 
-    def __init__(self, config: VO_Config):
+    def __init__(self, config: VisualOdometryConfig):
         self.config = config
         self.depth_estimator = DepthEstimatorType.from_string(config.depth_estimator)
         self.device = self._get_device()
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     image = cv2.imread(base_dir)
     image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
-    config = VO_Config(
+    config = VisualOdometryConfig(
         type='monocular',
         estimator='2d3d',
         camera_id='left',

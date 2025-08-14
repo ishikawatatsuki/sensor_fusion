@@ -1,5 +1,4 @@
 import logging
-import cv2
 import yaml
 import numpy as np
 import pandas as pd
@@ -21,15 +20,10 @@ class FilterConfig:
     motion_model: str
     noise_type: str
     innovation_masking: bool
-    vo_velocity_only_update_when_failure: bool
     params: dict
-    estimation_publishing_interval: float
     is_imu_preintegrated: bool
-    multi_threading: bool
     compensate_gravity: bool
     use_imu_preprocessing: bool
-    imu_dead_reckoning: bool
-    use_vo_relative_pose: bool
 
     def __init__(
         self,
@@ -38,30 +32,20 @@ class FilterConfig:
         motion_model: str = "velocity",
         noise_type: str = "default",
         innovation_masking: bool = False,
-        vo_velocity_only_update_when_failure: bool = False,
         params: dict = {},
-        estimation_publishing_interval: float = 1.0,
         is_imu_preintegrated: bool = False,
-        multi_threading: bool = False,
         compensate_gravity: bool = False,
         use_imu_preprocessing: bool = False,
-        imu_dead_reckoning: bool = False,
-        use_vo_relative_pose: bool = False,
         ):
         self.type = type
         self.dimension = dimension
         self.motion_model = motion_model
         self.noise_type = noise_type
         self.innovation_masking = innovation_masking
-        self.vo_velocity_only_update_when_failure = vo_velocity_only_update_when_failure
         self.params = params
-        self.estimation_publishing_interval = estimation_publishing_interval
         self.is_imu_preintegrated = is_imu_preintegrated
-        self.multi_threading = multi_threading
         self.compensate_gravity = compensate_gravity
         self.use_imu_preprocessing = use_imu_preprocessing
-        self.imu_dead_reckoning = imu_dead_reckoning
-        self.use_vo_relative_pose = use_vo_relative_pose
 
     def __str__(self):
         return \
@@ -71,70 +55,12 @@ class FilterConfig:
             f"\tmotion_model={self.motion_model}\n" \
             f"\tnoise_type={self.noise_type}\n" \
             f"\tinnovation_masking={self.innovation_masking}\n" \
-            f"\tvo_velocity_only_update_when_failure={self.vo_velocity_only_update_when_failure}\n" \
             f"\tparams={self.params}\n" \
-            f"\testimation_publishing_interval={self.estimation_publishing_interval}\n" \
             f"\tis_imu_preintegrated={self.is_imu_preintegrated}\n" \
-            f"\tmulti_threading={self.multi_threading}\n" \
             f"\tcompensate_gravity={self.compensate_gravity}\n" \
             f"\tuse_imu_preprocessing={self.use_imu_preprocessing}\n" \
-            f"\timu_dead_reckoning={self.imu_dead_reckoning}\n" \
-            f"\tuse_vo_relative_pose={self.use_vo_relative_pose}\n" \
             f")"
 
-
-@dataclass
-class BeaconInfo:
-    position: List[float]
-    lla: List[float]
-    timestamp: int
-
-@dataclass
-class BeaconReference:
-    rssi_ref: float
-    rssi_max: float
-    rssi_min: float
-    n: int
-    emission_interval: int
-
-@dataclass
-class BeaconConfig:
-    device_info: Dict[str, BeaconInfo]
-    configs: BeaconReference
-    vehicle_state_df: pd.DataFrame
-
-    @classmethod
-    def from_data(
-        cls,
-        json_data: dict,
-        vehicle_state_df: pd.DataFrame = None
-    ):
-        """Load beacon config from json data.
-
-        Args:
-            json_data (dict): JSON data containing beacon configuration.
-        """
-        if json_data is None:
-            return None
-
-        device_info = {
-            key: BeaconInfo(**value) for key, value in json_data["device_info"].items()
-        }
-        configs = BeaconReference(**json_data["configs"])
-        
-        return cls(
-            device_info=device_info,
-            configs=configs,
-            vehicle_state_df=vehicle_state_df
-        )
-
-    def __str__(self):
-        return \
-            f"BeaconConfig(\n"\
-            f"\device_info={self.device_info}\n" \
-            f"\configs={self.configs}\n" \
-            f"\tvehicle_state_df={self.vehicle_state_df}\n" \
-            f")"
 
 @dataclass
 class ImuConfig:
@@ -213,13 +139,11 @@ class TransformationConfig:
     T_imu_body_to_inertial: np.ndarray
     
     T_imu_to_virtual_imu: Dict[SensorType, np.ndarray]
-    T_imu_body_to_leica: np.ndarray = None
 
     def __init__(self,
                     T_from_cam_to_imu: np.ndarray = None,
                     T_from_imu_to_cam: np.ndarray = None,
                     T_imu_body_to_inertial: np.ndarray = None,
-                    T_imu_body_to_leica: np.ndarray = None,
                     T_imu_to_virtual_imu: Dict[SensorType, np.ndarray] = {}):
             """Initialize transformation configuration.
             Args:
@@ -232,7 +156,6 @@ class TransformationConfig:
             self.T_from_cam_to_imu = T_from_cam_to_imu if T_from_cam_to_imu is not None else np.eye(4)
             self.T_from_imu_to_cam = T_from_imu_to_cam if T_from_imu_to_cam is not None else np.eye(4)
             self.T_imu_body_to_inertial = T_imu_body_to_inertial if T_imu_body_to_inertial is not None else np.eye(4)
-            self.T_imu_body_to_leica = T_imu_body_to_leica
             
             self.T_imu_to_virtual_imu = T_imu_to_virtual_imu
             
@@ -252,7 +175,6 @@ class TransformationConfig:
             T_from_cam_to_imu=T_from_cam_to_imu,
             T_from_imu_to_cam=T_from_imu_to_cam,
             T_imu_body_to_inertial=np.eye(4),
-            T_imu_body_to_leica=None,
         )
 
     @classmethod
@@ -263,7 +185,6 @@ class TransformationConfig:
             T_from_imu_to_cam=r,
             T_imu_body_to_inertial=r,
             T_imu_to_virtual_imu={},
-            T_imu_body_to_leica=None,
         )
 
         
@@ -275,133 +196,29 @@ class TransformationConfig:
             f"\tT_imu_body_to_inertial={self.T_imu_body_to_inertial}\n" \
             f")"
 
-@dataclass
-class GeofencingConfig:
-    fencing_lines: Dict[str, List[LineString]]
-
-    def __init__(self, fencing_lines: Dict[str, List[LineString]]):
-        self.fencing_lines = fencing_lines
-
-    @staticmethod
-    def get_geofencing(geo: pd.DataFrame) -> Dict[str, List[LineString]]:
-        """Get geofencing config from dataframe.
-        Args:
-            df (pd.DataFrame): Dataframe containing geofencing information.
-        """
-        geofencing_lines = {}
-        geo_ids = geo['id'].unique().tolist()
-        for geo_id in geo_ids:
-            geo_coord = geo[geo['id'] == geo_id][['X', 'Y']].values
-            next_coord = np.roll(geo_coord, -1, axis=0)[: geo_coord.shape[0]-1]
-            geo_coord = geo_coord[:geo_coord.shape[0]-1]
-            lines = []
-            for (coord1, coord2) in zip(geo_coord, next_coord):
-                x1 = (coord1[0], coord1[1])
-                x2 = (coord2[0], coord2[1])
-                line = LineString([x1, x2])
-                lines.append(line)
-
-            geofencing_lines[geo_id] = lines
-        return geofencing_lines
-    
-    @classmethod
-    def from_dataframe(cls, df: pd.DataFrame):
-        """Create geofencing config from dataframe."""
-        if df is None:
-            return cls(fencing_lines={})
-
-        fencing_lines = cls.get_geofencing(df)
-        return cls(fencing_lines=fencing_lines)
-    
-    def __str__(self):
-        return \
-            f"GeofencingConfig(\n"\
-            f"\tfencing_lines={self.fencing_lines}\n" \
-            f")"
-
-@dataclass
-class DroneHardwareConfig:
-    moment_of_inertia: float  # kg.m2
-    arm_length: float  # in meter
-    inertia_of_rotor: float  # kg.m2
-    thrust_coefficient: float  # Ns2
-    moment_coefficient: float  # Nms2
-    mass_of_drone: float  # kg
-    aerodynamic_thrust_drag_coefficient: float  # Ns/m
-    aerodynamic_moment_drag_coefficient: float  # Nm.s
-
-    def __init__(self,
-                 moment_of_inertia_x: float = 7.5e-3,
-                 moment_of_inertia_y: float = 7.5e-3,
-                 moment_of_inertia_z: float = 1.3e-2,
-                 arm_length: float = 0.25,
-                 inertia_of_rotor: float = 6e-5,
-                 thrust_coefficient: float = 3.90153837e-6,
-                 moment_coefficient: float = 7.5e-7,
-                 mass_of_drone: float = 1.075,
-                 aerodynamic_thrust_drag_coefficient: float = 0.1,
-                 aerodynamic_moment_drag_coefficient: float = 0.1):
-        self.Ix = moment_of_inertia_x
-        self.Iy = moment_of_inertia_y
-        self.Iz = moment_of_inertia_z
-        self.moment_of_inertia = np.eye(3) * np.array(
-            [moment_of_inertia_x, moment_of_inertia_y, moment_of_inertia_z])
-        self.arm_length = arm_length
-        self.inertia_of_rotor = inertia_of_rotor
-        self.thrust_coefficient = thrust_coefficient
-        self.moment_coefficient = moment_coefficient
-        self.mass_of_drone = mass_of_drone
-        self.aerodynamic_thrust_drag_coefficient = np.eye(3) * np.repeat(
-            aerodynamic_thrust_drag_coefficient, 3)
-        self.aerodynamic_moment_drag_coefficient = np.eye(3) * np.repeat(
-            aerodynamic_moment_drag_coefficient, 3)
-
-    def __str__(self):
-        return \
-          f"Arm length of drone: {self.arm_length}m\n" \
-          f"The weight of drone: {self.mass_of_drone}kg\n" \
-          f"Rotor's inertia of drone: {self.inertia_of_rotor}\n" \
-          f"Thrust coefficient of drone: {self.thrust_coefficient}\n" \
-          f"Moment coefficient of drone: {self.moment_coefficient}\n" \
-          f"Moment of inertia of drone: {self.moment_of_inertia}\n" \
-          f"Aerodynamic thrust drag coefficient of drone: {self.aerodynamic_thrust_drag_coefficient}\n" \
-          f"Aerodynamic moment drag coefficient  of drone: {self.aerodynamic_moment_drag_coefficient}"
-
 
 @dataclass
 class HardwareConfig:
     type: str
     imu_config: ImuConfig
-    beacon_config: BeaconConfig
     transformation: TransformationConfig
-    geofencing_config: GeofencingConfig
-    drone_hardware_config: DroneHardwareConfig
     
     def __init__(
             self,
             type: str,
             imu_config: ImuConfig,
-            beacon_config: BeaconConfig,
             transformation: TransformationConfig,
-            geofencing_config: GeofencingConfig,
-            drone_hardware_config: DroneHardwareConfig = None
     ):
         self.type = type
         self.imu_config = imu_config
-        self.beacon_config = beacon_config
         self.transformation = transformation
-        self.geofencing_config = geofencing_config
-        self.drone_hardware_config = drone_hardware_config
 
     def __str__(self):
         return \
             f"HardwareConfig(\n"\
             f"\ttype={self.type}\n" \
             f"\timu_config={self.imu_config}\n" \
-            f"\tbeacon_config={self.beacon_config}\n" \
             f"\ttransformation={self.transformation}\n" \
-            f"\tgeofencing_config={self.geofencing_config}\n" \
-            f"\drone_hardware_config={self.drone_hardware_config}\n" \
             f")"
 
 GyroSpecification = namedtuple("GyroSpecification", ['noise', 'offset'])
@@ -410,17 +227,16 @@ AccelSpecification = namedtuple("AccelSpecification",
     
 
 @dataclass
-class VO_Config:
+class VisualOdometryConfig:
     def __init__(
         self,
         type: str,
-        estimator: str,
-        camera_id: str,
+        estimator: str = "2d2d",
+        camera_id: str = "left",
         feature_detector: str = "sift",
         feature_matcher: str = "bf",
         depth_estimator: str = None,
         use_advanced_detector: bool = False,
-        solve_pose_max_iterations: int = 5,
         params: Dict[str, Union[int, float]] = {},
     ):
         self.type = type
@@ -430,10 +246,9 @@ class VO_Config:
         self.feature_matcher = feature_matcher
         self.depth_estimator = depth_estimator
         self.use_advanced_detector = use_advanced_detector
-        self.solve_pose_max_iterations = solve_pose_max_iterations
         self.params = params
 
-        logging.debug(f"VO_Config initialized with: {self}")
+        logging.debug(f"VisualOdometryConfig initialized with: {self}")
 
     @classmethod
     def from_json(cls, json_data: dict):
@@ -452,7 +267,6 @@ class VO_Config:
         feature_matcher = json_data.get("feature_matcher", "bf")
         depth_estimator = json_data.get("depth_estimator", None)
         use_advanced_detector = json_data.get("use_advanced_detector", False)
-        solve_pose_max_iterations = json_data.get("solve_pose_max_iterations", 10)
         params = json_data.get("params", {})
 
         return cls(
@@ -463,12 +277,11 @@ class VO_Config:
             feature_matcher=feature_matcher,
             depth_estimator=depth_estimator,
             use_advanced_detector=use_advanced_detector,
-            solve_pose_max_iterations=solve_pose_max_iterations,
             params=params
         )
     def __str__(self):
         return \
-            f"VO_Config(\n"\
+            f"VisualOdometryConfig(\n"\
             f"\ttype={self.type}\n" \
             f"\testimator={self.estimator}\n" \
             f"\tfeature_detector={self.feature_detector}\n" \
@@ -476,7 +289,6 @@ class VO_Config:
             f"\tcamera_id={self.camera_id}\n" \
             f"\tdepth_estimator={self.depth_estimator}\n" \
             f"\tuse_advanced_detector={self.use_advanced_detector}\n" \
-            f"\tsolve_pose_max_iterations={self.solve_pose_max_iterations}\n" \
             f"\tparams={self.params}\n" \
             f")"
 
@@ -497,10 +309,4 @@ class Config:
             f.close()
 
         self.filter = FilterConfig(**config["filter"])
-
-        kwargs = config['drone_config'] if config.get(
-            'drone_config') is not None else {}
-
-        self.hardware_config = DroneHardwareConfig(**kwargs)
-
-        self.vo_config = VO_Config(**config['visual_odometry'])
+        self.vo_config = VisualOdometryConfig(**config['visual_odometry'])

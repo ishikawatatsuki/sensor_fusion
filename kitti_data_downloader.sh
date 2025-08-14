@@ -22,10 +22,18 @@ mkdir -p $LOCATION_DIR
 files=(
         2011_09_26_calib.zip
         2011_09_30_calib.zip
+        2011_10_03_calib.zip
         2011_09_26_drive_0067
         2011_09_30_drive_0016
+        2011_09_30_drive_0020
         2011_09_30_drive_0027
         2011_09_30_drive_0033
+        2011_10_03_drive_0042
+        2011_09_30_drive_0034
+        
+        2011_10_03_drive_0034
+        2011_09_30_drive_0018
+        2011_09_30_drive_0028
 )
 
 for i in ${files[@]}; do
@@ -44,31 +52,35 @@ for i in ${files[@]}; do
 done
 
 
-GROUND_TRUTH_DIR=$LOCATION_DIR'/ground_truth'
-filename=$GROUND_TRUTH_DIR'/data_odometry_poses.zip'
+# GROUND_TRUTH_DIR=$LOCATION_DIR'/ground_truth'
+# filename=$GROUND_TRUTH_DIR'/data_odometry_poses.zip'
 
-mkdir -p $GROUND_TRUTH_DIR
+# mkdir -p $GROUND_TRUTH_DIR
 
-wget 'https://s3.eu-central-1.amazonaws.com/avg-kitti/data_odometry_poses.zip' -P $GROUND_TRUTH_DIR
-unzip -o $filename -d $GROUND_TRUTH_DIR
-rm $filename
-mv ./data/KITTI/ground_truth/dataset/poses/* ./data/KITTI/ground_truth/
-rm -rf $GROUND_TRUTH_DIR'/dataset'
+# # Downloading ground truth data
+# wget 'https://s3.eu-central-1.amazonaws.com/avg-kitti/data_odometry_poses.zip' -P $GROUND_TRUTH_DIR
+# unzip -o $filename -d $GROUND_TRUTH_DIR
+# rm $filename
+# mv ./data/KITTI/ground_truth/dataset/poses/* ./data/KITTI/ground_truth/
+# rm -rf $GROUND_TRUTH_DIR'/dataset'
 
 
-VO_CARIBRATION_DIR=$LOCATION_DIR'/vo_calibrations'
-filename=$VO_CARIBRATION_DIR'/data_odometry_calib.zip'
+# VO_CARIBRATION_DIR=$LOCATION_DIR'/vo_calibrations'
+# filename=$VO_CARIBRATION_DIR'/data_odometry_calib.zip'
 
-mkdir -p $VO_CARIBRATION_DIR
+# mkdir -p $VO_CARIBRATION_DIR
 
-wget 'https://s3.eu-central-1.amazonaws.com/avg-kitti/data_odometry_calib.zip' -P $VO_CARIBRATION_DIR
-unzip -o $filename -d $VO_CARIBRATION_DIR
-rm $filename
-mv ./data/KITTI/vo_calibrations/dataset/sequences/* $VO_CARIBRATION_DIR
-rm -rf $VO_CARIBRATION_DIR'/dataset'
+# # Downloading camera calibration
+# wget 'https://s3.eu-central-1.amazonaws.com/avg-kitti/data_odometry_calib.zip' -P $VO_CARIBRATION_DIR
+# unzip -o $filename -d $VO_CARIBRATION_DIR
+# rm $filename
+# mv ./data/KITTI/vo_calibrations/dataset/sequences/* $VO_CARIBRATION_DIR
+# rm -rf $VO_CARIBRATION_DIR'/dataset'
 
-VO_ESTIMATE_FILENAME='vo_estimates.zip'
-VO_ESTIMATE_FILEPATH=$LOCATION_DIR'/'$VO_ESTIMATE_FILENAME
-wget 'https://kitti-vo-estimates.s3.ap-northeast-1.amazonaws.com/'$VO_ESTIMATE_FILENAME -P $LOCATION_DIR
-unzip $VO_ESTIMATE_FILEPATH -d $LOCATION_DIR
-rm -rf $VO_ESTIMATE_FILEPATH
+# VO_ESTIMATE_FILENAME='vo_estimates.zip'
+# VO_ESTIMATE_FILEPATH=$LOCATION_DIR'/'$VO_ESTIMATE_FILENAME
+
+# # Downloading visual odometry estimates
+# wget 'https://kitti-vo-estimates.s3.ap-northeast-1.amazonaws.com/'$VO_ESTIMATE_FILENAME -P $LOCATION_DIR
+# unzip $VO_ESTIMATE_FILEPATH -d $LOCATION_DIR
+# rm -rf $VO_ESTIMATE_FILEPATH

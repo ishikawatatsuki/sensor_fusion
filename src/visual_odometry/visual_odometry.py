@@ -9,18 +9,13 @@ from enum import Enum
 from einops import rearrange
 from sklearn.metrics import mean_absolute_error
 
+from .depth_estimator import DepthEstimator
+from .object_detection import DynamicObjectDetector
+from .vo_utils import DetectorType, MatcherType, RANSAC_FlagType, draw_reprojection, print_reprojection_error
 
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-
-from src.visual_odometry.depth_estimator import DepthEstimator
-from src.visual_odometry.object_detection import DynamicObjectDetector
-from src.visual_odometry.vo_utils import DetectorType, MatcherType, RANSAC_FlagType, draw_reprojection, print_reprojection_error
-
-from src.common.constants import KITTI_SEQUENCE_MAPS
-from src.common.config import VO_Config
-from src.internal.extended_common.extended_config import DatasetConfig
-from src.common.datatypes import ImageData
+from ..common.config import VisualOdometryConfig
+from ..internal.extended_common.extended_config import DatasetConfig
+from ..common.datatypes import ImageData
 
 
 class EstimatorType(Enum):
@@ -54,25 +49,27 @@ class VisualOdometry:
 
     def __init__(
             self, 
-            config: VO_Config,
+            config: VisualOdometryConfig,
             dataset_config: DatasetConfig,
             debug: bool = False
             ):
         
         self.config = config
+
+        self.confidence = config.params.get('confidence', 0.999)
+        self.matching_threshold = config.params.get('matching_threshold', 0.3)
+        self.ransac_reproj_threshold = config.params.get('ransac_reproj_threshold', 1.0)
+
         self.min_depth_threshold = config.params.get('min_depth_threshold', 1)
         self.max_depth_threshold = config.params.get('max_depth_threshold', 50)
-        self.ransac_reproj_threshold = config.params.get('ransac_reproj_threshold', 1.0)
-        self.confidence = config.params.get('confidence', 0.999)
         self.reprojection_error = config.params.get('reprojection_error', 4.0)
         self.itterations_count = config.params.get('itterations_count', 100)
-        self.matching_threshold = config.params.get('matching_threshold', 0.3)
         self.flag = RANSAC_FlagType.from_string(config.params.get('flag', 'SOLVEPNP_ITERATIVE'))
 
 
         self.dataset_config = dataset_config
         self.motion_estimator = EstimatorType.from_string(config.estimator)
-        self.object_detector = DynamicObjectDetector(model_path="/gpfs/mariana/home/taishi/workspace/researches/sensor_fusion/src/visual_odometry/yolo11n-seg.pt", dynamic_classes=["person", "car", "bicycle", "motorbike", "bus", "truck"], conf=0.6)
+        self.object_detector = DynamicObjectDetector(model_path="src/visual_odometry/yolo11n-seg.pt", dynamic_classes=["person", "car", "bicycle", "motorbike", "bus", "truck"], conf=0.6)
 
     
         self.advanced_detector = config.use_advanced_detector
@@ -80,7 +77,7 @@ class VisualOdometry:
             self.detector = DetectorType.create_detector_from_str(config.feature_detector)
             self.matcher = MatcherType.create_matcher_from_str(config.feature_matcher)
 
-            print(f"Using advanced detector: {self.detector} and matcher: {self.matcher}")
+            logging.debug(f"Using advanced detector: {self.detector} and matcher: {self.matcher}")
 
 
         if self.motion_estimator == EstimatorType.PnP:
@@ -101,8 +98,7 @@ class VisualOdometry:
 
     def _get_calib_path(self):
         if self.dataset_config.type == "kitti":
-            variant = KITTI_SEQUENCE_MAPS.get(self.dataset_config.variant, "0033")
-            return os.path.join(self.dataset_config.root_path, "vo_calibrations", variant, f"calib.txt"), "P0:"
+            return os.path.join(self.dataset_config.root_path, "vo_calibrations", self.dataset_config.variant, f"calib.txt"), "P0:"
         else:
             raise ValueError("Unsupported dataset type")
 
@@ -336,42 +332,41 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logging.getLogger('matplotlib.font_manager').disabled = True
 
+    # rootpath = "/gpfs/mariana/home/taishi/workspace/researches/sensor_fusion/data/KITTI"
+    rootpath = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/KITTI"
+
     dataset_config = DatasetConfig(
         type='kitti',
         mode='stream',
-        root_path='/gpfs/mariana/home/taishi/workspace/researches/sensor_fusion/data/KITTI',
-        variant='0033',
+        root_path=rootpath,
+        variant='09',
     )
-            
-    config = VO_Config(
+    
+    config = VisualOdometryConfig(
         type='monocular',
-        estimator='2d3d',
+        estimator='2d2d',
         camera_id='left',
         depth_estimator='zoe_depth',
         use_advanced_detector=False,
-        feature_detector='ORB',
+        feature_detector='SIFT',
         feature_matcher='BF',
         params={
+            'confidence': 0.90,
+            'ransac_reproj_threshold': 0.99,
+            'matching_threshold': 0.5,
             'max_features': 1000,
-            'confidence': 0.99,
-            'min_depth_threshold': 1.0,
-            'max_depth_threshold': 50.0,
-            'reprojection_error': 4.0,
-            'itterations_count': 100,
-            'flag': 'SOLVEPNP_ITERATIVE'
         }
     )
 
     vo = VisualOdometry(config=config, dataset_config=dataset_config, debug=False)
     logging.debug("Visual Odometry initialized.")
 
-    image_root_path = "/gpfs/mariana/home/taishi/workspace/researches/sensor_fusion/data/KITTI"
-    image_path = os.path.join(image_root_path, "2011_09_30/2011_09_30_drive_0033_sync/image_00/data")
+    image_path = os.path.join(rootpath, "2011_09_30/2011_09_30_drive_0033_sync/image_00/data")
     image_files = sorted([f for f in os.listdir(image_path) if f.endswith('.png')])
 
     logging.debug(f"Found {len(image_files)} image files.")
 
-    ground_truth_path = os.path.join(image_root_path, "ground_truth/09.txt")
+    ground_truth_path = os.path.join(rootpath, "ground_truth/09.txt")
     ground_truth = pd.read_csv(ground_truth_path, sep=' ', header=None, skiprows=1).values
     ground_truth = ground_truth.reshape(-1, 3, 4)
     gt_pos = ground_truth[:, :3, 3]

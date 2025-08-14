@@ -12,7 +12,7 @@ src/_test
 .tmp
 *.log
 data
-*/.DS_Store
+.DS_Store
 *.out
 *.stat
 

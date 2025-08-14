@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 from src.visual_odometry.visual_odometry import VisualOdometry
 from src.visual_odometry.vo_utils import DetectorType, MatcherType
-from src.common.config import VO_Config
+from src.common.config import VisualOdometryConfig
 from src.internal.extended_common.extended_config import DatasetConfig
 from src.common.datatypes import ImageData
 
@@ -81,7 +81,7 @@ class VisualOdometryObjective2d2D:
             variant='0033',
         )
                 
-        config = VO_Config(
+        config = VisualOdometryConfig(
             type='monocular',
             estimator='2d2d',
             camera_id='left',
