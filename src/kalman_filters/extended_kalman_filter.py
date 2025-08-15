@@ -515,7 +515,6 @@ class ExtendedKalmanFilter(BaseFilter):
         z = data.z
         R = data.R
         sensor_type = data.sensor_type
-        
         z_dim = z.shape[0]
         x = self.x.get_state_vector()
         H = self.get_transition_matrix(sensor_type, z_dim=z_dim)

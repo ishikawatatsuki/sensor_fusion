@@ -47,7 +47,7 @@ jupyter_up:
 	docker run --rm --user root -p 8888:8888 -v .:/app -it ${CONTAINER_TAG}:1.0 jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --notebook-dir=/app --allow-root
 
 run:
-	python -m src.pipeline --config_file ./configs/kitti_config.yaml --log_output .debugging
+	python -m src.pipeline --config_file ./configs/kitti_config.yaml --log_output .debugging --log_level INFO
 
 export_vo_estimates:
 	python -m src._experiments.run_visual_odometry \

@@ -112,13 +112,13 @@ class SensorFusion:
             t=initial_state.x.p.flatten()
         )
 
-    def _prepare_response(self, sensor_data: SensorDataField, z: np.ndarray) -> FusionResponse:
+    def _prepare_response(self, sensor_data: SensorDataField, visualizing_data: np.ndarray) -> FusionResponse:
         response = FusionResponse()
         
         if SensorType.is_vo_data(sensor_data.type):
-            response.vo_data = z.flatten()[:3]
+            response.vo_data = visualizing_data.flatten()[:3]
         elif SensorType.is_gps_data(sensor_data.type):
-            response.gps_data = z.flatten()[:3]
+            response.gps_data = visualizing_data.flatten()[:3]
             
         return response
 
@@ -129,7 +129,7 @@ class SensorFusion:
 
         if SensorType.is_vo_data(sensor_data.type):
             # NOTE: Construct a VO estimated position from the relative pose between image frames at t1 and t2
-            relative_pose_in_camera_coord = sensor_data.relative_pose
+            relative_pose_in_camera_coord = sensor_data.data.relative_pose
             if relative_pose_in_camera_coord.shape != (3, 4):
                 relative_pose_in_camera_coord = relative_pose_in_camera_coord.reshape(3, 4)
 
@@ -147,7 +147,7 @@ class SensorFusion:
             dt = sensor_data.data.dt if sensor_data.data.dt > 1e-6 else 0.1
             z = relative_pose.t.reshape(-1, 1) / dt # velocity
 
-            visualizing_data = self.last_vo_pose.t
+            visualizing_data = self.last_vo_pose.t.flatten()
         else:
             z = self.geo_transformer.transform(fields=TransformationField(
                 state=self.kalman_filter.x,
@@ -159,7 +159,7 @@ class SensorFusion:
         R = self.noise_manager.get_measurement_noise(sensor_data=sensor_data)
         R = R[:z.shape[0], :z.shape[0]]
 
-        response = self._prepare_response(sensor_data=sensor_data, z=visualizing_data)
+        response = self._prepare_response(sensor_data=sensor_data, visualizing_data=visualizing_data)
 
         return MeasurementUpdateField(z=z, R=R, sensor_type=sensor_data.type), response
     
@@ -204,12 +204,12 @@ class SensorFusion:
         self.kalman_filter.time_update(data)
         
         return FusionResponse(
-                pose=self.kalman_filter.get_current_estimate().matrix(), 
+                # pose=self.kalman_filter.get_current_estimate().matrix(), 
                 timestamp=sensor_data.timestamp,
                 imu_acceleration=u[:3].flatten(),
                 imu_angular_velocity=u[3:].flatten(),
-                estimated_angle=self.kalman_filter.x.get_euler_angle_from_quaternion().flatten(),
-                estimated_linear_velocity=self.kalman_filter.x.v.flatten(),
+                # estimated_angle=self.kalman_filter.x.get_euler_angle_from_quaternion().flatten(),
+                # estimated_linear_velocity=self.kalman_filter.x.v.flatten(),
             )
     
     @time_reporter

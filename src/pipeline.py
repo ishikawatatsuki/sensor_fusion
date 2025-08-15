@@ -7,25 +7,27 @@ import numpy as np
 from typing import List
 
 from .common import (
-  Config,
-  Pose, State,
-  SensorType,
-  FilterType,
-  NoiseType,
-  DatasetType,
-  FusionResponse,
-  VisualizationData
+    Config,
+    Pose, State,
+    SensorType,
+    FilterType,
+    NoiseType,
+    DatasetType,
+    FusionResponse,
+    VisualizationData
 )
 from .visual_odometry import VisualOdometry
 from .internal.dataset import Dataset
 from .internal.extended_common import (
-  ExtendedConfig
+    ExtendedConfig,
+    CoordinateFrame
 )
 from .internal.visualizers import (
-  BaseVisualizationField, PoseVisualizationField, VisualizationDataType, RealtimeVisualizer
+    VisualizationMessage, VisualizationDataType, RealtimeVisualizer
 )
 from .internal.error_reporter import ErrorReporter, ErrorReportType, ReportMessage
 from .utils.time_reporter import time_reporter
+from .utils.geometric_transformer import TransformationField
 from .misc import setup_logging, parse_args
 from .sensor_fusion import SensorFusion
 
@@ -60,29 +62,16 @@ class SingleThreadedPipeline(abc.ABC):
         initial_state = self.dataset.get_initial_state(filter_config=config.filter)
         self.sensor_fusion.set_initial_state(initial_state=initial_state)
 
-        self.timestamp_divider = 1e9
-        self.visualization_initial_timestamp = None
-        self.visualization_queue = {
-            viz.type: viz.queue for viz in self.visualizer.interface.queues
-        }
+        self.visualization_queue = self.visualizer.get_queue()
 
 
         logging.info("Initialization completed.")
 
-    def _visualize_data(self, visualization_type: VisualizationDataType, data: VisualizationData):
+    def _visualize_data(self, message: VisualizationMessage):
         """Visualize data including sensors, estimation, and etc."""
 
-        queue = self.visualization_queue.get(visualization_type)
-        if queue is None:
-            logging.warning(f"Visualization queue not found for type: {visualization_type.name}")
-            return
-        
-        if self.visualization_initial_timestamp is None:
-            self.visualization_initial_timestamp = data.timestamp
-
-        # NOTE: Convert timestamp into elapsed time
-        data.timestamp = (data.timestamp - self.visualization_initial_timestamp) / self.timestamp_divider
-        queue.put(data)
+        message.timestamp = message.timestamp 
+        self.visualization_queue.put(message)
         
     def _prepare_visualization(self, response: FusionResponse):
         if response is None or not self.config.visualization.realtime:
@@ -90,36 +79,44 @@ class SingleThreadedPipeline(abc.ABC):
         
         if response.imu_acceleration is not None:
             self._visualize_data(
-                visualization_type=VisualizationDataType.ACCELEROMETER,
-                data=VisualizationData(
+                message=VisualizationMessage(
+                    type=VisualizationDataType.ACCELEROMETER,
                     timestamp=response.timestamp,
-                    data=response.imu_acceleration
+                    data=VisualizationData(
+                        data=response.imu_acceleration,
+                    ),
                 )
             )
         if response.imu_angular_velocity is not None:
             self._visualize_data(
-                visualization_type=VisualizationDataType.GYROSCOPE,
-                data=VisualizationData(
+                message=VisualizationMessage(
+                    type=VisualizationDataType.GYROSCOPE,
                     timestamp=response.timestamp,
-                    data=response.imu_angular_velocity
+                    data=VisualizationData(
+                        data=response.imu_angular_velocity,
+                    ),
                 )
             )
-        
+
         if response.estimated_angle is not None:
             self._visualize_data(
-                visualization_type=VisualizationDataType.ANGLE,
-                data=VisualizationData(
+                message=VisualizationMessage(
+                    type=VisualizationDataType.ANGLE,
                     timestamp=response.timestamp,
-                    data=response.estimated_angle
+                    data=VisualizationData(
+                        data=response.estimated_angle
+                    )
                 )
             )
         
         if response.estimated_linear_velocity is not None:
             self._visualize_data(
-                visualization_type=VisualizationDataType.VELOCITY,
-                data=VisualizationData(
+                message=VisualizationMessage(
+                    type=VisualizationDataType.VELOCITY,
                     timestamp=response.timestamp,
-                    data=response.estimated_linear_velocity
+                    data=VisualizationData(
+                        data=response.estimated_linear_velocity
+                    )
                 )
             )
         
@@ -127,48 +124,34 @@ class SingleThreadedPipeline(abc.ABC):
             data = response.pose[:3, 3].flatten()
             # data = np.array([data[1], data[2], data[0]])
             self._visualize_data(
-                visualization_type=VisualizationDataType.ESTIMATION,
-                data=VisualizationData(
+                message=VisualizationMessage(
+                    type=VisualizationDataType.ESTIMATION,
                     timestamp=response.timestamp,
-                    data=data
+                    data=VisualizationData(
+                        data=data
+                    )
                 )
             )
         
         if response.gps_data is not None:
             self._visualize_data(
-                visualization_type=VisualizationDataType.GPS,
-                data=VisualizationData(
+                message=VisualizationMessage(
+                    type=VisualizationDataType.GPS,
                     timestamp=response.timestamp,
-                    data=response.gps_data
-                )
-            )
-
-        if response.leica_data is not None:
-            data = response.leica_data.flatten()
-            # data = np.array([data[1], data[2], data[0]])
-            self._visualize_data(
-                visualization_type=VisualizationDataType.LEICA,
-                data=VisualizationData(
-                    timestamp=response.timestamp,
-                    data=data
-                )
-            )
-        
-        if response.geo_fencing_data is not None:
-            self._visualize_data(
-                visualization_type=VisualizationDataType.BEACON,
-                data=VisualizationData(
-                    timestamp=response.timestamp,
-                    data=response.geo_fencing_data
+                    data=VisualizationData(
+                        data=response.gps_data
+                    )
                 )
             )
 
         if response.vo_data is not None:
             self._visualize_data(
-                visualization_type=VisualizationDataType.VO,
-                data=VisualizationData(
+                message=VisualizationMessage(
+                    type=VisualizationDataType.VO,
                     timestamp=response.timestamp,
-                    data=response.vo_data
+                    data=VisualizationData(
+                        data=response.vo_data
+                    )
                 )
             )
 
@@ -221,29 +204,42 @@ class SingleThreadedPipeline(abc.ABC):
 
                 elif SensorType.is_stereo_image_data(sensor_data.type):
                     self._visualize_data(
-                        visualization_type=VisualizationDataType.IMAGE,
-                        data=VisualizationData(
-                            data=np.zeros(1),
+                        message=VisualizationMessage(
+                            type=VisualizationDataType.IMAGE,
                             timestamp=sensor_data.timestamp,
-                            extra=sensor_data.data.left_frame_id)
+                            data=VisualizationData(
+                                data=np.empty(0),
+                                extra=sensor_data.data.left_frame_id
+                            )
+                        )
                     )
                 
                 elif SensorType.is_reference_data(sensor_data.type):
                     # For visualization
                     if config.dataset.type == "kitti":
-                        data = sensor_data.data.z[:3, 3].flatten()
+                        value = sensor_data.data.z
+                        gt_inertial = self.sensor_fusion.geo_transformer.transform(fields=TransformationField(
+                            state=self.sensor_fusion.kalman_filter.x,
+                            value=value,
+                            coord_from=CoordinateFrame.STEREO_LEFT,
+                            coord_to=CoordinateFrame.INERTIAL))
+                        data = gt_inertial[:3, 3].flatten()
                     elif config.dataset.type == "euroc":
                         data = sensor_data.data.z.flatten()[:3]
                     else:
                         continue
                     
+
                     self._visualize_data(
-                        visualization_type=VisualizationDataType.GROUND_TRUTH,
-                        data=VisualizationData(data=data,
-                                                timestamp=sensor_data.timestamp,
-                                                extra=None)
+                        message=VisualizationMessage(
+                            type=VisualizationDataType.GROUND_TRUTH,
+                            timestamp=sensor_data.timestamp,
+                            data=VisualizationData(
+                                data=data
+                            )
+                        )
                     )
-                    
+
                     # NOTE: this works only for KITTI dataset
                     current_estimate = self.sensor_fusion.kalman_filter.get_current_estimate().t.flatten()
                     estimated = np.array([current_estimate[0], current_estimate[1], current_estimate[2]])
@@ -285,7 +281,7 @@ class SingleThreadedPipeline(abc.ABC):
             self.visualizer.stop()
 
 if __name__ == "__main__":
-  
+    
     args = parse_args()
     setup_logging(log_level=args.log_level, log_output=args.log_output)
     logging.info("Starting pipeline")

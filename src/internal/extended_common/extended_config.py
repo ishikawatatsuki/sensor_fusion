@@ -234,6 +234,9 @@ class ExtendedConfig:
         
         self.hardware = self._get_sensor_hardware_config()
 
+        logging.info(f"Dataset sensors: {self.dataset.sensors}")
+
+
 
     def _get_sensor_hardware_config(self) -> HardwareConfig:
         # NOTE: This is only internal usage.
@@ -280,7 +283,18 @@ class ExtendedConfig:
             if frequency < 100:
                 logging.warning(f"IMU frequency is set to {frequency} Hz. This is lower than the default value of 100 Hz.")
                 frequency = 100
-            return ImuConfig(frequency=frequency)
+            
+            if self.dataset.type == DatasetType.KITTI.name:
+                return ImuConfig(
+                    frequency=frequency,
+                    target_frequency=frequency,
+                    gyroscope_noise_density=1e-6,
+                    accelerometer_noise_density=1e-6,
+                    gyroscope_random_walk=1e-6,
+                    accelerometer_random_walk=1e-6,
+                )
+            else:
+                return ImuConfig(frequency=frequency)
         
 
         imu_config = _get_imu_config()

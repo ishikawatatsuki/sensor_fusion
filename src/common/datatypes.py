@@ -701,12 +701,10 @@ class VisualizationDataType(IntEnum):
     ESTIMATION = auto()  # Fusion estimation
     GPS = auto()
     VO = auto()
-    BEACON = auto()
     ACCELEROMETER = auto()
     GYROSCOPE = auto()
     VELOCITY = auto()
     ANGLE = auto()
-    LEICA = auto()
 
 
     STATE = auto()
@@ -736,22 +734,19 @@ class VisualizationQueue:
 
 
 @dataclass
-class VisualizerInterface:
-    queues: list[VisualizationQueue]
-    num_cols: int
-    window_title: str
-
-
-@dataclass
 class VisualizationData:
     data: np.ndarray
-    timestamp: int
     extra: str
 
-    def __init__(self, data: np.ndarray, timestamp: int, extra: str = None):
+    def __init__(self, data: np.ndarray, extra: str = None):
         self.data = data
-        self.timestamp = timestamp
         self.extra = extra
+
+@dataclass
+class VisualizationMessage:
+    timestamp: float
+    type: VisualizationDataType
+    data: VisualizationData
 
 @dataclass
 class FusionResponse:

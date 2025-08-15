@@ -303,7 +303,7 @@ class KITTIDataset(BaseDataset):
         if SensorType.is_time_update(sensor_data.type):
             last_timestamp = self.last_timestamp
             self.last_timestamp = timestamp
-            dt = (timestamp - last_timestamp) /1e9
+            dt = timestamp - last_timestamp
         
         match(sensor_data.type):
             case KITTI_SensorType.OXTS_IMU:
@@ -373,7 +373,7 @@ class KITTIDataset(BaseDataset):
                 return SensorDataField(
                     type=sensor_data.type, 
                     timestamp=timestamp, 
-                    data=SensorData(z=pose.matrix()),
+                    data=SensorData(z=pose.matrix(pose_only=True)),
                     coordinate_frame=CoordinateFrame.INERTIAL
                     )
             

@@ -23,7 +23,7 @@ visualization:
     gyroscope: True
     estimation: True
     image: True
-    gps: True
+    gps: False
     vo: True
     velocity: True
     angle: True
@@ -55,7 +55,7 @@ dataset:
       args:
         frequency: 10 # Hz
     oxts_gps: 
-      selected: True
+      selected: False
       dropout_ratio: 0
       window_size: 1
       args:
@@ -97,7 +97,7 @@ report:
 filter:
   type: ekf # Select from: ekf, ukf, pf, enkf, ckf
   dimension: 2
-  motion_model: velocity # kinematics or velocity
+  motion_model: kinematics # kinematics or velocity
   noise_type: default # default, dynamic 
   innovation_masking: False
   is_imu_preintegrated: False

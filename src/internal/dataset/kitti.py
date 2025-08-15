@@ -10,9 +10,11 @@ if __name__ == "__main__":
     sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
     from src.utils import get_oxts_gyroscope_noise, get_oxts_acceleration_noise
     from src.common import Pose, State, FilterConfig
+    from src.common.constants import KITTI_SEQUENCE_MAPS
 else:
     from ...utils import get_oxts_gyroscope_noise, get_oxts_acceleration_noise
     from ...common import Pose, State, FilterConfig
+    from ...common.constants import KITTI_SEQUENCE_MAPS
 
 
 class OXTS_IMUDataReader:
@@ -69,23 +71,10 @@ class OXTS_GPSDataReader:
         self.starttime = starttime
 
 class KITTI_GroundTruthDataReader:
-    filename_map = {
-      "0027": "00.txt",
-      "0042": "01.txt",
-      "0034": "02.txt",
-      "0067": "03.txt",
-      "0016": "04.txt",
-      "0018": "05.txt",
-      "0020": "06.txt",
-      "0027": "07.txt",
-      "0028": "08.txt",
-      "0033": "09.txt",
-      "0034": "10.txt",
-    }
-  
     def __init__(self, root_path, date, drive, starttime=-float('inf')):
-      gt_filename = self.filename_map.get(drive)
+      gt_filename = KITTI_SEQUENCE_MAPS.get(drive)
       assert gt_filename is not None, "Please specify proper drive dataset"
+      gt_filename = gt_filename + ".txt"
 
       self.kitti_dataset = pykitti.raw(root_path, date, drive)
       self.timestamps = self.kitti_dataset.timestamps
@@ -178,14 +167,15 @@ class KITTI_StereoFrameReader:
           
           left_frame_id = f"image_00/data/{id:010}.png"  
           right_frame_id = f"image_01/data/{id:010}.png"
-          if not os.path.exists(os.path.join(self.image_root_path, left_frame_id)) or\
-              not os.path.exists(os.path.join(self.image_root_path, right_frame_id)):
+          left_image_path = os.path.join(self.image_root_path, left_frame_id)
+          right_image_path = os.path.join(self.image_root_path, right_frame_id)
+          if not os.path.exists(left_image_path) or not os.path.exists(right_image_path):
             continue
           
           yield self.field(
             timestamp, 
-            os.path.join(self.kitti_image_data_path, left_frame_id), 
-            os.path.join(self.kitti_image_data_path, right_frame_id)
+            left_image_path, 
+            right_image_path
           )
 
   def start_time(self):
@@ -204,40 +194,31 @@ class KITTI_VisualOdometry:
       starttime=-float('inf')
     ):
     self.kitti_dataset = pykitti.raw(root_path, date, drive)
-    self.df = pd.read_csv(
+    self.vo_estimates = pd.read_csv(
       os.path.join(root_path, "vo_pose_estimates", date, drive, "data.csv"),
-      names=['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11']
-    )
+      names=[str(i) for i in range(16)]
+    ).values.reshape(-1, 4, 4)[:, :3, :]
+
     self.starttime = starttime
     self.field = namedtuple('data', 
         ['timestamp', 'relative_pose', 'dt'])
-    
-    self.last_timestamp = None
-    
+
+    self.last_timestamp = datetime.timestamp(self.kitti_dataset.timestamps[0])
+
     self.window_size = window_size
     self.buffer = []
     
-  def rolling_average(self, velocity):
-      self.buffer.append(velocity)
-      if len(self.buffer) > self.window_size:
-          mean = np.mean(self.buffer, axis=0)
-          self.buffer = self.buffer[-self.window_size:]
-          return mean
-          
-      return velocity
-    
   def __iter__(self):
-    for i, timestamp in enumerate(self.kitti_dataset.timestamps[:self.df.shape[0]]):
+    for i, timestamp in enumerate(self.kitti_dataset.timestamps[1:self.vo_estimates.shape[0]]):
+
       timestamp = datetime.timestamp(timestamp)
-      if timestamp < self.starttime or self.last_timestamp is None:
+      if timestamp < self.starttime:
+        self.last_timestamp = timestamp
         continue
-      
-      relative_pose = self.df.iloc[i].values
+
+      relative_pose = self.vo_estimates[i]
       dt = timestamp - self.last_timestamp
       self.last_timestamp = timestamp
-
-      if self.window_size is not None:
-        velocity = self.rolling_average(velocity=velocity)
 
       yield self.field(timestamp=timestamp, relative_pose=relative_pose, dt=dt)
 
@@ -352,7 +333,10 @@ if __name__ == "__main__":
       except StopIteration:
           break
       i += 1
-      
+    
+  print(f"data length: {len(arr)}")
+  if len(arr) == 0:
+      exit(0)
   fig, ax = plt.subplots(1, 1, figsize=(8, 8))
   ax.set_title("Forward velocity comparison")
   x, y, z = np.array(arr).T

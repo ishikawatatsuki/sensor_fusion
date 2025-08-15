@@ -48,8 +48,8 @@ class BaseNoise(abc.ABC):
                     return np.eye(noise_vector.shape[0]) * noise_vector**2
 
                 case SensorType.KITTI_VO.name:
-                    noise_vector = np.array(
-                        [3., 3., 10., .15, .15, .15, 0.5, 0.5, 0.5, 0.5])
+                    # Velocity noise
+                    noise_vector = np.array([.5, .5, .5])
                     return np.eye(noise_vector.shape[0]) * noise_vector**2
                 
                 case SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY.name:
@@ -144,20 +144,20 @@ class OptimalNoise(BaseNoise):
 
 
 class DefaultNoise(BaseNoise):
-  
-  def __init__(self, *args, **kwargs):
-    super().__init__(*args, **kwargs)
-  
-  def get_process_noise(self, sensor_data: SensorDataField):
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
+    def get_process_noise(self, sensor_data: SensorDataField):
 
-    return self.Qs.get(sensor_data.type, None)
+        return self.Qs.get(sensor_data.type, None)
 
-  def get_measurement_noise(self, sensor_data: SensorDataField):
-      if not SensorType.is_measurement_update(sensor_data.type):
-          return None
-
-      return self.Rs.get(sensor_data.type, None)
-  
+    def get_measurement_noise(self, sensor_data: SensorDataField):
+        if not SensorType.is_measurement_update(sensor_data.type):
+            return None
+        
+        return self.Rs.get(sensor_data.type, None)
+    
 
 class NoiseManager:
     def __init__(
