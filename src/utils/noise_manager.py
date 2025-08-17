@@ -16,13 +16,13 @@ from ..common import (
 
 
 class BaseNoise(abc.ABC):
-  
+    
     def __init__(
         self,
         motion_model: MotionModel,
         hardware_config: HardwareConfig
     ):
-      
+    
         self.Q = dict()
         self.R = dict()
         self.motion_model = motion_model
@@ -32,8 +32,7 @@ class BaseNoise(abc.ABC):
 
         self.Rs, self.alpha = self._initialize_R()
         self.Qs = self._initialize_Q()
-      
-      
+
     def register_process_noise(self, sensor_type: SensorType):
         pass
         # if SensorType.is_time_update(sensor_type):
@@ -50,10 +49,12 @@ class BaseNoise(abc.ABC):
                 case SensorType.KITTI_VO.name:
                     # Velocity noise
                     noise_vector = np.array([.5, .5, .5])
+                    # Position and velocity update
+                    # noise_vector = np.array([10., 10., 10., .5, .5, .5])
                     return np.eye(noise_vector.shape[0]) * noise_vector**2
                 
                 case SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY.name:
-                    return np.eye(2) * np.array([0.1, 0.1])**2
+                    return np.eye(2) * np.array([.5, .5])**2
 
                 case _:
                     logging.warning(

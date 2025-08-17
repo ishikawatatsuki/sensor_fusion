@@ -3,6 +3,7 @@ import numpy as np
 from typing import Tuple
 from queue import PriorityQueue
 
+
 from .kalman_filters import (
     ExtendedKalmanFilter,
     UnscentedKalmanFilter,
@@ -20,11 +21,15 @@ from .common import (
     SensorDataField,
     TimeUpdateField, MeasurementUpdateField,
     FusionResponse,
-    InitialState
+    InitialState,
+    SensorData,
+    VisualOdometryData,
+    ControlInput
 )
 from .utils.noise_manager import NoiseManager
 from .utils.time_reporter import time_reporter
 from .utils.signal_processor import SignalProcessor
+from .utils.data_logger import DataLogger, LoggingMessage
 from .utils.geometric_transformer import GeometryTransformer, TransformationField
 
 
@@ -34,6 +39,7 @@ class SensorFusion:
         self,
         filter_config: FilterConfig,
         hardware_config: HardwareConfig,
+        data_logger: DataLogger = None,
     ):
         
         self.filter_config = filter_config
@@ -59,12 +65,14 @@ class SensorFusion:
             filter_config=filter_config,
             hardware_config=hardware_config
         )
+        self.data_logger = data_logger
 
         self.filter_buffer_queue = PriorityQueue()
         
         self.last_vo_pose = None
-        self.last_vo_timestamp = None
-        self.initial_timestamp = None
+        self.independent_vo_pose = None
+        self.vo_relative_pose_inertial = None
+        self.is_independent_vo_estimation = False
 
     def _get_kalman_filter(self):
         filter_type = str(self.filter_config.type).lower()
@@ -103,13 +111,66 @@ class SensorFusion:
 
     def set_initial_state(self, initial_state: InitialState):
         """Set initial state for the Kalman Filter"""
-        self.kalman_filter.x = initial_state.x
-        self.kalman_filter.P = initial_state.P
-        self.preprocessor.set_initial_angle(q=initial_state.x.q.flatten())
 
-        self.last_vo_pose = Pose(
-            R=initial_state.x.get_rotation_matrix(),
-            t=initial_state.x.p.flatten()
+        if False:
+            # Transform the state from the camera coordinate to the inertial coordinate system
+            T_in_camera = np.eye(4)
+            T_in_camera[:3, 3] = initial_state.x.p.flatten()
+            T_in_camera[:3, :3] = State.get_rotation_matrix_from_quaternion_vector(initial_state.x.q.flatten())
+
+            position_inertial = self.geo_transformer.transform(fields=TransformationField(
+                state=self.kalman_filter.x,
+                value=T_in_camera[:3, :],
+                coord_from=CoordinateFrame.STEREO_LEFT,
+                coord_to=CoordinateFrame.INERTIAL
+            ))
+            T_in_camera = np.eye(4)
+            T_in_camera[:3, 3] = initial_state.x.v.flatten()
+            velocity_inertial = self.geo_transformer.transform(fields=TransformationField(
+                state=self.kalman_filter.x,
+                value=T_in_camera[:3, :],
+                coord_from=CoordinateFrame.STEREO_LEFT,
+                coord_to=CoordinateFrame.INERTIAL
+            ))
+            q = State.get_quaternion_from_rotation_matrix(velocity_inertial[:3, :3])
+            new_state = State(
+                p=position_inertial[:3, 3].reshape(-1, 1),
+                v=velocity_inertial[:3, 3].reshape(-1, 1),
+                q=q,
+                b_w=initial_state.x.b_w.reshape(-1, 1),
+                b_a=initial_state.x.b_a.reshape(-1, 1)
+            )
+
+            self.kalman_filter.x = new_state
+            self.kalman_filter.P = initial_state.P
+            self.preprocessor.set_initial_angle(q=initial_state.x.q.flatten())
+            vo_pose = Pose(
+                R=new_state.get_rotation_matrix(),
+                t=new_state.p.flatten()
+            )
+        else:
+            self.kalman_filter.x = initial_state.x
+            self.kalman_filter.P = initial_state.P
+            self.preprocessor.set_initial_angle(q=initial_state.x.q.flatten())
+            vo_pose = Pose(
+                R=initial_state.x.get_rotation_matrix(),
+                t=initial_state.x.p.flatten()
+            )
+
+        self.last_vo_pose = vo_pose
+        self.independent_vo_pose = vo_pose
+
+    def _log_data(self, sensor_type: SensorType, data: np.ndarray, timestamp: float):
+        if self.data_logger is None:
+            return
+        
+        self.data_logger.log(
+            message=LoggingMessage(
+                sensor_type=sensor_type,
+                timestamp=timestamp,
+                data=data
+            ),
+            is_raw=False
         )
 
     def _prepare_response(self, sensor_data: SensorDataField, visualizing_data: np.ndarray) -> FusionResponse:
@@ -138,16 +199,38 @@ class SensorFusion:
                 value=relative_pose_in_camera_coord,
                 coord_from=sensor_data.coordinate_frame,
                 coord_to=CoordinateFrame.INERTIAL))
-            
             relative_pose = Pose(R=relative_pose_inertial[:3, :3], t=relative_pose_inertial[:3, 3])
-            self.last_vo_pose = self.last_vo_pose * relative_pose  # update vo pose estimation in inertial frame
+            self.vo_relative_pose_inertial = relative_pose
+            self.independent_vo_pose = self.independent_vo_pose * relative_pose  # update vo pose estimation in inertial frame
+            last_pose = self.last_vo_pose * relative_pose
 
-            # TODO: Enable to select which data in vo estimate to fuse
             # Velocity to fuse
             dt = sensor_data.data.dt if sensor_data.data.dt > 1e-6 else 0.1
-            z = relative_pose.t.reshape(-1, 1) / dt # velocity
 
-            visualizing_data = self.last_vo_pose.t.flatten()
+            position = last_pose.t.reshape(-1, 1)  # position
+            velocity = relative_pose.t.reshape(-1, 1) / dt # velocity
+            logging.debug(f"VO velocity: {velocity.flatten()}, dt: {dt}")
+            velocity *= np.array([1., 0., 0.]).reshape(-1, 1)  # only x velocity is used for KITTI dataset
+            # z = np.vstack([position, velocity])
+            z = velocity
+
+            visualizing_data = self.independent_vo_pose.t.flatten()
+
+            _logging_data = VisualOdometryData(
+                dt=dt,
+                relative_pose=relative_pose_inertial[:3, :],
+                timestamp=sensor_data.timestamp,
+            )
+            self._log_data(sensor_type=sensor_data.type, data=_logging_data, timestamp=sensor_data.timestamp)
+
+        elif SensorType.is_constraint_data(sensor_data.type):
+            # lateral and vertical velocity constraints
+            z = sensor_data.data.z.reshape(-1, 1)
+            visualizing_data = z
+
+            _logging_data = SensorData(z=z.flatten())
+            self._log_data(sensor_type=sensor_data.type, data=_logging_data, timestamp=sensor_data.timestamp)
+        
         else:
             z = self.geo_transformer.transform(fields=TransformationField(
                 state=self.kalman_filter.x,
@@ -155,6 +238,9 @@ class SensorFusion:
                 coord_from=sensor_data.coordinate_frame,
                 coord_to=CoordinateFrame.INERTIAL))
             visualizing_data = z
+
+            _logging_data = SensorData(z=z.flatten())
+            self._log_data(sensor_type=sensor_data.type, data=_logging_data, timestamp=sensor_data.timestamp)
 
         R = self.noise_manager.get_measurement_noise(sensor_data=sensor_data)
         R = R[:z.shape[0], :z.shape[0]]
@@ -168,19 +254,23 @@ class SensorFusion:
         if not SensorType.is_vo_data(sensor_data.type):
             return
 
-        state_in_inertial = self.kalman_filter.x.get_state_vector().flatten()
-        state_in_camera = self.geo_transformer.transform(
-            fields=TransformationField(
-                state=self.kalman_filter.x,
-                value=np.hstack([
-                    state_in_inertial[:3], state_in_inertial[6:10]
-                ]),  # position, rotation
-                coord_from=CoordinateFrame.INERTIAL,
-                coord_to=CoordinateFrame.STEREO_LEFT)).flatten()
-        t = state_in_camera[:3]
+        t = self.kalman_filter.x.p.flatten()
         R = State.get_rotation_matrix_from_quaternion_vector(
-            state_in_camera[3:])
-        self.last_vo_pose = Pose(R=R, t=t)
+            self.kalman_filter.x.q.flatten())
+        pose_in_inertial = Pose(R=R, t=t)
+        # state_in_camera = self.geo_transformer.transform(
+        #     fields=TransformationField(
+        #         state=self.kalman_filter.x,
+        #         value=np.hstack([
+        #             state_in_inertial[:3], state_in_inertial[6:10]
+        #         ]),  # position, rotation
+        #         coord_from=CoordinateFrame.INERTIAL,
+        #         coord_to=CoordinateFrame.STEREO_LEFT)).flatten()
+        # t = state_in_camera[:3]
+        # R = State.get_rotation_matrix_from_quaternion_vector(
+        #     state_in_camera[3:])
+        self.last_vo_pose = pose_in_inertial * self.vo_relative_pose_inertial
+        return
         
     @time_reporter
     def run_time_update(self, sensor_data: SensorDataField) -> FusionResponse:
@@ -202,6 +292,13 @@ class SensorFusion:
         data = TimeUpdateField(u=u, dt=sensor_data.data.dt, Q=Q)
 
         self.kalman_filter.time_update(data)
+
+
+        _logging_data = ControlInput(
+            dt=data.dt,
+            u=data.u.flatten()
+        )
+        self._log_data(sensor_type=sensor_data.type, data=_logging_data, timestamp=sensor_data.timestamp)
         
         return FusionResponse(
                 # pose=self.kalman_filter.get_current_estimate().matrix(), 
@@ -220,10 +317,11 @@ class SensorFusion:
         
         data, response = self._get_measurement_update_data(sensor_data=sensor_data)
 
+        logging.info(f"Fusing data from: {sensor_data.type.name}, z: {data.z.flatten()} at time: {sensor_data.timestamp}")
         self.kalman_filter.measurement_update(data)
         
         # # NOTE: Store current state corrected by VO
-        # self._store_current_vo_estimate(sensor_data)
+        self._store_current_vo_estimate(sensor_data)
 
         response.pose = self.kalman_filter.get_current_estimate().matrix()
         response.estimated_angle = self.kalman_filter.x.get_euler_angle_from_quaternion().flatten()
@@ -247,3 +345,11 @@ class SensorFusion:
             response, _ = self.run_measurement_update(sensor_data)
             
             return response
+        
+    def get_current_estimate(self, timestamp: float) -> FusionResponse:
+        response = FusionResponse()
+        response.pose = self.kalman_filter.get_current_estimate().matrix()
+        response.estimated_angle = self.kalman_filter.x.get_euler_angle_from_quaternion().flatten()
+        response.estimated_linear_velocity = self.kalman_filter.x.v.flatten()
+        response.timestamp = timestamp
+        return response

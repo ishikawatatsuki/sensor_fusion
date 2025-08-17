@@ -36,9 +36,10 @@ class EstimatorType(Enum):
 class DebuggingData:
     prev_pts: np.ndarray = None
     next_pts: np.ndarray = None
+    mask: np.ndarray = None
 
     def __str__(self):
-        return f"DebuggingData(prev_pts={self.prev_pts.shape if self.prev_pts is not None else None}, next_pts={self.next_pts.shape if self.next_pts is not None else None})"
+        return f"DebuggingData(prev_pts={self.prev_pts.shape if self.prev_pts is not None else None}, next_pts={self.next_pts.shape if self.next_pts is not None else None}, mask={self.mask.shape if self.mask is not None else None})"
 
 """
     [x] Make 2d3d monocular visual odometry work with depth estimation
@@ -138,14 +139,19 @@ class VisualOdometry:
             reprojected_points = rearrange(reprojected_points, 'n 1 s -> n s')
         return reprojected_points
 
-    def _estimate_2d2d_pose(self, prev_pts: np.ndarray, next_pts: np.ndarray) -> np.ndarray:
+    def _estimate_2d2d_pose(
+            self, 
+            prev_pts: np.ndarray, 
+            next_pts: np.ndarray,
+            mask: np.ndarray
+        ) -> np.ndarray:
 
-        E, mask = cv2.findEssentialMat(next_pts, prev_pts, self.K, method=cv2.RANSAC, prob=self.confidence, threshold=self.ransac_reproj_threshold)
+        E, _mask = cv2.findEssentialMat(next_pts, prev_pts, self.K, method=cv2.RANSAC, prob=self.confidence, threshold=self.ransac_reproj_threshold)
         if E is None:
             logging.debug("Essential matrix estimation failed.")
             return None
-        next_pts = next_pts[mask.ravel() == 1]
-        prev_pts = prev_pts[mask.ravel() == 1]
+        next_pts = next_pts[_mask.ravel() == 1]
+        prev_pts = prev_pts[_mask.ravel() == 1]
 
         if next_pts.ndim == 2:
             next_pts = rearrange(next_pts, 'n s -> n 1 s')
@@ -155,7 +161,8 @@ class VisualOdometry:
         if self.is_debugging:
             self.debugging_data = DebuggingData(
                 prev_pts=rearrange(prev_pts, 'n 1 s -> n s'),
-                next_pts=rearrange(next_pts, 'n 1 s -> n s')
+                next_pts=rearrange(next_pts, 'n 1 s -> n s'),
+                mask=mask
             )
         
 
@@ -167,7 +174,12 @@ class VisualOdometry:
         return T
 
 
-    def _estimate_2d3d_pose(self, prev_pts: np.ndarray, next_pts: np.ndarray) -> np.ndarray:
+    def _estimate_2d3d_pose(
+            self, 
+            prev_pts: np.ndarray, 
+            next_pts: np.ndarray, 
+            mask: np.ndarray
+        ) -> np.ndarray:
         if prev_pts.ndim == 3:
             prev_pts = rearrange(prev_pts, 'n 1 s -> n s')
         if next_pts.ndim == 3:
@@ -189,7 +201,7 @@ class VisualOdometry:
         prev_inliers = np.ones((pts3d.shape[0], 1), dtype=np.uint8)
         success, rvec, tvec, inliers = False, None, None, None
         try:
-            for _ in range(self.config.solve_pose_max_iterations):
+            for _ in range(5):
                 success, rvec, tvec, inliers = cv2.solvePnPRansac(
                     pts3d, next_pts, self.K, None,
                     reprojectionError=self.reprojection_error,
@@ -233,7 +245,8 @@ class VisualOdometry:
 
             self.debugging_data = DebuggingData( 
                 prev_pts=_prev_pts,
-                next_pts=_next_pts
+                next_pts=_next_pts,
+                mask=mask
             )
             
         R, _ = cv2.Rodrigues(rvec)
@@ -252,7 +265,7 @@ class VisualOdometry:
             if self.prev_kp is None or self.prev_desc is None:
                 self.prev_kp = current_kp
                 self.prev_desc = desc
-                return None, None
+                return None, None, None
 
             matches = self.matcher.knnMatch(self.prev_desc, desc, k=2)
 
@@ -263,7 +276,7 @@ class VisualOdometry:
 
             if len(good_points) < 5:
                 print("Not enough good matches")
-                return None
+                return None, None, None
 
             prev_pts = np.float32([self.prev_kp[m.queryIdx].pt for m in good_points])
             next_pts = np.float32([current_kp[m.trainIdx].pt for m in good_points])
@@ -272,16 +285,16 @@ class VisualOdometry:
             self.prev_desc = desc
         else:
             if self.prev_frame is None:
-                return None, None
+                return None, None, None
             
             prev_pts = cv2.goodFeaturesToTrack(self.prev_frame, maxCorners=1000, qualityLevel=0.01, minDistance=7, mask=mask)
             if prev_pts is None or len(prev_pts) < 4:
                 logging.warning("Not enough points to track. Skipping frame.")
-                return None, None
+                return None, None, None
             next_pts, status, _ = cv2.calcOpticalFlowPyrLK(self.prev_frame, frame, prev_pts, None)
             prev_pts, next_pts = prev_pts[status.flatten() == 1], next_pts[status.flatten() == 1]
         
-        return prev_pts, next_pts
+        return prev_pts, next_pts, mask
 
 
     def compute_pose(self, data: ImageData):
@@ -292,8 +305,8 @@ class VisualOdometry:
         if len(current_frame.shape) == 3:
             current_frame = cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY)
 
-        prev_pts, next_pts = self._compute_keypoints(current_frame)
-        
+        prev_pts, next_pts, mask = self._compute_keypoints(current_frame)
+
         if self.prev_frame is None:
             self.initialize_frame(data)
             return None
@@ -301,7 +314,7 @@ class VisualOdometry:
 
         logging.debug(f"prev_pts: {prev_pts.shape}, next_pts: {next_pts.shape}")
 
-        pose = self.pose_estimator_fn(prev_pts, next_pts)
+        pose = self.pose_estimator_fn(prev_pts, next_pts, mask)
 
         # Update previous frame for next iteration
         self.prev_frame = current_frame
@@ -327,6 +340,7 @@ if __name__ == "__main__":
     from tqdm import tqdm
     import matplotlib.pyplot as plt
     from src.internal.visualizers.vo_visualizer import VO_Visualizer, VO_VisualizationData
+    from src.common.constants import KITTI_SEQUENCE_TO_DATE, KITTI_SEQUENCE_TO_DRIVE
 
 
     logging.basicConfig(level=logging.INFO)
@@ -334,20 +348,23 @@ if __name__ == "__main__":
 
     # rootpath = "/gpfs/mariana/home/taishi/workspace/researches/sensor_fusion/data/KITTI"
     rootpath = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/KITTI"
+    variant = "07"
+    date = KITTI_SEQUENCE_TO_DATE.get(variant, "2011_09_30")
+    drive = KITTI_SEQUENCE_TO_DRIVE.get(variant, "0033")
 
     dataset_config = DatasetConfig(
         type='kitti',
         mode='stream',
         root_path=rootpath,
-        variant='09',
+        variant=variant,
     )
     
     config = VisualOdometryConfig(
         type='monocular',
-        estimator='2d2d',
+        estimator='2d3d',
         camera_id='left',
         depth_estimator='zoe_depth',
-        use_advanced_detector=False,
+        use_advanced_detector=True,
         feature_detector='SIFT',
         feature_matcher='BF',
         params={
@@ -358,15 +375,15 @@ if __name__ == "__main__":
         }
     )
 
-    vo = VisualOdometry(config=config, dataset_config=dataset_config, debug=False)
+    vo = VisualOdometry(config=config, dataset_config=dataset_config, debug=True)
     logging.debug("Visual Odometry initialized.")
 
-    image_path = os.path.join(rootpath, "2011_09_30/2011_09_30_drive_0033_sync/image_00/data")
+    image_path = os.path.join(rootpath, f"{date}/{date}_drive_{drive}_sync/image_00/data")
     image_files = sorted([f for f in os.listdir(image_path) if f.endswith('.png')])
 
     logging.debug(f"Found {len(image_files)} image files.")
 
-    ground_truth_path = os.path.join(rootpath, "ground_truth/09.txt")
+    ground_truth_path = os.path.join(rootpath, f"ground_truth/{variant}.txt")
     ground_truth = pd.read_csv(ground_truth_path, sep=' ', header=None, skiprows=1).values
     ground_truth = ground_truth.reshape(-1, 3, 4)
     gt_pos = ground_truth[:, :3, 3]
@@ -389,7 +406,10 @@ if __name__ == "__main__":
 
     max_points = 200
     if vo.is_debugging:
-        vis = VO_Visualizer()
+        vis = VO_Visualizer(
+            save_path=f"/Volumes/Data_EXT/data/workspaces/sensor_fusion/outputs/vo_estimates/vo_debug/2d3d_{variant}",
+            save_frame=True
+        )
         vis.start()
 
     for i, image_file in enumerate(tqdm(image_files)):
@@ -409,7 +429,14 @@ if __name__ == "__main__":
                 _est_pose = np.array([x, z])
                 px, py, pz = gt_pos[idx, 0], gt_pos[idx, 1], gt_pos[idx, 2]
                 _gt_pose = np.array([px, pz])
-                vis_data = VO_VisualizationData(frame=frame, pts_prev=debugging_data.prev_pts[:max_points], pts_curr=debugging_data.next_pts[:max_points], estimated_pose=_est_pose, gt_pose=_gt_pose)
+                vis_data = VO_VisualizationData(
+                    frame=frame, 
+                    mask=debugging_data.mask,
+                    pts_prev=debugging_data.prev_pts[:max_points], 
+                    pts_curr=debugging_data.next_pts[:max_points], 
+                    estimated_pose=_est_pose, 
+                    gt_pose=_gt_pose
+                )
                 vis.send(vis_data)
                 time.sleep(0.05)
 
@@ -424,19 +451,19 @@ if __name__ == "__main__":
     mae = mean_absolute_error(ground_truth_position, estimated_position)
     logging.info(f"Mean Absolute Error (MAE) of the estimated positions: {mae:.4f}m")
 
-    
+    vis.stop()
 
     # # Plot the estimated trajectory
-    plt.figure(figsize=(10, 8))
-    px, py, pz = ground_truth_position.T
-    plt.plot(px, pz, marker='o', markersize=1, label='Ground Truth Trajectory', color='black')
-    px, py, pz = estimated_position.T
-    plt.plot(px, pz, marker='o', markersize=1, label='Estimated Trajectory', color='blue')
-    plt.title('Estimated Trajectory from Visual Odometry')
-    plt.xlabel('X Position (m)')
-    plt.ylabel('Y Position (m)')
-    plt.axis('equal')
-    plt.grid()
-    plt.legend()
-    # plt.show()
-    plt.savefig('estimated_trajectory.png')
+    # plt.figure(figsize=(10, 8))
+    # px, py, pz = ground_truth_position.T
+    # plt.plot(px, pz, marker='o', markersize=1, label='Ground Truth Trajectory', color='black')
+    # px, py, pz = estimated_position.T
+    # plt.plot(px, pz, marker='o', markersize=1, label='Estimated Trajectory', color='blue')
+    # plt.title('Estimated Trajectory from Visual Odometry')
+    # plt.xlabel('X Position (m)')
+    # plt.ylabel('Y Position (m)')
+    # plt.axis('equal')
+    # plt.grid()
+    # plt.legend()
+    # # plt.show()
+    # plt.savefig('estimated_trajectory.png')

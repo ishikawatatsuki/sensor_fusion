@@ -28,6 +28,7 @@ from .internal.visualizers import (
 from .internal.error_reporter import ErrorReporter, ErrorReportType, ReportMessage
 from .utils.time_reporter import time_reporter
 from .utils.geometric_transformer import TransformationField
+from .utils.data_logger import DataLogger, LoggingData, LoggingMessage
 from .misc import setup_logging, parse_args
 from .sensor_fusion import SensorFusion
 
@@ -41,10 +42,18 @@ class SingleThreadedPipeline(abc.ABC):
         self.log_level = config.general.log_level
         self.early_stop = early_stop
         
+        self.data_logger = DataLogger(
+            config=config.general,
+            data_config=config.dataset
+        )
+        self.data_logger.prepare()
+
         self.dataset = Dataset(config=config.dataset)
+        
         self.sensor_fusion = SensorFusion(
             filter_config=config.filter,
-            hardware_config=config.hardware
+            hardware_config=config.hardware,
+            data_logger=self.data_logger
         )
         self.visual_odometry = VisualOdometry(
             config=config.visual_odometry,
@@ -70,7 +79,7 @@ class SingleThreadedPipeline(abc.ABC):
     def _visualize_data(self, message: VisualizationMessage):
         """Visualize data including sensors, estimation, and etc."""
 
-        message.timestamp = message.timestamp 
+        # message.timestamp = message.timestamp / 1e9
         self.visualization_queue.put(message)
         
     def _prepare_visualization(self, response: FusionResponse):
@@ -194,6 +203,7 @@ class SingleThreadedPipeline(abc.ABC):
 
                     if is_debugging:
                         time_update_step_durations.append(duration)
+                    
 
                 elif SensorType.is_measurement_update(sensor_data.type):
                     response, duration = self.sensor_fusion.run_measurement_update(sensor_data)
@@ -224,11 +234,16 @@ class SingleThreadedPipeline(abc.ABC):
                             coord_from=CoordinateFrame.STEREO_LEFT,
                             coord_to=CoordinateFrame.INERTIAL))
                         data = gt_inertial[:3, 3].flatten()
+                        response = self.sensor_fusion.get_current_estimate(sensor_data.timestamp)
+
                     elif config.dataset.type == "euroc":
                         data = sensor_data.data.z.flatten()[:3]
+                        response = self.sensor_fusion.get_current_estimate(sensor_data.timestamp)
+
                     else:
                         continue
                     
+                    # self._prepare_visualization(response)
 
                     self._visualize_data(
                         message=VisualizationMessage(
@@ -249,6 +264,15 @@ class SingleThreadedPipeline(abc.ABC):
                     #     y=report1,
                     #     y_hat=report2
                     # )
+
+                self.data_logger.log(
+                    message=LoggingMessage(
+                        sensor_type=sensor_data.type,
+                        timestamp=sensor_data.timestamp,
+                        data=sensor_data.data
+                    ),
+                    is_raw=True
+                )
 
                 if config.general.log_sensor_data:
                     f.write(f"[{self.dataset.get_queue_size():05}] Sensor: {sensor_data.type.name} at {sensor_data.timestamp}\n")

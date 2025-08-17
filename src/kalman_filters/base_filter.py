@@ -288,13 +288,21 @@ class BaseFilter(abc.ABC):
         Returns:
             H (np.ndarray): Measurement space transition matrix H. 
         """
-        return np.eye(self.P.shape[0])[3:6, :] # vx, vy, vz
+        H = np.zeros((3, self.P.shape[0])) # 3 x 16
+        H[:, 3:6] = self.x.get_rotation_matrix().T
+        return H
+        # return np.eye(self.P.shape[0])[3:6, :] # vx, vy, vz
     
     def _get_position_velocity_update_H(self):
-        return np.eye(self.P.shape[0])[:6, :] # x, y, z, vx, vy, vz
+        H = np.zeros((6, self.P.shape[0])) # 6 x 16
+        H[:3, :3] = np.eye(3)
+        H[3:6, 3:6] = self.x.get_rotation_matrix().T
+        return H
     
     def _get_upward_leftward_update_H(self):
-        return np.eye(self.P.shape[0])[4:6, :] # vy, vz
+        H = np.zeros((2, self.P.shape[0])) # 2 x 16
+        H[:, 3:6] = self.x.get_rotation_matrix().T[1:3, :]
+        return H
 
     def _get_angle_update_H(self):
         return np.eye(self.P.shape[0])[6:10, :] # qw, qx, qy, qz

@@ -109,7 +109,7 @@ class SignalProcessor:
         ffilt = np.fft.ifft(fhat_filtered).real
         
         return ffilt
-      
+
     def apply_psd_filter(self, data: np.ndarray, t: SignalType):
         self.buffer[t].append(data)
         
@@ -132,27 +132,6 @@ class SignalProcessor:
         https://ieeexplore.ieee.org/document/8713728
         """
         return savgol_filter(data, self.sg_window_size, self.polyorder)
-      
-    def _apply_actuator_preprocessing(self, sensor_data: SensorDataField) -> np.ndarray:
-
-        assert self.hardware_config.drone_hardware_config is not None, "Hardware config is not set"
-
-        motor_speed = sensor_data.data.u.flatten()
-        
-        self.uav_buffer.append(motor_speed)
-        if len(self.uav_buffer) > self.moving_avg_window_size:
-            motor_speed = np.mean(self.uav_buffer, axis=0)
-            self.uav_buffer = self.uav_buffer[-self.moving_avg_window_size:]
-        
-        omega1, omega2, omega3, omega4 = motor_speed
-        omega_r = -omega1 + omega2 - omega3 + omega4 # Compute relative rotor speed
-        
-        u1 = self.hardware_config.drone_hardware_config.thrust_coefficient * np.sum(motor_speed ** 2)
-        u2 = self.hardware_config.drone_hardware_config.thrust_coefficient * (omega4**2 - omega2**2)
-        u3 = self.hardware_config.drone_hardware_config.thrust_coefficient * (-omega3**2 + omega1**2)
-        u4 = self.hardware_config.drone_hardware_config.moment_coefficient * (omega1**2 - omega2**2 + omega3**2 - omega4**2)
-        
-        return np.array([u1, u2, u3, u4, omega_r])
         
     def _apply_imu_preprocessing(self, sensor_data: SensorDataField) -> np.ndarray:
         """Returns preprocessed IMU data
@@ -187,24 +166,6 @@ class SignalProcessor:
             np.ndarray: control input vector u
         """
         return self._apply_imu_preprocessing(sensor_data=sensor_data)
-
-    def get_angle_for_correction(self, sensor_data: SensorDataField) -> np.ndarray:
-        """Returns the angle for correction based on sensor data
-
-        Args:
-            sensor_data (SensorDataField): IMU sensor data
-
-        Returns:
-            np.ndarray: Angle for correction
-        """
-        if not SensorType.is_imu_data_for_correction(sensor_data.type):
-            return np.zeros((3, 1))
-        
-        imu = sensor_data.data.z.flatten()
-        acc, gyro, mag = imu[:3], imu[3:6], imu[6:9]
-        q = self.ekf.update(self.q, gyr=gyro, acc=acc, mag=mag) 
-        self.q = q
-        return q.reshape(-1, 1)
 
     def set_initial_angle(self, q: np.ndarray):
         """Sets the initial angle for the EKF

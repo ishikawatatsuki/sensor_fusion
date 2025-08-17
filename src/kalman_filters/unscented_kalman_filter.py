@@ -58,15 +58,15 @@ class UnscentedKalmanFilter(BaseFilter):
         B = (1/norm_w)*np.sin(norm_w*dt/2) * Omega
 
         acc_val = (R @ a - self.g)
-        acc_val = self.correct_acceleration(acc_val=acc_val, q=q)
         acc_val_reshaped = acc_val.reshape(acc_val.shape[0], acc_val.shape[1])
-        p_k = p + v * dt + acc_val_reshaped*dt**2 / 2 # 21x3
+        v = np.array([Ri @ vi for Ri, vi in zip(R, v)])
+        p_k = p + v * dt # + acc_val_reshaped*dt**2 / 2 # 21x3
         v_k = v + acc_val_reshaped * dt # 21x3
         q_k = (np.array(A + B) @ q.T).T # 21x4
         q_k = np.array([q_ / np.linalg.norm(q_) if np.linalg.norm(q_) > 0 else q_  for q_ in q_k])
         
-        b_w_k = np.array([ bw + imu_sensor_error.gyro_bias for bw in b_w])
-        b_a_k = np.array([ ba + imu_sensor_error.acc_bias for ba in b_a])
+        b_w_k = b_w + imu_sensor_error.gyro_bias.flatten()
+        b_a_k = b_a + imu_sensor_error.acc_bias.flatten()
 
         self.sigma_points = np.concatenate([
             p_k,
@@ -118,7 +118,6 @@ class UnscentedKalmanFilter(BaseFilter):
         vf = self.get_forward_velocity(v)
         
         acc_val = (R @ a - self.g)
-        # acc_val = self.correct_acceleration(acc_val=acc_val, q=q)
         acc_val_reshaped = acc_val.reshape(acc_val.shape[0], acc_val.shape[1])
         
         
@@ -137,8 +136,8 @@ class UnscentedKalmanFilter(BaseFilter):
         q_k = (np.array(A + B) @ q.T).T # 21x4
         q_k = np.array([q_ / np.linalg.norm(q_) if np.linalg.norm(q_) > 0 else q_  for q_ in q_k])
 
-        b_w_k = np.array([ bw + imu_sensor_error.gyro_bias for bw in b_w])
-        b_a_k = np.array([ ba + imu_sensor_error.acc_bias for ba in b_a])
+        b_w_k = b_w + imu_sensor_error.gyro_bias.flatten()
+        b_a_k = b_a + imu_sensor_error.acc_bias.flatten()
 
         self.sigma_points = np.concatenate([
             p_k,

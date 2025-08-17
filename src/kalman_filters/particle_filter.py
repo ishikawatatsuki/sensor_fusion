@@ -88,15 +88,15 @@ class ParticleFilter(BaseFilter):
         B = (1/norm_w)*np.sin(norm_w*dt/2) * omega
         
         acc_val = (R @ a - self.g)
-        acc_val = self.correct_acceleration(acc_val=acc_val, q=q)
         acc_val_reshaped = acc_val.reshape(acc_val.shape[0], acc_val.shape[1])
-        p_k = p + v * dt + acc_val_reshaped*dt**2 / 2 # Nx3
+        v = np.array([Ri @ vi for Ri, vi in zip(R, v)])
+        p_k = p + v * dt # + acc_val_reshaped*dt**2 / 2 # Nx3
         v_k = v + acc_val_reshaped * dt # Nx3
         q_k = (np.array(A + B) @ q.T).T # Nx4
         q_k = np.array([q_ / np.linalg.norm(q_) if np.linalg.norm(q_) > 0 else q_  for q_ in q_k])
 
-        b_w_k = np.array([ bw + imu_sensor_error.gyro_bias for bw in b_w])
-        b_a_k = np.array([ ba + imu_sensor_error.acc_bias for ba in b_a])
+        b_w_k = b_w + imu_sensor_error.gyro_bias.flatten()
+        b_a_k = b_a + imu_sensor_error.acc_bias.flatten()
         
         process_noise = np.random.multivariate_normal(np.zeros(Q.shape[0]), Q, self.particle_size)
         self.particles = np.concatenate([
@@ -165,8 +165,8 @@ class ParticleFilter(BaseFilter):
         q_k = (np.array(A + B) @ q.T).T # Nx4
         q_k = np.array([q_ / np.linalg.norm(q_) if np.linalg.norm(q_) > 0 else q_  for q_ in q_k])
         
-        b_w_k = np.array([ bw + imu_sensor_error.gyro_bias for bw in b_w])
-        b_a_k = np.array([ ba + imu_sensor_error.acc_bias for ba in b_a])
+        b_w_k = b_w + imu_sensor_error.gyro_bias.flatten()
+        b_a_k = b_a + imu_sensor_error.acc_bias.flatten()
         
         process_noise = np.random.multivariate_normal(
             np.zeros(Q.shape[0]), 

@@ -197,6 +197,10 @@ class SensorType(KITTI_SensorType, EuRoC_SensorType):
         ]
     
     @staticmethod
+    def is_constraint_data(t):
+        return t.name == SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY.name
+    
+    @staticmethod
     def is_reference_data(t):
         return t.name is SensorType.GROUND_TRUTH.name
         
@@ -280,12 +284,12 @@ class State:
     
     def __init__(
         self,
-        p: np.ndarray, # position of body in world frame
-        v: np.ndarray, # velocity of body in world frame
-        q: np.ndarray, # rotation from the world frame to the body frame
+        p: np.ndarray, # position of vehicle in world frame
+        v: np.ndarray, # velocity of vehicle in world frame
+        q: np.ndarray, # rotation from the world frame to the vehicle frame
         b_w: np.ndarray, # bias of angular velocity
         b_a: np.ndarray, # bias of acceleration
-        w: np.ndarray = None, # angular velocity of body in body frame
+        w: np.ndarray = None, # angular velocity of vehicle in the body frame
     ):
         self.p = p if p.ndim == 2 else p.reshape(-1, 1)
         self.v = v if v.ndim == 2 else v.reshape(-1, 1)

@@ -1,5 +1,7 @@
+import os
 import cv2
 import numpy as np
+from datetime import datetime
 import matplotlib.pyplot as plt
 from multiprocessing import Process, Queue
 from collections import deque
@@ -9,6 +11,7 @@ from dataclasses import dataclass
 @dataclass
 class VO_VisualizationData:
     frame: np.ndarray
+    mask: np.ndarray
     pts_prev: np.ndarray
     pts_curr: np.ndarray
     estimated_pose: np.ndarray
@@ -16,10 +19,23 @@ class VO_VisualizationData:
 
 
 class VO_Visualizer:
-    def __init__(self, max_len=2000):
+    def __init__(
+            self, 
+            save_path: str, 
+            save_frame: bool = False,
+            max_len=2000):
         self.queue = Queue()
         self.process = Process(target=self._run, args=(self.queue, max_len))
         self.process.daemon = True
+
+        self.save_frame = save_frame
+        self.save_folder = save_path
+        if os.path.exists(self.save_folder):
+            date_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.save_folder = f"{self.save_folder}_{date_str}"
+        
+        if not os.path.exists(self.save_folder):
+            os.makedirs(self.save_folder)
 
     def start(self):
         self.process.start()
@@ -47,6 +63,7 @@ class VO_Visualizer:
             assert isinstance(data, VO_VisualizationData)
 
             frame = data.frame
+            mask = data.mask
             pts_prev = data.pts_prev
             pts_curr = data.pts_curr
             estimated_pose = data.estimated_pose
@@ -71,14 +88,20 @@ class VO_Visualizer:
             axs[0][0].clear()
             axs[1][0].clear()
             axs[0][1].clear()
+            axs[1][1].clear()
 
             axs[0][0].imshow(original_rgb)
             axs[0][0].set_title("Original Frame")
             axs[0][0].axis("off")
 
+            axs[1][1].imshow(mask)
+            axs[1][1].set_title("Mask")
+            axs[1][1].axis("off")
+            
             axs[1][0].imshow(tracked_rgb)
             axs[1][0].set_title("Tracked Features")
             axs[1][0].axis("off")
+
 
             x_vals_est = [p[0] for p in estimated_trajectory]
             z_vals_est = [p[1] for p in estimated_trajectory]
@@ -95,24 +118,39 @@ class VO_Visualizer:
             fig.tight_layout()
             plt.pause(0.001)
 
+            if self.save_frame:
+                fig.savefig(os.path.join(self.save_folder, f"{len(estimated_trajectory)}.png"))
+
+
         plt.close()
 
 if __name__ == "__main__":
     import numpy as np
     import time
 
-    vis = VO_Visualizer()
+    vis = VO_Visualizer(
+        save_path="/Volumes/Data_EXT/data/workspaces/sensor_fusion/outputs/vo_estimates/vo_debug/07",
+        save_frame=True
+    )
     vis.start()
 
     for i in range(1000):
+        
         img = np.full((480, 640, 3), 255, dtype=np.uint8)
+        mask = np.full((480, 640, 3), 255, dtype=np.uint8)
 
         pts_prev = np.array([[100 + i, 100 + i], [200 + i, 200 + i]], dtype=np.float32)
         pts_curr = pts_prev + 5
         est_pose = np.array([i * 0.1, i * 0.1])  # x, z
         gt_pose = np.array([i * 0.1, i * 0.3])  # x, z
 
-        vis_data = VO_VisualizationData(frame=img, pts_prev=pts_prev, pts_curr=pts_curr, estimated_pose=est_pose, gt_pose=gt_pose)
+        vis_data = VO_VisualizationData(
+            frame=img, 
+            mask=mask,
+            pts_prev=pts_prev, 
+            pts_curr=pts_curr, 
+            estimated_pose=est_pose, 
+            gt_pose=gt_pose)
         vis.send(vis_data)
         time.sleep(0.05)
 

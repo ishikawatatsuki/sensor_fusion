@@ -139,13 +139,13 @@ class KITTI_GroundTruthDataReader:
           packet.vu
         ]).reshape(-1, 1)
         angle = np.array([packet.roll, packet.pitch, packet.yaw])
-        print(angle)
+        # angle = np.array([0., 0., 0.])
         q = State.get_quaternion_from_euler_angle(w=angle)
-        q /= np.linalg.norm(q)
-        # q = np.array([1., 0., 0., 0]).reshape(-1, 1)
+        q = q.reshape(-1, 1)  # 4x1
         b_w = np.zeros((3, 1))  # Gyro bias
         b_a = np.zeros((3, 1))  # Accelerometer bias
 
+      # This is in camera frame
       return State(p=p, v=v, q=q, b_w=b_w, b_a=b_a)
 
 class KITTI_StereoFrameReader:
@@ -268,7 +268,7 @@ class KITTI_UpwardLeftwardVelocityDataReader:
           if timestamp < self.starttime:
               continue
           
-          yield self.field(timestamp, vl=0., vu=0.)
+          yield self.field(timestamp, vl=1e-6, vu=1e-6)
 
   def start_time(self):
     return self.kitti_dataset.timestamps[0]

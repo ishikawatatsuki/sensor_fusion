@@ -43,12 +43,19 @@ if __name__ == "__main__":
     import numpy as np
 
     # Example usage
-    masker = DynamicObjectDetector(model_path="yolo11n-seg.pt", dynamic_classes=["person", "car", "bicycle", "motorbike", "bus", "truck"], conf=0.6)
+    masker = DynamicObjectDetector(
+        model_path="yolo11n-seg.pt", 
+        dynamic_classes=["person", "car", "bicycle", "motorbike", "bus", "truck"], 
+        conf=0.6)
 
-    base_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/KITTI/2011_09_30/2011_09_30_drive_0020_sync/image_00/data/0000000006.png"
+    base_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/KITTI/2011_09_30/2011_09_30_drive_0027_sync/image_00/data/0000000200.png"
     image = cv2.imread(base_dir)
     print(f"Image shape: {image.shape}")
     mask = masker.get_dynamic_mask(image)
+    print(mask)
+    mask = np.zeros(mask.shape, dtype=np.uint8)  # Reset mask for testing
+    mask[100:200, 100:200] = 255  # Example mask region
+
     gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     gray_image = rearrange(gray_image, 'h w -> h w 1')  # Ensure it has 3 channels for visualization
     print(f"gray image shape: {gray_image.shape}")
@@ -56,7 +63,7 @@ if __name__ == "__main__":
 
     # Display the mask
     cv2.namedWindow("Dynamic Mask", cv2.WINDOW_NORMAL)
-    # cv2.imshow("Dynamic Mask", mask * 255)
+    cv2.imshow("Dynamic Mask", mask)
     if points is not None:
         for point in points:
             x, y = point.ravel()

@@ -23,3 +23,5 @@ outputs/KITTI/*
 outputs/UAV/*
 src/visual_odometry/models
 outputs/vo_experiments
+outputs/vo_estimates/vo_debug/*
+outputs/experiments/*

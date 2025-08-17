@@ -16,32 +16,40 @@ from ...common.config import FilterConfig, HardwareConfig, ImuConfig, Transforma
 class GeneralConfig:
     log_level: str
     log_sensor_data: float
+    save_sensor_data: bool
     save_estimation: int
     save_output_debug_frames: bool
     sensor_data_output_filepath: str
+    sensor_data_save_path: str
 
     def __init__(
             self,
             log_level: str = 'debug',
             log_sensor_data: bool = True,
+            save_sensor_data: bool = False,
             save_estimation: bool = False,
             save_output_debug_frames: bool = False,
-            sensor_data_output_filepath: str = './_debugging/sensor_output.txt'
+            sensor_data_output_filepath: str = './_debugging/sensor_output.txt',
+            sensor_data_save_path: str = './outputs/sensor_data'
     ):
         self.log_level = log_level
         self.log_sensor_data = log_sensor_data
+        self.save_sensor_data = save_sensor_data
         self.save_estimation = save_estimation
         self.save_output_debug_frames = save_output_debug_frames
         self.sensor_data_output_filepath = sensor_data_output_filepath
+        self.sensor_data_save_path = sensor_data_save_path
     
     def __str__(self):
         return \
             f"GeneralConfig(\n"\
             f"\tlog_level={self.log_level}\n" \
             f"\tlog_sensor_data={self.log_sensor_data}\n" \
+            f"\tsave_sensor_data={self.save_sensor_data}\n" \
             f"\tsave_estimation={self.save_estimation}\n" \
             f"\tsave_output_debug_frames={self.save_output_debug_frames}\n" \
-            f"\tsensor_data_output_filepath={self.sensor_data_output_filepath})"
+            f"\tsensor_data_output_filepath={self.sensor_data_output_filepath}\n" \
+            f"\tsensor_data_save_path={self.sensor_data_save_path})"
 
 
 @dataclass

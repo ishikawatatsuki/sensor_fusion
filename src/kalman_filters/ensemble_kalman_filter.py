@@ -58,16 +58,15 @@ class EnsembleKalmanFilter(BaseFilter):
         B = (1/norm_w)*np.sin(norm_w*dt/2) * omega
 
         acc_val = (R @ a - self.g)
-        acc_val = self.correct_acceleration(acc_val=acc_val, q=q)
         acc_val_reshaped = acc_val.reshape(acc_val.shape[0], acc_val.shape[1])
-        p_k = p + v * dt + acc_val_reshaped*dt**2 / 2 # Nx3
+        v = np.array([Ri @ vi for Ri, vi in zip(R, v)])
+        p_k = p + v * dt # + acc_val_reshaped*dt**2 / 2 # Nx3
         v_k = v + acc_val_reshaped * dt # Nx3
         q_k = (np.array(A + B) @ q.T).T # Nx4
         q_k = np.array([q_ / np.linalg.norm(q_) if np.linalg.norm(q_) > 0 else q_  for q_ in q_k])
 
-        b_w_k = np.array([ bw + imu_sensor_error.gyro_bias for bw in b_w])
-        b_a_k = np.array([ ba + imu_sensor_error.acc_bias for ba in b_a])
-
+        b_w_k = b_w + imu_sensor_error.gyro_bias.flatten()
+        b_a_k = b_a + imu_sensor_error.acc_bias.flatten()
 
         process_noise_cov = np.random.multivariate_normal(
                                 mean=np.zeros(self.x_dim), 
@@ -121,7 +120,6 @@ class EnsembleKalmanFilter(BaseFilter):
         vf = self.get_forward_velocity(v)
         
         acc_val = (R @ a - self.g)
-        # acc_val = self.correct_acceleration(acc_val=acc_val, q=q)
         acc_val_reshaped = acc_val.reshape(acc_val.shape[0], acc_val.shape[1])
 
         
@@ -141,8 +139,8 @@ class EnsembleKalmanFilter(BaseFilter):
         q_k = (np.array(A + B) @ q.T).T # Nx4
         q_k = np.array([q_ / np.linalg.norm(q_) if np.linalg.norm(q_) > 0 else q_  for q_ in q_k])
         
-        b_w_k = np.array([ bw + imu_sensor_error.gyro_bias for bw in b_w])
-        b_a_k = np.array([ ba + imu_sensor_error.acc_bias for ba in b_a])
+        b_w_k = b_w + imu_sensor_error.gyro_bias.flatten()
+        b_a_k = b_a + imu_sensor_error.acc_bias.flatten()
 
         process_noise = np.random.multivariate_normal(
             mean=np.zeros(self.x_dim), 
@@ -188,7 +186,7 @@ class EnsembleKalmanFilter(BaseFilter):
         P /= (self.ensemble_size - 1)
         K = P @ H.T @ np.linalg.inv(H @ P @ H.T + R)
         
-        samples = self.samples @ H.T
+        samples = (H @ self.samples.T).T  # NxM
         measurement_noise = np.random.multivariate_normal(
                                 mean=np.zeros(z_dim), 
                                 cov=R, size=self.ensemble_size)

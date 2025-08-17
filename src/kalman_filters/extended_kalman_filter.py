@@ -57,7 +57,7 @@ class ExtendedKalmanFilter(BaseFilter):
         B = (1/norm_w)*np.sin(norm_w*dt/2) * omega
         
         acc_val = (R @ a - self.g)
-        p_k = p + v * dt #+ acc_val*dt**2 / 2
+        p_k = p + R @ v * dt #+ acc_val*dt**2 / 2
         v_k = v + acc_val * dt
         q_k = np.array(A + B) @ q
         q_k /= np.linalg.norm(q_k)

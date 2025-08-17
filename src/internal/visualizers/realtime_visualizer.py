@@ -38,9 +38,15 @@ XY_GRAPH_TYPES = [
 
 COLOR_MAP = {
     VisualizationDataType.GROUND_TRUTH: "black",
-    VisualizationDataType.GPS: "black",
+    VisualizationDataType.GPS: "gray",
     VisualizationDataType.VO: "red",
     VisualizationDataType.ESTIMATION: "blue"
+}
+LINESTYLE_MAP = {
+    VisualizationDataType.GROUND_TRUTH: "dashed",
+    VisualizationDataType.GPS: "solid",
+    VisualizationDataType.VO: "solid",
+    VisualizationDataType.ESTIMATION: "solid"
 }
 
 x_color = "red"
@@ -100,14 +106,14 @@ WINDOW_PARAMS = {
     VisualizationDataType.GPS:
     WindowParam(label="GPS",
                 xlabel="X (m)",
-                ylabel=" Y (m)",
+                ylabel="Y (m)",
                 tick_left=False,
                 tick_bottom=False,
                 patches=[]),
     VisualizationDataType.VO:
     WindowParam(label="Visual Odometry",
                 xlabel="X (m)",
-                ylabel=" Y (m)",
+                ylabel="Y (m)",
                 tick_left=False,
                 tick_bottom=False,
                 patches=[]),
@@ -118,7 +124,9 @@ WINDOW_PARAMS = {
                 tick_left=False,
                 tick_bottom=False,
                 patches=[
-                    mpatches.Patch(color='black', label='GPS trajectory'),
+                    mpatches.Patch(color='black', linestyle='--', 
+                                    label='Ground truth trajectory'),
+                    mpatches.Patch(color='gray', label='GPS trajectory'),
                     mpatches.Patch(color='red',
                                     label='Visual odometry estimation'),
                     mpatches.Patch(color='blue',
@@ -142,8 +150,12 @@ class RealtimeVisualizer:
         self.debugging = self.config.realtime
 
         self.frame = 0
-        self.output_frame_path = os.path.join(self.config.output_filepath, "frames")
-        os.makedirs(self.output_frame_path, exist_ok=True)
+        t = int(time.time_ns() / 1000)
+        self.output_frame_path = os.path.join(self.config.output_filepath, str(t), "frames")
+        self.final_result_path = os.path.join(self.config.output_filepath, str(t), "final_result.png")
+        if self.config.save_frames or self.config.save_trajectory:
+            os.makedirs(self.output_frame_path, exist_ok=True)
+            os.makedirs(os.path.dirname(self.final_result_path), exist_ok=True)
 
         self.data_points = {t: [] for t in VisualizationDataType if t in LINE_GRAPH_TYPES + XY_GRAPH_TYPES}
         self.state = None
@@ -221,12 +233,23 @@ class RealtimeVisualizer:
 
             if data.shape[0] < 2:
                 continue
-            self.windows[VisualizationDataType.ESTIMATION].plot(data[:, 0], data[:, 1], color=COLOR_MAP.get(t), lw=1)
+            self.windows[VisualizationDataType.ESTIMATION].plot(
+                data[:, 0], 
+                data[:, 1], 
+                color=COLOR_MAP.get(t), 
+                lw=1,
+                linestyle=LINESTYLE_MAP.get(t)
+            )
             self.data_points[t] = self.data_points[t][-1:]
 
 
         plt.draw()
         plt.pause(interval=0.01)
+
+    def _save_result(self):
+        if self.config.save_trajectory:
+            self.figure.savefig(self.final_result_path)
+            logging.info(f"Final result saved to {self.final_result_path}")
 
     def _save_current_frame(self):
         if self.config.save_frames and self.figure is not None:
@@ -285,7 +308,7 @@ class RealtimeVisualizer:
         while True:
             try:
                 try:
-                    message: VisualizationMessage = self.data_queue.get(timeout=POLL_TIMEOUT)
+                    message: VisualizationMessage = self.data_queue.get()
                     if message.type not in self.config.fields:
                         continue
                     
@@ -316,6 +339,7 @@ class RealtimeVisualizer:
 
         logging.info("Stopping visualization process...")
         time.sleep(1)
+        self._save_result()
 
     def _drain_queues(self):
         while not self.data_queue.empty():
@@ -437,14 +461,14 @@ if __name__ == "__main__":
 
             estimate_message = VisualizationMessage(
                 timestamp=i,
-                type=VisualizationDataType.ESTIMATION,
+                type=VisualizationDataType.GROUND_TRUTH,
                 data=VisualizationData(data=estimate)
             )
             queue.put(estimate_message)
 
             vo_message = VisualizationMessage(
                 timestamp=i,
-                type=VisualizationDataType.VO,
+                type=VisualizationDataType.GPS,
                 data=VisualizationData(data=vo)
             )
             queue.put(vo_message)
