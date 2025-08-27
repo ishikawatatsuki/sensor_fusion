@@ -16,6 +16,38 @@ else:
     from ...common import Pose, State, FilterConfig
     from ...common.constants import KITTI_SEQUENCE_MAPS
 
+class OXTS_IMUDataReader:
+    def __init__(self, root_path, date, drive, starttime=-float('inf')):
+        self.kitti_dataset = pykitti.raw(root_path, date, drive)
+        self.starttime = starttime
+        self.field = namedtuple('data', ['timestamp', 'a', 'w'])
+        
+        self.gyro_noise  = get_oxts_gyroscope_noise()
+        self.acc_noise = get_oxts_acceleration_noise()
+
+    def __iter__(self):
+      for i, oxts in enumerate(self.kitti_dataset.oxts):
+          packet = oxts.packet
+          timestamp = datetime.timestamp(self.kitti_dataset.timestamps[i])
+          if timestamp < self.starttime:
+              continue
+          
+          a = np.array([packet.ax, packet.ay, packet.az]) - np.random.normal(0, self.acc_noise, 3)
+          w = np.array([packet.wx, packet.wy, packet.wz]) - np.random.normal(0, self.gyro_noise, 3)
+          yield self.field(timestamp, a, w)
+
+    def start_time(self):
+      return self.kitti_dataset.timestamps[0]
+
+    def set_starttime(self, starttime):
+        self.starttime = starttime
+        
+    @staticmethod
+    def get_noise_vector():
+        acc_noise = get_oxts_acceleration_noise()
+        gyro_noise  = get_oxts_gyroscope_noise()
+        
+        return acc_noise, gyro_noise
 
 class OXTS_IMUDataReader:
     def __init__(self, root_path, date, drive, starttime=-float('inf')):
@@ -194,8 +226,10 @@ class KITTI_VisualOdometry:
       starttime=-float('inf')
     ):
     self.kitti_dataset = pykitti.raw(root_path, date, drive)
+    vo_pose_dir = "vo_pose_estimates" if True else "vo_pose_estimates_2d3d"
+    
     self.vo_estimates = pd.read_csv(
-      os.path.join(root_path, "vo_pose_estimates", date, drive, "data.csv"),
+      os.path.join(root_path, vo_pose_dir, date, drive, "data.csv"),
       names=[str(i) for i in range(16)]
     ).values.reshape(-1, 4, 4)[:, :3, :]
 

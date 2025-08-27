@@ -211,7 +211,6 @@ class ExtendedConfig:
             self.parsed_config = yaml.safe_load(f)
             f.close()
 
-        self.filter = FilterConfig(**self.parsed_config["filter"])
         self.general = GeneralConfig(**self.parsed_config["general"])
         self.report = ReportConfig(**self.parsed_config["report"])
         self.dataset = DatasetConfig(**self.parsed_config["dataset"])
@@ -225,6 +224,9 @@ class ExtendedConfig:
             if value.get("selected", False)
         ]
         self.dataset.sensors = sensors
+        self.filter = FilterConfig(**self.parsed_config["filter"])
+        self.filter.set_sensor_fields(self.dataset.type)
+
         self.report = ReportConfig(**self.parsed_config["report"])
         self.visual_odometry = VisualOdometryConfig(**self.parsed_config['visual_odometry'])
 
@@ -313,3 +315,9 @@ class ExtendedConfig:
             transformation=transformation,
         )
 
+
+if __name__ == "__main__":
+    config_file = "configs/kitti_config.yaml"
+    config = ExtendedConfig(config_file)
+    
+    print(config.filter)

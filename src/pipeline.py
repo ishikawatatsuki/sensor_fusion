@@ -243,7 +243,7 @@ class SingleThreadedPipeline(abc.ABC):
                     else:
                         continue
                     
-                    # self._prepare_visualization(response)
+                    self._prepare_visualization(response)
 
                     self._visualize_data(
                         message=VisualizationMessage(

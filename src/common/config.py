@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from shapely.geometry import LineString
 
 
-from .datatypes import SensorConfig, VisualizationDataType, State, Pose, SensorType
+from .datatypes import SensorConfig, VisualizationDataType, State, Pose, SensorType, FusionData
 
 
 @dataclass
@@ -24,10 +24,11 @@ class FilterConfig:
     is_imu_preintegrated: bool
     compensate_gravity: bool
     use_imu_preprocessing: bool
+    sensors: dict
 
     def __init__(
         self,
-        type: str = "ckf",
+        type: str = "ekf",
         dimension: int = 2,
         motion_model: str = "velocity",
         noise_type: str = "default",
@@ -36,6 +37,7 @@ class FilterConfig:
         is_imu_preintegrated: bool = False,
         compensate_gravity: bool = False,
         use_imu_preprocessing: bool = False,
+        sensors: dict = {},
         ):
         self.type = type
         self.dimension = dimension
@@ -46,6 +48,7 @@ class FilterConfig:
         self.is_imu_preintegrated = is_imu_preintegrated
         self.compensate_gravity = compensate_gravity
         self.use_imu_preprocessing = use_imu_preprocessing
+        self.sensors = sensors
 
     def __str__(self):
         return \
@@ -59,8 +62,20 @@ class FilterConfig:
             f"\tis_imu_preintegrated={self.is_imu_preintegrated}\n" \
             f"\tcompensate_gravity={self.compensate_gravity}\n" \
             f"\tuse_imu_preprocessing={self.use_imu_preprocessing}\n" \
+            f"\tsensors={self.sensors}\n" \
             f")"
 
+    def set_sensor_fields(self, dataset_type: str):
+        get_sensor_type_fn = SensorType.get_sensor_from_str_func(dataset_type)
+        sensors = {}
+        fusion_data_fields = FusionData.get_enum_name_list()
+        for  sensor_type_str, values in self.sensors.items():
+            sensor_type = get_sensor_type_fn(sensor_type_str)
+            fields = values.get("fields", [])
+            if sensor_type is not None:
+                sensors[sensor_type] = [FusionData.get_type(field) for field in fields if field in fusion_data_fields]
+
+        self.sensors = sensors
 
 @dataclass
 class ImuConfig:
@@ -310,3 +325,11 @@ class Config:
 
         self.filter = FilterConfig(**config["filter"])
         self.vo_config = VisualOdometryConfig(**config['visual_odometry'])
+
+
+if __name__ == "__main__":
+    config_file = "configs/kitti_config.yaml"
+    config = Config(config_file)
+    
+    config.filter.set_sensor_fields("kitti")
+    print(config.filter)

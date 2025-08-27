@@ -61,9 +61,9 @@ class CubatureKalmanFilter(BaseFilter):
         A = np.cos(norm_w*dt/2) * np.eye(4)
         B = (1/norm_w)*np.sin(norm_w*dt/2) * Omega
 
-        acc_val = (R @ a - self.g)
-        acc_val_reshaped = acc_val.reshape(acc_val.shape[0], acc_val.shape[1])
-        v = np.array([Ri @ vi for Ri, vi in zip(R, v)])
+        a_world = (R @ a + self.g)
+        acc_val_reshaped = a_world.reshape(a_world.shape[0], a_world.shape[1])
+        # v = np.array([Ri @ vi for Ri, vi in zip(R, v)])
         p_k = p + v * dt# + acc_val_reshaped*dt**2 / 2
         v_k = v + acc_val_reshaped * dt
         q_k = (np.array(A + B) @ q.T).T
@@ -124,8 +124,8 @@ class CubatureKalmanFilter(BaseFilter):
         
         vf = self.get_forward_velocity(v)
         
-        acc_val = (R @ a - self.g)
-        acc_val_reshaped = acc_val.reshape(acc_val.shape[0], acc_val.shape[1])
+        a_world = (R @ a + self.g)
+        acc_val_reshaped = a_world.reshape(a_world.shape[0], a_world.shape[1])
 
         rx = vf / wx  # turning radius for x axis
         rz = vf / wz  # turning radius for z axis

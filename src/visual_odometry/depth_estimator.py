@@ -137,13 +137,16 @@ if __name__ == "__main__":
     # image = Image.open(requests.get(url, stream=True).raw)
     base_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/KITTI/2011_09_30/2011_09_30_drive_0020_sync/image_00/data/0000000006.png"
     image = cv2.imread(base_dir)
-    image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    print(image.shape)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    print(image.shape)
+    image = Image.fromarray(image)
 
     config = VisualOdometryConfig(
         type='monocular',
         estimator='2d3d',
         camera_id='left',
-        depth_estimator='dpt_midas',
+        depth_estimator='zoe_depth',
         params={
             'max_features': 1000,
             'ransac_reproj_threshold': 1.0,

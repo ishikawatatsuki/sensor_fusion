@@ -730,6 +730,34 @@ class VisualizationDataType(IntEnum):
         except:
             return None
 
+
+class FusionData(Enum):
+    LINEAR_ACCELERATION = auto()
+    ANGULAR_VELOCITY = auto()
+    POSITION = auto()
+    LINEAR_VELOCITY = auto()
+    ORIENTATION = auto()
+    MAGNETIC_FIELD = auto()
+    HEADING_ANGLE = auto()
+    LEFTWARD_VELOCITY = auto()
+    UPWARD_VELOCITY = auto()
+
+    @staticmethod
+    def get_enum_name_list():
+        return [
+            s.lower() for s in list(FusionData.__members__.keys())
+        ]
+
+    @classmethod
+    def get_type(cls, s: str):
+        s = s.lower()
+        try:
+            index = FusionData.get_enum_name_list().index(s)
+            return cls(index + 1)
+        except:
+            return None
+
+
 @dataclass
 class VisualizationQueue:
     name: str
@@ -794,6 +822,10 @@ class FusionResponse:
         self.leica_data = leica_data
 
 
+class GimbalCondition(IntEnum):
+    LEVEL = 0
+    NOSE_UP = 1
+    NOSE_DOWN = 2
 
 if __name__ == "__main__":
 

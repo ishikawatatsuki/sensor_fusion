@@ -11,7 +11,15 @@ from sklearn.metrics import mean_absolute_error
 
 from .depth_estimator import DepthEstimator
 from .object_detection import DynamicObjectDetector
-from .vo_utils import DetectorType, MatcherType, RANSAC_FlagType, draw_reprojection, print_reprojection_error
+from .vo_utils import (
+    DetectorType, 
+    MatcherType, 
+    RANSAC_FlagType, 
+    draw_reprojection, 
+    print_reprojection_error,
+    grid_sample_indices
+)
+
 
 from ..common.config import VisualOdometryConfig
 from ..internal.extended_common.extended_config import DatasetConfig
@@ -198,6 +206,10 @@ class VisualOdometry:
         pts3d = pts3d.astype(np.float32)
         next_pts = next_pts.astype(np.float32)
 
+        # Copy keypoints for debugging
+        next_pts_cp = next_pts.copy()
+        prev_pts_cp = prev_pts.copy()
+
         prev_inliers = np.ones((pts3d.shape[0], 1), dtype=np.uint8)
         success, rvec, tvec, inliers = False, None, None, None
         try:
@@ -216,6 +228,11 @@ class VisualOdometry:
 
                 pts3d = pts3d[inliers.flatten()]
                 next_pts = next_pts[inliers.flatten()]
+
+                # Extract the keypoints, which are actually used for pose estimation
+                next_pts_cp = next_pts_cp[inliers.flatten()]
+                prev_pts_cp = prev_pts_cp[inliers.flatten()]
+
                 prev_inliers = inliers
 
                 logging.debug(f"Inliers: {len(inliers) if inliers is not None else 0}")
@@ -236,16 +253,14 @@ class VisualOdometry:
 
 
         if self.is_debugging:
-            _prev_pts = prev_pts.copy()
-            _next_pts = next_pts.copy()
-            if _prev_pts.ndim == 3:
-                _prev_pts = rearrange(_prev_pts, 'n 1 s -> n s')
-            if _next_pts.ndim == 3:
-                _next_pts = rearrange(_next_pts, 'n 1 s -> n s')
+            if prev_pts_cp.ndim == 3:
+                prev_pts_cp = rearrange(prev_pts_cp, 'n 1 s -> n s')
+            if next_pts_cp.ndim == 3:
+                next_pts_cp = rearrange(next_pts_cp, 'n 1 s -> n s')
 
             self.debugging_data = DebuggingData( 
-                prev_pts=_prev_pts,
-                next_pts=_next_pts,
+                prev_pts=prev_pts_cp,
+                next_pts=next_pts_cp,
                 mask=mask
             )
             
@@ -261,6 +276,12 @@ class VisualOdometry:
 
         if self.advanced_detector:
             current_kp, desc = self.detector.detectAndCompute(frame, mask=mask)
+
+            # Balance keypoints across the grid in a given frame
+            uniformly_distributed_samples_index = grid_sample_indices(frame.shape, current_kp, grid_rows=10, grid_cols=10, max_per_cell=50)
+            current_kp = [current_kp[i] for i in uniformly_distributed_samples_index]
+            desc = desc[uniformly_distributed_samples_index]
+
 
             if self.prev_kp is None or self.prev_desc is None:
                 self.prev_kp = current_kp
@@ -370,7 +391,7 @@ if __name__ == "__main__":
         params={
             'confidence': 0.90,
             'ransac_reproj_threshold': 0.99,
-            'matching_threshold': 0.5,
+            'matching_threshold': 0.45,
             'max_features': 1000,
         }
     )

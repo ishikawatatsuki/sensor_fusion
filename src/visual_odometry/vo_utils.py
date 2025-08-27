@@ -1,8 +1,9 @@
 import os
 import cv2
+import logging
 import numpy as np
 from einops import rearrange
-import logging
+from typing import Tuple
 from enum import Enum
 
 
@@ -181,14 +182,46 @@ class MatcherType(Enum):
                 matcher = cv2.BFMatcher()
             case MatcherType.FLANN:
                 matcher = cv2.FlannBasedMatcher()
-                
             case _:
                 logging.warning("No available matcher algorithm is specified. ")
                 matcher = cv2.BFMatcher()
             
         return matcher
 
+def grid_sample_indices(image_shape: Tuple[int, int], keypoints: list[cv2.KeyPoint], grid_rows=4, grid_cols=4, max_per_cell=10):
+    """
+    Args:
+        image_shape: (H, W) tuple
+        keypoints: list of cv2.KeyPoint
+        grid_rows: number of rows in the image grid
+        grid_cols: number of cols in the image grid
+        max_per_cell: max keypoints to select per cell
 
+    Returns:
+        selected_indices: list of indices of selected keypoints
+    """
+    h, w = image_shape
+    cell_h, cell_w = h // grid_rows, w // grid_cols
+    selected_indices = []
+
+    keypoints_with_idx = [(i, kp) for i, kp in enumerate(keypoints)]
+
+    for i in range(grid_rows):
+        for j in range(grid_cols):
+            x0, y0 = j * cell_w, i * cell_h
+            x1, y1 = (j + 1) * cell_w, (i + 1) * cell_h
+
+            # Get indices of keypoints in the current cell
+            cell_kps = [
+                (idx, kp) for idx, kp in keypoints_with_idx
+                if x0 <= kp.pt[0] < x1 and y0 <= kp.pt[1] < y1
+            ]
+
+            # Sort by response and select top max_per_cell
+            cell_kps = sorted(cell_kps, key=lambda x: -x[1].response)[:max_per_cell]
+            selected_indices.extend([idx for idx, _ in cell_kps])
+
+    return selected_indices
 
 
 def draw_reprojection(image, measured_pts, projected_pts):

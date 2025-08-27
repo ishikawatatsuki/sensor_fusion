@@ -12,6 +12,7 @@ from .kalman_filters import (
     CubatureKalmanFilter,
 )
 from .common import (
+    FusionData,
     FilterConfig,
     HardwareConfig,
     SensorType,
@@ -182,56 +183,71 @@ class SensorFusion:
             response.gps_data = visualizing_data.flatten()[:3]
             
         return response
+    
+    def _get_vo_measurement_data(self, sensor_data: SensorDataField) -> Tuple[MeasurementUpdateField, FusionResponse]:
+        """Construct a measurement update data for the Kalman Filter"""
+        # NOTE: Construct a VO estimated position from the relative pose between image frames at t1 and t2
+        relative_pose_in_camera_coord = sensor_data.data.relative_pose
+        if relative_pose_in_camera_coord.shape != (3, 4):
+            relative_pose_in_camera_coord = relative_pose_in_camera_coord.reshape(3, 4)
+
+        relative_pose_inertial = self.geo_transformer.transform(fields=TransformationField(
+            state=self.kalman_filter.x,
+            value=relative_pose_in_camera_coord,
+            coord_from=sensor_data.coordinate_frame,
+            coord_to=CoordinateFrame.INERTIAL))
+        relative_pose = Pose(R=relative_pose_inertial[:3, :3], t=relative_pose_inertial[:3, 3])
+        self.vo_relative_pose_inertial = relative_pose
+        self.independent_vo_pose = self.independent_vo_pose * relative_pose  # update vo pose estimation in inertial frame
+        last_pose = self.last_vo_pose * relative_pose
+
+        # Velocity to fuse
+        dt = sensor_data.data.dt if sensor_data.data.dt > 1e-6 else 0.1
+
+        # position = self.independent_vo_pose.t.reshape(-1, 1)  # NOTE: VO position independent on the fusion system
+        position = last_pose.t.reshape(-1, 1)  # NOTE: Fused VO position
+        velocity = relative_pose.t.reshape(-1, 1) / dt # velocity
+        velocity *= np.array([1., 0., 0.]).reshape(-1, 1)  # only x velocity is used for KITTI dataset
+        quaternion = State.get_quaternion_from_rotation_matrix(last_pose.R).reshape(-1, 1)
+
+        _logging_data = VisualOdometryData(
+            dt=dt,
+            relative_pose=relative_pose_inertial[:3, :],
+            timestamp=sensor_data.timestamp,
+        )
+
+        return position, velocity, quaternion, _logging_data
+
 
     def _get_measurement_update_data(self, sensor_data: SensorDataField) -> Tuple[MeasurementUpdateField, FusionResponse]:
         """Construct a measurement update data for the Kalman Filter"""
 
         visualizing_data = None
+        fusion_fields = self.filter_config.sensors.get(sensor_data.type, [])
+        if len(fusion_fields) == 0:
+            logging.warning(f"Fusion field is not set for sensor: {sensor_data.type.name}")
 
         if SensorType.is_vo_data(sensor_data.type):
-            # NOTE: Construct a VO estimated position from the relative pose between image frames at t1 and t2
-            relative_pose_in_camera_coord = sensor_data.data.relative_pose
-            if relative_pose_in_camera_coord.shape != (3, 4):
-                relative_pose_in_camera_coord = relative_pose_in_camera_coord.reshape(3, 4)
+            position, velocity, quaternion, _logging_data = self._get_vo_measurement_data(sensor_data=sensor_data)
 
-            relative_pose_inertial = self.geo_transformer.transform(fields=TransformationField(
-                state=self.kalman_filter.x,
-                value=relative_pose_in_camera_coord,
-                coord_from=sensor_data.coordinate_frame,
-                coord_to=CoordinateFrame.INERTIAL))
-            relative_pose = Pose(R=relative_pose_inertial[:3, :3], t=relative_pose_inertial[:3, 3])
-            self.vo_relative_pose_inertial = relative_pose
-            self.independent_vo_pose = self.independent_vo_pose * relative_pose  # update vo pose estimation in inertial frame
-            last_pose = self.last_vo_pose * relative_pose
-
-            # Velocity to fuse
-            dt = sensor_data.data.dt if sensor_data.data.dt > 1e-6 else 0.1
-
-            position = last_pose.t.reshape(-1, 1)  # position
-            velocity = relative_pose.t.reshape(-1, 1) / dt # velocity
-            logging.debug(f"VO velocity: {velocity.flatten()}, dt: {dt}")
-            velocity *= np.array([1., 0., 0.]).reshape(-1, 1)  # only x velocity is used for KITTI dataset
-            # z = np.vstack([position, velocity])
-            z = velocity
-
+            z = np.empty((0, 1))
+            if FusionData.POSITION in fusion_fields:
+                z = np.vstack([z, position])
+            if FusionData.LINEAR_VELOCITY in fusion_fields:
+                z = np.vstack([z, velocity])
+            if FusionData.ORIENTATION in fusion_fields:
+                z = np.vstack([z, quaternion])
+                
             visualizing_data = self.independent_vo_pose.t.flatten()
-
-            _logging_data = VisualOdometryData(
-                dt=dt,
-                relative_pose=relative_pose_inertial[:3, :],
-                timestamp=sensor_data.timestamp,
-            )
-            self._log_data(sensor_type=sensor_data.type, data=_logging_data, timestamp=sensor_data.timestamp)
-
+            
         elif SensorType.is_constraint_data(sensor_data.type):
             # lateral and vertical velocity constraints
             z = sensor_data.data.z.reshape(-1, 1)
             visualizing_data = z
 
             _logging_data = SensorData(z=z.flatten())
-            self._log_data(sensor_type=sensor_data.type, data=_logging_data, timestamp=sensor_data.timestamp)
         
-        else:
+        else: # Add more data handling
             z = self.geo_transformer.transform(fields=TransformationField(
                 state=self.kalman_filter.x,
                 value=sensor_data.data.z,
@@ -240,12 +256,13 @@ class SensorFusion:
             visualizing_data = z
 
             _logging_data = SensorData(z=z.flatten())
-            self._log_data(sensor_type=sensor_data.type, data=_logging_data, timestamp=sensor_data.timestamp)
 
         R = self.noise_manager.get_measurement_noise(sensor_data=sensor_data)
         R = R[:z.shape[0], :z.shape[0]]
 
         response = self._prepare_response(sensor_data=sensor_data, visualizing_data=visualizing_data)
+
+        self._log_data(sensor_type=sensor_data.type, data=_logging_data, timestamp=sensor_data.timestamp)
 
         return MeasurementUpdateField(z=z, R=R, sensor_type=sensor_data.type), response
     
@@ -301,12 +318,9 @@ class SensorFusion:
         self._log_data(sensor_type=sensor_data.type, data=_logging_data, timestamp=sensor_data.timestamp)
         
         return FusionResponse(
-                # pose=self.kalman_filter.get_current_estimate().matrix(), 
                 timestamp=sensor_data.timestamp,
                 imu_acceleration=u[:3].flatten(),
                 imu_angular_velocity=u[3:].flatten(),
-                # estimated_angle=self.kalman_filter.x.get_euler_angle_from_quaternion().flatten(),
-                # estimated_linear_velocity=self.kalman_filter.x.v.flatten(),
             )
     
     @time_reporter
@@ -323,9 +337,6 @@ class SensorFusion:
         # # NOTE: Store current state corrected by VO
         self._store_current_vo_estimate(sensor_data)
 
-        response.pose = self.kalman_filter.get_current_estimate().matrix()
-        response.estimated_angle = self.kalman_filter.x.get_euler_angle_from_quaternion().flatten()
-        response.estimated_linear_velocity = self.kalman_filter.x.v.flatten()
         response.timestamp = sensor_data.timestamp
         return response
 

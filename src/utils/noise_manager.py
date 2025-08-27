@@ -5,6 +5,7 @@ import logging
 import numpy as np
 
 from ..common import (
+    FusionData,
     FilterConfig,
     HardwareConfig,
     MotionModel,
@@ -19,13 +20,14 @@ class BaseNoise(abc.ABC):
     
     def __init__(
         self,
-        motion_model: MotionModel,
+        filter_config: FilterConfig,
         hardware_config: HardwareConfig
     ):
     
         self.Q = dict()
         self.R = dict()
-        self.motion_model = motion_model
+        self.filter_config = filter_config
+        self.motion_model = MotionModel.get_motion_model(filter_config.motion_model)
 
         self.imu_hardware_config = hardware_config.imu_config
 
@@ -41,6 +43,8 @@ class BaseNoise(abc.ABC):
 
     def _initialize_R(self):
         def _get_initial_measurement_noise(sensor_type: SensorType):
+            fusion_fields = self.filter_config.sensors.get(sensor_type, [])
+
             match (sensor_type.name):
                 case SensorType.OXTS_GPS.name | SensorType.OXTS_GPS_UNSYNCED.name:
                     noise_vector = np.array([1.0, 1.0, 1.0])
@@ -48,9 +52,20 @@ class BaseNoise(abc.ABC):
 
                 case SensorType.KITTI_VO.name:
                     # Velocity noise
-                    noise_vector = np.array([.5, .5, .5])
-                    # Position and velocity update
-                    # noise_vector = np.array([10., 10., 10., .5, .5, .5])
+                    if len(fusion_fields) == 0:
+                        logging.warning(f"Fusion field is not set for sensor: {sensor_type.name}")
+                    
+                    noise_vector = np.empty(0)
+                    if FusionData.POSITION in fusion_fields:
+                        position_noise = np.array([3., 3., 10])
+                        noise_vector = np.append(noise_vector, position_noise)
+                    if FusionData.LINEAR_VELOCITY in fusion_fields:
+                        velocity_noise = np.array([.5, .5, .5])
+                        noise_vector = np.append(noise_vector, velocity_noise)
+                    if FusionData.ORIENTATION in fusion_fields:
+                        orientation_noise = np.array([0.01, 0.01, 0.01, 0.01])
+                        noise_vector = np.append(noise_vector, orientation_noise)
+                    
                     return np.eye(noise_vector.shape[0]) * noise_vector**2
                 
                 case SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY.name:
@@ -74,16 +89,17 @@ class BaseNoise(abc.ABC):
     def _initialize_Q(self):
         """Initialize process noise covariance matrix Q for each sensor type."""
         p_noise = np.repeat(2.0, 3)
-        v_noise = np.repeat(0.5, 3)
+        v_noise = np.repeat(1.0, 3)
         q_noise = np.repeat(0.01, 4)
         b_w_noise = np.repeat(self.imu_hardware_config.gyroscope_random_walk, 3)
         b_a_noise = np.repeat(self.imu_hardware_config.accelerometer_random_walk, 3)
 
-
-        q = np.hstack([p_noise, v_noise, q_noise, b_w_noise, b_a_noise])
+        if self.filter_config.type == "ekf":
+            q = np.hstack([b_w_noise, b_a_noise])
+        else:
+            q = np.hstack([p_noise, v_noise, q_noise, b_w_noise, b_a_noise])
 
         Q = np.eye(q.shape[0]) * q ** 2
-
 
         Qs = {
             SensorType.OXTS_IMU: Q,
@@ -170,13 +186,14 @@ class NoiseManager:
         self.motion_model = MotionModel.get_motion_model(filter_config.motion_model)
         self.noise_type = NoiseType.get_noise_type_from_str(filter_config.noise_type)
         self.hardware_config = hardware_config
+        self.filter_config = filter_config
 
         self._provider = self._get_noise_provider()
       
     def _get_noise_provider(self):
       
         kwargs = {
-            "motion_model": self.motion_model,
+            "filter_config": self.filter_config,
             "hardware_config": self.hardware_config
         }
         match (self.noise_type):

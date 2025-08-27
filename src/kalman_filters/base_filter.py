@@ -7,12 +7,14 @@ from typing import Tuple
 import matplotlib.pyplot as plt
 
 from ..common import (
+    FusionData,
     FilterConfig, 
     HardwareConfig, 
     SensorType,
     FilterType,
     CoordinateSystem,
     IMUSensorErrors,
+    GimbalCondition,
     Pose, State, MotionModel, TimeUpdateField, MeasurementUpdateField,
     MeasurementUpdateField,
     DECLINATION_OFFSET_RADIAN_IN_ESTONIA
@@ -129,7 +131,7 @@ class BaseFilter(abc.ABC):
         match (type):
             case "kitti":
                 logging.info("Setting gravitational vector for KITTI")
-                return np.array([0., 0., 9.81])
+                return np.array([0., 0., -9.81])
             case "uav":
                 logging.info("Setting gravitational vector for UAV")
                 return np.array([0., 0., -9.81])
@@ -151,6 +153,20 @@ class BaseFilter(abc.ABC):
     def compute_norm_w(self, w):
         return np.sqrt(np.sum(w**2))
     
+    def _gimbal_check(self, q):
+        qw, qx, qy, qz = q[:, 0]
+        _theta = 2*(qw*qy - qx*qz)
+        if _theta > 1:
+            _theta = 1
+        elif _theta < -1:
+            _theta = -1
+        theta = np.arcsin(_theta)
+        if theta == np.pi/2:
+            return GimbalCondition.NOSE_UP
+        elif theta == -np.pi/2:
+            return GimbalCondition.NOSE_DOWN
+        return GimbalCondition.LEVEL
+
     def get_euler_angle_from_quaternion(self, q):
         qw, qx, qy, qz = q[:, 0]
         _theta = 2*(qw*qy - qx*qz)
@@ -291,7 +307,9 @@ class BaseFilter(abc.ABC):
         H = np.zeros((3, self.P.shape[0])) # 3 x 16
         H[:, 3:6] = self.x.get_rotation_matrix().T
         return H
-        # return np.eye(self.P.shape[0])[3:6, :] # vx, vy, vz
+    
+    def _get_quaternion_update_H(self):
+        return np.eye(self.P.shape[0])[6:10, :] # qw, qx, qy, qz coordinate
     
     def _get_position_velocity_update_H(self):
         H = np.zeros((6, self.P.shape[0])) # 6 x 16
@@ -316,11 +334,18 @@ class BaseFilter(abc.ABC):
             returns transition matrix H based on the equation below:
                 h(x) = H*x.T
         """
+        fusion_fields = self.config.sensors.get(sensor_type, [])
         match(sensor_type.name):
             case SensorType.KITTI_VO.name:
-                update_H = self._get_velocity_update_H if z_dim == 3 else\
-                            self._get_position_velocity_update_H
-                return update_H()
+                H = np.empty((0, self.P.shape[0])) # 3 x 16
+                if FusionData.POSITION in fusion_fields:
+                    H = np.vstack((H, self._get_position_update_H())) # [I_3x3, 0_3x3, 0_3x4, 0_3x3, 0_3x3]
+                if FusionData.LINEAR_VELOCITY in fusion_fields:
+                    H = np.vstack((H, self._get_velocity_update_H())) # [0_2x3, 0_2x3, I_2x4, 0_2x3, 0_2x3]
+                if FusionData.ORIENTATION in fusion_fields:
+                    H = np.vstack((H, self._get_quaternion_update_H())) # [0_4x3, 0_4x3, 0_4x4, 0_4x3, 0_4x3]
+                return H
+            
             case SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY.name:
                 return self._get_upward_leftward_update_H()
             case _:
