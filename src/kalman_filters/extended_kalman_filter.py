@@ -1,7 +1,6 @@
 import os
 import sys
 import numpy as np
-from ahrs.filters import EKF
 
 from .base_filter import BaseFilter
 from ..common import (
@@ -120,7 +119,6 @@ class ExtendedKalmanFilter(BaseFilter):
             self, 
             a: np.ndarray,
             w: np.ndarray,
-            v: np.ndarray, 
             q: np.ndarray, 
             dt: float, 
             norm_w: float, 
@@ -157,7 +155,6 @@ class ExtendedKalmanFilter(BaseFilter):
                         - (vf*(qw_qz_qx_qy)*(-2*qx*(q_x_squared) -2*qy*(qw_qz_qx_qy))) / (wz*((qw_qz_qx_qy)**2 + (q_x_squared)**2)**(3/2))\
                         + (vf*( (2*qx*(qw_qz_qx_qy_minus))/((qw_qz_qx_qy)**2 + (q_x_squared)**2) + (2*qy*(q_x_squared))/((qw_qz_qx_qy)**2 + (q_x_squared)**2) ) *np.cos(dt*wz + np.arctan2(qw_qz_qx_qy, q_x_squared))) / (wz)
             
-
             F[0, 8] = - (2*qx*vf) / (wz*np.sqrt((qw_qz_qx_qy)**2 + (q_x_squared)**2))\
                         - (vf*(qw_qz_qx_qy)*(-2*qx*(qw_qz_qx_qy)+2*qy*(q_x_squared))) / (wz*((qw_qz_qx_qy)**2 + (q_x_squared)**2)**(3/2))\
                         + (vf*( (2*qx*(q_x_squared))/((qw_qz_qx_qy)**2+(q_x_squared)**2) - (2*qy*(qw_qz_qx_qy_minus))/((qw_qz_qx_qy)**2 +(q_x_squared)**2) )*np.cos(dt*wz + np.arctan2(qw_qz_qx_qy, q_x_squared))) / (wz)
@@ -179,20 +176,19 @@ class ExtendedKalmanFilter(BaseFilter):
                         + (vf*(-2*qw*(qw_qz_qx_qy) +2*qz*(q_x_squared))*(q_x_squared)) / (wz*((qw_qz_qx_qy)**2 +(q_x_squared)**2)**(3/2))\
                         + (vf*((2*qw*(q_x_squared))/((qw_qz_qx_qy)**2+(q_x_squared)**2) - (2*qz*(qw_qz_qx_qy_minus))/((qw_qz_qx_qy)**2 +(q_x_squared)**2))*np.sin(dt*wz +np.arctan2(qw_qz_qx_qy, q_x_squared))) / (wz)
 
-            F[2, 6] = - (2*qx*vf) / (wx*np.sqrt((qw_qx_qy_qz)**2 + (q_z_squared)**2))\
-                        - (vf*(qw_qx_qy_qz)*(-2*qw*(q_z_squared) -2*qx*(qw_qx_qy_qz))) / (wx*((qw_qx_qy_qz)**2 + (q_z_squared)**2)**(3/2))\
-                        + (vf*(2*qw*(qw_qx_qy_qz_minus)/((qw_qx_qy_qz)**2+(q_z_squared)**2) + 2*qx*(q_z_squared)/((qw_qx_qy_qz)**2+(q_z_squared)**2)) * np.cos(dt*wx + np.arctan2(qw_qx_qy_qz, q_z_squared))) / (wx)
-            F[2, 7] = - (2*qw*vf)/(wx*np.sqrt((qw_qx_qy_qz)**2 + (q_z_squared)**2))\
-                        - (vf*(qw_qx_qy_qz)*(-2*qw*(qw_qx_qy_qz)+2*qx*(q_z_squared))) / (wx*((qw_qx_qy_qz)**2 + (q_z_squared)**2)**(3/2))\
-                        + (vf*( (2*qw*(q_z_squared))/((qw_qx_qy_qz)**2 + (q_z_squared)**2) - (2*qx*(qw_qx_qy_qz_minus))/((qw_qx_qy_qz)**2+(q_z_squared)**2) ) *np.cos(dt*wx + np.arctan2(qw_qx_qy_qz, q_z_squared))) / (wx)
-            F[2, 8] = - (2*qz*vf) / (wx*np.sqrt((qw_qx_qy_qz)**2 + (q_z_squared)**2))\
-                        - (vf*(qw_qx_qy_qz)*(2*qy*(q_z_squared) -2*qz*(qw_qx_qy_qz))) / (wx*((qw_qx_qy_qz)**2 + (q_z_squared)**2)**(3/2))\
-                        + (vf*(-(2*qy*(qw_qx_qy_qz_minus))/((qw_qx_qy_qz)**2 + (q_z_squared)**2) +(2*qz*(q_z_squared))/((qw_qx_qy_qz)**2 +(q_z_squared)**2))*np.cos(dt*wx + np.arctan2(qw_qx_qy_qz, q_z_squared))) / (wx)
-            F[2, 9] = - (2*qy*vf) / (wx*np.sqrt((qw_qx_qy_qz)**2 + (q_z_squared)**2))\
-                        - (vf*(qw_qx_qy_qz)*(-2*qy*(qw_qx_qy_qz) -2*qz*(q_z_squared))) / (wx*((qw_qx_qy_qz)**2 +(q_z_squared)**2)**(3/2))\
-                        + (vf*((2*qy*(q_z_squared))/((qw_qx_qy_qz)**2+(q_z_squared)**2) + (2*qz*(qw_qx_qy_qz_minus))/((qw_qx_qy_qz)**2 +(q_z_squared)**2))*np.cos(dt*wx +np.arctan2(qw_qx_qy_qz, q_z_squared))) / (wx)
+            F[2, 6] = - (2*qw*vf) / (wx*np.sqrt((qw_qx_qy_qz)**2 + (q_z_squared)**2))\
+                        + (vf*(-2*qw*(q_z_squared)-2*qx*(qw_qx_qy_qz))*(q_z_squared)) / (wx*((qw_qx_qy_qz)**2 + (q_z_squared)**2)**(3/2))\
+                        + (vf*(2*qw*(qw_qx_qy_qz_minus)/((qw_qx_qy_qz)**2+(q_z_squared)**2) + 2*qx*(q_z_squared)/((qw_qx_qy_qz)**2+(q_z_squared)**2)) * np.sin(dt*wx + np.arctan2(qw_qx_qy_qz, q_z_squared))) / (wx)
+            F[2, 7] = - (2*qx*vf)/(wx*np.sqrt((qw_qx_qy_qz)**2 + (q_z_squared)**2))\
+                        + (vf*(-2*qw*(qw_qx_qy_qz)+2*qx*(q_z_squared))*(q_z_squared)) / (wx*((qw_qx_qy_qz)**2 + (q_z_squared)**2)**(3/2))\
+                        + (vf*( (2*qw*(q_z_squared))/((qw_qx_qy_qz)**2 + (q_z_squared)**2) - (2*qx*(qw_qx_qy_qz_minus))/((qw_qx_qy_qz)**2+(q_z_squared)**2) ) *np.sin(dt*wx + np.arctan2(qw_qx_qy_qz, q_z_squared))) / (wx)
+            F[2, 8] = - (2*qy*vf) / (wx*np.sqrt((qw_qx_qy_qz)**2 + (q_z_squared)**2))\
+                        + (vf*(2*qy*(q_z_squared)-2*qz*(qw_qx_qy_qz))*(q_z_squared)) / (wx*((qw_qx_qy_qz)**2 + (q_z_squared)**2)**(3/2))\
+                        + (vf*(-(2*qy*(qw_qx_qy_qz_minus))/((qw_qx_qy_qz)**2 + (q_z_squared)**2) + (2*qz*(q_z_squared))/((qw_qx_qy_qz)**2 +(q_z_squared)**2))*np.sin(dt*wx + np.arctan2(qw_qx_qy_qz, q_z_squared))) / (wx)
+            F[2, 9] = + (2*qz*vf) / (wx*np.sqrt((qw_qx_qy_qz)**2 + (q_z_squared)**2))\
+                        + (vf*(-2*qy*(qw_qx_qy_qz)-2*qz*(q_z_squared))*(q_z_squared)) / (wx*((qw_qx_qy_qz)**2 + (q_z_squared)**2)**(3/2))\
+                        + (vf*((2*qy*(q_z_squared))/((qw_qx_qy_qz)**2+(q_z_squared)**2) + (2*qz*(qw_qx_qy_qz_minus))/((qw_qx_qy_qz)**2 +(q_z_squared)**2))*np.sin(dt*wx +np.arctan2(qw_qx_qy_qz, q_z_squared))) / (wx)
 
-            
             
             F[3, 6] = dt*(2*ax*qw - 2*ay*qz + 2*az*qy)
             F[3, 7] = dt*(2*ax*qx + 2*ay*qy + 2*az*qz)
@@ -237,10 +233,9 @@ class ExtendedKalmanFilter(BaseFilter):
                         + (vf*np.cos(dt*wz+np.arctan2(qw_qz_qx_qy, q_x_squared)))/wz**2\
                         - (vf*q_x_squared)/(wz**2*np.sqrt(qw_qz_qx_qy**2+q_x_squared**2))
             
-            G[2, 3] = (dt*vf*np.cos(dt*wx+np.arctan2(qw_qx_qy_qz, q_z_squared)))/wx\
-                        + (vf*qw_qx_qy_qz)/(wx**2*np.sqrt(qw_qx_qy_qz**2+q_z_squared**2))\
-                        - (vf*np.sin(dt*wx+np.arctan2(qw_qx_qy_qz, q_z_squared)))/wx**2
-            
+            G[2, 3] = (dt*vf*np.sin(dt*wx+np.arctan2(qw_qx_qy_qz, q_z_squared)))/wx\
+                        + (vf*np.cos(dt*wx+np.arctan2(qw_qx_qy_qz, q_z_squared))) / wx**2\
+                        - (vf*q_z_squared)/(wx**2*np.sqrt(qw_qx_qy_qz**2+q_z_squared**2))
 
             G[3, 0] = dt*q_x_squared
             G[3, 1] = dt*(-2*qw*qz+2*qx*qy)
@@ -318,22 +313,14 @@ class ExtendedKalmanFilter(BaseFilter):
             F[9, 8] = - (wx*np.sin(dt*norm_w/2))/norm_w
             F[9, 9] = np.cos(dt*norm_w/2)
 
-
             G[0, 5] = (dt*vf*np.cos(dt*wz - 2*np.arctan2(qx, qw)))/wz \
                 - (vf*np.sin(dt*wz - 2*np.arctan2(qx, qw)))/wz**2 \
                 - (vf*np.sin(2*np.arctan2(qx, qw)))/wz**2
             G[1, 5] = (dt*vf*np.sin(dt*wz - 2*np.arctan2(qx, qw)))/wz \
                 + (vf*np.cos(dt*wz - 2*np.arctan2(qx, qw)))/wz**2 \
                 - (vf*np.cos(2*np.arctan2(qx, qw)))/wz**2
-            G[2, 3] = (dt*vf*np.cos(dt*wx))/wx - vf*np.sin(dt*wx)/wx**2
+            G[2, 3] = (dt*vf*np.sin(dt*wx))/wx - vf*np.cos(dt*wx)/wx**2 - vf/wx**2
 
-
-            q_x_squared = qw**2+qx**2-qy**2-qz**2
-            q_z_squared = qw**2-qx**2-qy**2+qz**2
-            qw_qz_qx_qy = 2*qw*qz+2*qx*qy
-            qw_qz_qx_qy_minus = -2*qw*qz-2*qx*qy
-            qw_qx_qy_qz = 2*qw*qx+2*qy*qz
-            qw_qx_qy_qz_minus = -2*qw*qx-2*qy*qz
             G[3, 0] = dt*q_x_squared
             G[3, 1] = dt*(-2*qw*qz+2*qx*qy)
             G[3, 2] = dt*(2*qw*qy+2*qx*qz)
@@ -420,7 +407,7 @@ class ExtendedKalmanFilter(BaseFilter):
                 + (vf*np.cos(dt*wz - 2*np.arctan2(qx, qw)))/wz**2 \
                 - (vf*np.cos(2*np.arctan2(qx, qw)))/wz**2
             
-            G[2, 3] = (dt*vf*np.cos(dt*wx))/wx - vf*np.sin(dt*wx)/wx**2
+            G[2, 3] = (dt*vf*np.sin(dt*wx))/wx + vf*np.cos(dt*wx)/wx**2 - vf/wx**2
             
             G[3, 0] = dt*(qw**2+qx**2-qy**2-qz**2)
             G[3, 1] = dt*(-2*qw*qz+2*qx*qy)
@@ -504,7 +491,7 @@ class ExtendedKalmanFilter(BaseFilter):
 
         F, G = self._get_kinematics_jacobian(u, q, dt, norm_w)
         # predict state covariance matrix P
-        self.P = F @ self.P @ F.T + G @ Q @ G.T
+        self.P = F @ self.P @ F.T + Q #G @ Q @ G.T
 
     def velocity_motion_model(self, u: np.ndarray, dt: float, Q: np.ndarray):
         """estimate x and P based on previous stete of x and control input u
@@ -564,9 +551,9 @@ class ExtendedKalmanFilter(BaseFilter):
 
         self.x = State(p=p_k, v=v_k, q=q_k, b_w=b_w_k, b_a=b_a_k)
         
-        F, G = self._get_velocity_jacobian(a, w, v_k, q_k, dt, norm_w, vf)
-
-        self.P = F @ self.P @ F.T + G @ Q @ G.T
+        F, G = self._get_velocity_jacobian(a, w, q_k, dt, norm_w, vf)
+        
+        self.P = F @ self.P @ F.T + Q #G @ Q @ G.T
 
     def measurement_update(self, data: MeasurementUpdateField):
         z = data.z
@@ -574,26 +561,31 @@ class ExtendedKalmanFilter(BaseFilter):
         sensor_type = data.sensor_type
         z_dim = z.shape[0]
         x = self.x.get_state_vector()
-        H = self.get_transition_matrix(sensor_type, z_dim=z_dim)
+        self.H = self.get_transition_matrix(sensor_type, z_dim=z_dim)
         H_j = self._get_measurement_jacobian(data)
-        H_j = H.copy()
+        H_j = self.H.copy()
         mask = self.get_innovation_mask(sensor_type=sensor_type, z_dim=z_dim).reshape(-1, 1)
 
         # compute Kalman gain
-        K = self.P @ H_j.T @ np.linalg.inv(H_j @ self.P @ H_j.T + R)
+        self.K = self.P @ H_j.T @ np.linalg.inv(H_j @ self.P @ H_j.T + R)
         # update state x
-        z_ = np.dot(H, x)  # expected observation from the estimated state 
-        residuals = z - z_
-        innovation = K @ residuals
+        z_ = np.dot(self.H, x)  # expected observation from the estimated state
+        self.innovation = z - z_
+        innovation = self.K @ self.innovation
         innovation *= mask
+
         x = x + innovation
 
         self.x = State.get_new_state_from_array(x)
+
+        z_ = np.dot(self.H, x)  # expected observation from the estimated state
+        self.residual = z - z_
+
         # update covariance P
-        self.P = self.P - K @ H_j @ self.P
+        self.P = self.P - self.K @ H_j @ self.P
 
         # self.innovations.append(np.sum(residuals))
-        self.innovations.append(residuals[:3])
+        # self.innovations.append(self.innovation[:3])
 
     def _get_velocity_update_jacobian_H(self) -> np.ndarray:
         """Jacobian of the velocity update for KITTI upward and leftward velocity sensor."""
