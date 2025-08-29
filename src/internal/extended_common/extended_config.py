@@ -294,14 +294,35 @@ class ExtendedConfig:
                 logging.warning(f"IMU frequency is set to {frequency} Hz. This is lower than the default value of 100 Hz.")
                 frequency = 100
             
+            default_value = 0.001
+            if len(imu) == 0:
+                gyroscope_noise_density = default_value
+                accelerometer_noise_density = default_value
+                gyroscope_random_walk = default_value
+                accelerometer_random_walk = default_value
+            else:
+                gyroscope_noise_density = imu[0].args.get("gyroscope_noise_density", default_value)
+                accelerometer_noise_density = imu[0].args.get("accelerometer_noise_density", default_value)
+                gyroscope_random_walk = imu[0].args.get("gyroscope_random_walk", default_value)
+                accelerometer_random_walk = imu[0].args.get("accelerometer_random_walk", default_value)
+
             if self.dataset.type == DatasetType.KITTI.name:
                 return ImuConfig(
                     frequency=frequency,
                     target_frequency=frequency,
-                    gyroscope_noise_density=1e-6,
-                    accelerometer_noise_density=1e-6,
-                    gyroscope_random_walk=1e-6,
-                    accelerometer_random_walk=1e-6,
+                    gyroscope_noise_density=gyroscope_noise_density,
+                    accelerometer_noise_density=accelerometer_noise_density,
+                    gyroscope_random_walk=gyroscope_random_walk,
+                    accelerometer_random_walk=accelerometer_random_walk,
+                )
+            elif self.dataset.type == DatasetType.EUROC.name:
+                return ImuConfig(
+                    frequency=frequency,
+                    target_frequency=frequency,
+                    gyroscope_noise_density=gyroscope_noise_density,
+                    accelerometer_noise_density=accelerometer_noise_density,
+                    gyroscope_random_walk=gyroscope_random_walk,
+                    accelerometer_random_walk=accelerometer_random_walk,
                 )
             else:
                 return ImuConfig(frequency=frequency)

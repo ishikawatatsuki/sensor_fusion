@@ -169,13 +169,13 @@ class CubatureKalmanFilter(BaseFilter):
         
         z_dim = z.shape[0]
         x = self.x.get_state_vector()
-        H = self.get_transition_matrix(sensor_type, z_dim=z_dim)
+        self.H = self.get_transition_matrix(sensor_type, z_dim=z_dim)
         mask = self.get_innovation_mask(sensor_type=sensor_type, z_dim=z_dim).reshape(-1, 1)
         sigma_points = self._compute_sigma_points()
         # traject sigma points into the measurement space
-        y_sigma_points = sigma_points @ H.T # 20x2
+        y_sigma_points = sigma_points @ self.H.T # 20x2
         # compute expected measurement value
-        y_hat = np.sum(self.W * y_sigma_points, axis=0).reshape(-1, 1) # 2x1
+        y_hat = np.sum(self.W * y_sigma_points, axis=0).reshape(-1, 1)
 
         x_dim = sigma_points.shape[1]
         z_dim = y_sigma_points.shape[1]
@@ -196,15 +196,19 @@ class CubatureKalmanFilter(BaseFilter):
             P_xy += self.W * (var_x @ var_y.T)
         
         # compute kalman gain
-        K = P_xy @ np.linalg.inv(P_y)
+        self.K = P_xy @ np.linalg.inv(P_y)
 
         # compute residual
-        residual = z - y_hat
-        innovation = K @ residual
-        innovation *= mask
+        self.innovation = z - y_hat
+        _innovation = self.K @ self.innovation
+        _innovation *= mask
         # update state vector and error covariance matrix
-        x = x + innovation
+        x = x + _innovation
         self.x = State.get_new_state_from_array(x)
-        self.P = self.P - K @ P_y @ K.T
-        
-        self.innovations.append(np.sum(residual))
+
+        z_ = np.dot(self.H, x)
+        self.residual = z - z_
+
+        self.P = self.P - self.K @ P_y @ self.K.T
+
+        # self.innovations.append(np.sum(self.innovation))

@@ -38,63 +38,36 @@ dataset:
   root_path: ./data/KITTI
   variant: "07" #NOTE: variant for kitti
   sensors:
-    oxts_imu:
+    euroc_imu: # ADIS16448
       selected: True
       dropout_ratio: 0
       window_size: 1
       args:
-        frequency: 10
-        gyroscope_noise_density: 5.817764173314432e-05
-        accelerometer_noise_density: 8.333333333333333e-05
-        gyroscope_random_walk: 0.0005817764173314433
-        accelerometer_random_walk: 0.0008333333333333333
-    oxts_imu_unsynced:
-      selected: False
-      dropout_ratio: 0
-      window_size: 1
-      args:
-        frequency: 100
-    oxts_ins: 
+        frequency: 200
+        gyroscope_noise_density: 0.00023561944901923448 # [rad/s/√Hz] 0.0135 deg/s/√Hz
+        accelerometer_noise_density: 0.0022555294999999998 # [m/s²/√Hz] 0.23 mg/√Hz
+        gyroscope_random_walk: 0.0033321622036187747 #
+        accelerometer_random_walk: 0.03189800409232606 #
+    euroc_leica: 
       selected: False # select when motion_model is velocity
       dropout_ratio: 0
       window_size: 1
       args:
         frequency: 10 # Hz
-    oxts_gps: 
-      selected: False
-      dropout_ratio: 0
-      window_size: 1
-      args:
-        frequency: 10
-    oxts_gps_unsynced: 
-      selected: False
-      dropout_ratio: 0
-      window_size: 1
-      args:
-        frequency: 100
-    kitti_stereo:
+    euroc_stereo:
       selected: True
       dropout_ratio: 0
       window_size: 1
       args:
-    kitti_vo:
-      selected: True
-      dropout_ratio: 0
-      window_size: 1
-      args:
-        epipolar_geometry: True # True: 2d2d epipolar geometry, False: 2d3d PnP pose estimation
-    kitti_color_image: # this is for visualization
-      selected: True
-      dropout_ratio: 0
-      window_size: 1
-      args:
-      
-    kitti_upward_leftward_velocity: # this is used only in experiment
+        frequency: 30
+    euroc_vo:
       selected: False
       dropout_ratio: 0
       window_size: 1
       args:
-      
+        frequency: 30
+    
+
 report:
   export_error: False
   error_output_root_path: ../outputs/KITTI
@@ -104,8 +77,8 @@ report:
 filter:
   type: ekf # Select from: ekf, ukf, pf, enkf, ckf
   dimension: 2
-  motion_model: kinematics # kinematics or velocity
-  innovation_masking: True
+  motion_model: velocity # kinematics or velocity
+  innovation_masking: False
   is_imu_preintegrated: False
   compensate_gravity: True
   use_imu_preprocessing: False
@@ -118,7 +91,6 @@ filter:
     particle_size: 2048
     resampling_algorithm: stratified # Select from: multinomial, redidual, systematic, stratified
     scale_for_ess_threshold: .5 # from 0. to 1.
-    distribution: multivariate_normal # Select from multivariate_normal, multivariate_student_t
     #enkf
     ensemble_size: 128
   sensors: # Sensor fields to be fused

@@ -491,7 +491,7 @@ class ExtendedKalmanFilter(BaseFilter):
 
         F, G = self._get_kinematics_jacobian(u, q, dt, norm_w)
         # predict state covariance matrix P
-        self.P = F @ self.P @ F.T + Q #G @ Q @ G.T
+        self.P = F @ self.P @ F.T + G @ Q @ G.T
 
     def velocity_motion_model(self, u: np.ndarray, dt: float, Q: np.ndarray):
         """estimate x and P based on previous stete of x and control input u
@@ -553,7 +553,7 @@ class ExtendedKalmanFilter(BaseFilter):
         
         F, G = self._get_velocity_jacobian(a, w, q_k, dt, norm_w, vf)
         
-        self.P = F @ self.P @ F.T + Q #G @ Q @ G.T
+        self.P = F @ self.P @ F.T + G @ Q @ G.T
 
     def measurement_update(self, data: MeasurementUpdateField):
         z = data.z

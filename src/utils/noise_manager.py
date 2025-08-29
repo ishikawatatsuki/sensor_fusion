@@ -96,6 +96,7 @@ class BaseNoise(abc.ABC):
 
         if self.filter_config.type == "ekf":
             q = np.hstack([b_w_noise, b_a_noise])
+            # q = np.hstack([p_noise, v_noise, q_noise, b_w_noise, b_a_noise])
         else:
             q = np.hstack([p_noise, v_noise, q_noise, b_w_noise, b_a_noise])
 
@@ -131,33 +132,78 @@ class BaseNoise(abc.ABC):
         """
         pass
 
+class AdaptiveNoise(BaseNoise):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        filter_config: FilterConfig = kwargs.get("filter_config", None)
+
+        assert filter_config is not None, "Filter config must be provided"
+
+        self.process_data_type = None
+        self.alpha = filter_config.noise.params.get("alpha", 0.9)
+    
+    def get_process_noise(self, sensor_data: SensorDataField):
+        self.process_data_type = sensor_data.type
+        return self.Qs.get(sensor_data.type, None)
+
+    def get_measurement_noise(self, sensor_data: SensorDataField):
+        if not SensorType.is_measurement_update(sensor_data.type):
+            return None
+        
+        return self.Rs.get(sensor_data.type, None)
+        
+    def update_noise_matrix(
+            self,
+            sensor_data: SensorDataField,
+            innovation: np.ndarray,
+            residual: np.ndarray,
+            P: np.ndarray,
+            H: np.ndarray,
+            K: np.ndarray
+        ):
+        if not SensorType.is_measurement_update(sensor_data.type):
+            return None
+        
+        R = self.Rs.get(sensor_data.type, None)
+        Q = self.Qs.get(self.process_data_type, None)
+        if R is None or Q is None:
+            return None
+
+        logging.debug(f"Updating noise matrix for sensor: {sensor_data.type.name}")
+        logging.debug(f"[Shape] residual: {residual.shape}, innovation: {innovation.shape}, P: {P.shape}, H: {H.shape}, K: {K.shape}")
+        # Update R using the residual
+        self.Rs[sensor_data.type] = self.alpha * R + (1 - self.alpha) * (residual @ residual.T + H @ P @ H.T)
+        self.Qs[self.process_data_type] = self.alpha * Q + (1 - self.alpha) * (K @ innovation @ innovation.T @ K.T)[:Q.shape[0], :Q.shape[0]]
+
 
 class DynamicNoise(BaseNoise):
-  
-  def __init__(self, *args, **kwargs):
-    super().__init__(*args, **kwargs)
-  
-  def get_process_noise(self, sensor_data: SensorDataField):
-    ...
-  def get_measurement_noise(self, sensor_data: SensorDataField):
-    ...
+    # This is supposed to be machine learning based noise management
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
     
-  def get_vo_measurement_noise(self, vo_estimation, z_dim: int) -> np.ndarray:
-    ...
+    def get_process_noise(self, sensor_data: SensorDataField):
+        ...
+    def get_measurement_noise(self, sensor_data: SensorDataField):
+        ...
+        
+    def get_vo_measurement_noise(self, vo_estimation, z_dim: int) -> np.ndarray:
+        ...
     
 class OptimalNoise(BaseNoise):
+    # This is supposed to be optimization based noise management
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
     
-  def __init__(self, *args, **kwargs):
-    super().__init__(*args, **kwargs)
-  
-  def get_process_noise(self, sensor_data: SensorDataField):
-    ...
-  
-  def get_measurement_noise(self, sensor_data: SensorDataField):
-    ...
+    def get_process_noise(self, sensor_data: SensorDataField):
+        ...
     
-  def get_vo_measurement_noise(self, vo_estimation, z_dim: int) -> np.ndarray:
-    ...
+    def get_measurement_noise(self, sensor_data: SensorDataField):
+        ...
+        
+    def get_vo_measurement_noise(self, vo_estimation, z_dim: int) -> np.ndarray:
+        ...
 
 
 class DefaultNoise(BaseNoise):
@@ -184,23 +230,28 @@ class NoiseManager:
     ):
         self.filter_type = FilterType.get_filter_type_from_str(filter_type=filter_config.type)
         self.motion_model = MotionModel.get_motion_model(filter_config.motion_model)
-        self.noise_type = NoiseType.get_noise_type_from_str(filter_config.noise_type)
+        self.noise_type = NoiseType.get_noise_type_from_str(filter_config.noise.type)
         self.hardware_config = hardware_config
         self.filter_config = filter_config
 
         self._provider = self._get_noise_provider()
-      
+
     def _get_noise_provider(self):
-      
+        
         kwargs = {
             "filter_config": self.filter_config,
             "hardware_config": self.hardware_config
         }
         match (self.noise_type):
             case NoiseType.DEFAULT:
+                logging.info("Using Default Noise Provider")
                 return DefaultNoise(**kwargs)
             case NoiseType.DYNAMIC:
+                logging.info("Using Dynamic Noise Provider")
                 return DynamicNoise(**kwargs)
+            case NoiseType.ADAPTIVE:
+                logging.info("Using Adaptive Noise Provider")
+                return AdaptiveNoise(**kwargs)
             case _:
                 return DefaultNoise(**kwargs)
 
@@ -209,3 +260,9 @@ class NoiseManager:
     
     def get_measurement_noise(self, **kwargs) -> np.ndarray:
         return self._provider.get_measurement_noise(**kwargs)
+    
+    def update_noise_matrix(self, **kwargs):
+        if self.noise_type != NoiseType.ADAPTIVE:
+            return None
+        
+        self._provider.update_noise_matrix(**kwargs)

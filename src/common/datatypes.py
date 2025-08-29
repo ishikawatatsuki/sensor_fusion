@@ -268,7 +268,8 @@ class NoiseType(Enum):
     DEFAULT = "DEFAULT"
     OPTIMAL = "OPTIMAL"
     DYNAMIC = "DYNAMIC"
-    
+    ADAPTIVE = "ADAPTIVE"
+
     @classmethod
     def get_noise_type_from_str(cls, s: str):
         try:

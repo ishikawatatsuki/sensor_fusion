@@ -52,7 +52,10 @@ class SensorFusion:
     
         # NOTE: Initialize Sensor Noise Manager
         logging.debug("Configuring Noise Manager")
-        self.noise_manager = NoiseManager(filter_config=filter_config, hardware_config=hardware_config)
+        self.noise_manager = NoiseManager(
+            filter_config=filter_config, 
+            hardware_config=hardware_config
+        )
 
         # NOTE: Initialize Geometry Transformer
         logging.debug("Configuring Geometry Transformer")
@@ -204,8 +207,8 @@ class SensorFusion:
         # Velocity to fuse
         dt = sensor_data.data.dt if sensor_data.data.dt > 1e-6 else 0.1
 
-        # position = self.independent_vo_pose.t.reshape(-1, 1)  # NOTE: VO position independent on the fusion system
-        position = last_pose.t.reshape(-1, 1)  # NOTE: Fused VO position
+        position = self.independent_vo_pose.t.reshape(-1, 1)  # NOTE: VO position independent on the fusion system
+        # position = last_pose.t.reshape(-1, 1)  # NOTE: Fused VO position
         velocity = relative_pose.t.reshape(-1, 1) / dt # velocity
         velocity *= np.array([1., 0., 0.]).reshape(-1, 1)  # only x velocity is used for KITTI dataset
         quaternion = State.get_quaternion_from_rotation_matrix(last_pose.R).reshape(-1, 1)
@@ -331,8 +334,20 @@ class SensorFusion:
         
         data, response = self._get_measurement_update_data(sensor_data=sensor_data)
 
-        logging.info(f"Fusing data from: {sensor_data.type.name}, z: {data.z.flatten()} at time: {sensor_data.timestamp}")
+        logging.debug(f"Fusing data from: {sensor_data.type.name},\
+                        z: {data.z.flatten()} at time: {sensor_data.timestamp}")
+        
         self.kalman_filter.measurement_update(data)
+
+        # NOTE: Update noise matrix when adaptive filter
+        self.noise_manager.update_noise_matrix(
+            sensor_data=sensor_data,
+            residual=self.kalman_filter.residual,
+            H=self.kalman_filter.H,
+            P=self.kalman_filter.P,
+            K=self.kalman_filter.K,
+            innovation=self.kalman_filter.innovation,
+        )
         
         # # NOTE: Store current state corrected by VO
         self._store_current_vo_estimate(sensor_data)

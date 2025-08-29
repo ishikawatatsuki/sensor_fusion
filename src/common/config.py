@@ -12,19 +12,32 @@ from shapely.geometry import LineString
 
 from .datatypes import SensorConfig, VisualizationDataType, State, Pose, SensorType, FusionData
 
+@dataclass
+class FilterNoise:
+    type: str
+    params: dict
+    
+    @classmethod
+    def from_json(cls, json_data: dict):
+        _type = json_data.get("type", "default")
+        _params = json_data.get("params", {})
+        return cls(type=_type, params=_params)
+    
+    def __str__(self):
+        return f"FilterNoise(type={self.type}, params={self.params})"
 
 @dataclass
 class FilterConfig:
     type: str
     dimension: int
     motion_model: str
-    noise_type: str
     innovation_masking: bool
     params: dict
     is_imu_preintegrated: bool
     compensate_gravity: bool
     use_imu_preprocessing: bool
     sensors: dict
+    noise: FilterNoise
 
     def __init__(
         self,
@@ -38,6 +51,7 @@ class FilterConfig:
         compensate_gravity: bool = False,
         use_imu_preprocessing: bool = False,
         sensors: dict = {},
+        noise: dict = {},
         ):
         self.type = type
         self.dimension = dimension
@@ -49,6 +63,7 @@ class FilterConfig:
         self.compensate_gravity = compensate_gravity
         self.use_imu_preprocessing = use_imu_preprocessing
         self.sensors = sensors
+        self.noise = FilterNoise.from_json(noise)
 
     def __str__(self):
         return \
@@ -63,6 +78,7 @@ class FilterConfig:
             f"\tcompensate_gravity={self.compensate_gravity}\n" \
             f"\tuse_imu_preprocessing={self.use_imu_preprocessing}\n" \
             f"\tsensors={self.sensors}\n" \
+            f"\tnoise={self.noise}\n" \
             f")"
 
     def set_sensor_fields(self, dataset_type: str):

@@ -54,6 +54,11 @@ class BaseFilter(abc.ABC):
         self.config = config
         self.hardware_config = hardware_config
 
+        self.residual = None
+        self.innovation = None
+        self.K = None
+        self.H = None
+
         self.dimension = self.config.dimension
         self.innovation_masking = self.config.innovation_masking
         self.motion_model = MotionModel.get_motion_model(self.config.motion_model)

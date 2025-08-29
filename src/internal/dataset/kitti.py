@@ -169,9 +169,10 @@ class KITTI_GroundTruthDataReader:
           packet.vf,
           packet.vl,
           packet.vu
-        ]).reshape(-1, 1)
+        ]).reshape(-1, 1) # velocity in body frame, at time t=0, body frame = inertial frame
+
         angle = np.array([packet.roll, packet.pitch, packet.yaw])
-        # angle = np.array([0., 0., 0.])
+        angle = np.array([0., 0., 0.])
         q = State.get_quaternion_from_euler_angle(w=angle)
         q = q.reshape(-1, 1)  # 4x1
         b_w = np.zeros((3, 1))  # Gyro bias
@@ -222,11 +223,12 @@ class KITTI_VisualOdometry:
       root_path, 
       date, 
       drive, 
+      epipolar_geometry=True,
       window_size=None,
       starttime=-float('inf')
     ):
     self.kitti_dataset = pykitti.raw(root_path, date, drive)
-    vo_pose_dir = "vo_pose_estimates" if True else "vo_pose_estimates_2d3d"
+    vo_pose_dir = "vo_pose_estimates" if epipolar_geometry else "vo_pose_estimates_2d3d"
     
     self.vo_estimates = pd.read_csv(
       os.path.join(root_path, vo_pose_dir, date, drive, "data.csv"),
