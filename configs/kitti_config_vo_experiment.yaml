@@ -120,7 +120,7 @@ filter:
 # {'detector_matcher': ('SIFT', 'BF'), 'confidence': 0.9400000000000001, 'ransac_reproj_threshold': 1.0, 'matching_threshold': 0.5}
 visual_odometry:
   type: monocular # Select from: monocular
-  estimator: 2d3d # Select from: 2d2d, 3d3d, 2d3d
+  estimator: hybrid # Select from: 2d2d, 2d3d, hybrid
   camera_id: left
   depth_estimator: zoe_depth # Select from: zoe_depth
   feature_detector: sift # Select from: sift, orb, akaze, kaze, superpoint

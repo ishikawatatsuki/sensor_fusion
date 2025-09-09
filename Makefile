@@ -55,6 +55,13 @@ export_vo_estimates:
 		--output_path ./outputs/vo_estimates/pose_estimation \
 		--config_file ./configs/kitti_config.yaml
 
+run_vo_pose_hybrid_experiment:
+	python -m src._experiments.run_visual_odometry_hybrid \
+		--dataset_path ./data/KITTI \
+		--output_path ./outputs/vo_estimates/pose_estimation_hybrid \
+		--config_file ./configs/kitti_config.yaml
+
+
 help:
 	@echo  'build	- Build the docker image.'
 	@echo  'container_up	- Start the container and use bash shell.'

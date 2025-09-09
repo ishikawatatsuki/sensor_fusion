@@ -253,7 +253,7 @@ class KITTIDataset(BaseDataset):
                     # kwargs["min_confidence"] = sensor.args.get("min_confidence", 0.8)
                     # kwargs["max_confidence"] = sensor.args.get("max_confidence", 1.0)
                     # kwargs["avg_delay"] = sensor.args.get("avg_delay", 0.5)
-                    kwargs["epipolar_geometry"] = sensor.args.get("epipolar_geometry", False)
+                    kwargs["estimation_type"] = sensor.args.get("estimation_type", "pnp")
                     return KITTI_VisualOdometry(**kwargs)
                 case KITTI_SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY:
                     return KITTI_UpwardLeftwardVelocityDataReader(**kwargs)

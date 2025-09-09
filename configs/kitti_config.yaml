@@ -82,7 +82,7 @@ dataset:
       dropout_ratio: 0
       window_size: 1
       args:
-        epipolar_geometry: True # True: 2d2d epipolar geometry, False: 2d3d PnP pose estimation
+        estimation_type: epipolar # select form: epipolar, pnp, hybrid
     kitti_color_image: # this is for visualization
       selected: True
       dropout_ratio: 0

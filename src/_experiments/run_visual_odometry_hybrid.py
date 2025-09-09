@@ -56,6 +56,9 @@ def run_vo(
         variant=variant,
     )
 
+    logging.info("VO Config: %s", config)
+    logging.info("Dataset Config: %s", dataset_config)
+
     vo = VisualOdometry(config=config, dataset_config=dataset_config, debug=True)
 
 
@@ -95,7 +98,7 @@ def run_vo(
     detected_points = []
 
     for i, image_file in enumerate(tqdm(image_files)):
-        idx = (i + 1) % len(gt_position)
+        idx = i + 1
         frame_path = os.path.join(image_path, image_file)
         frame = cv2.imread(frame_path)
         pose = vo.compute_pose(ImageData(image=frame, timestamp=time.time()))
@@ -104,7 +107,8 @@ def run_vo(
             estimated_pose.append(current_pose[:3, :].flatten())
 
             estimated_position.append(current_pose[:3, 3])
-            ground_truth_position.append(gt_position[idx])
+            if idx < len(gt_position):
+                ground_truth_position.append(gt_position[idx])
             vo_relative_pose.append(pose.flatten())
 
             debugging_data = vo.get_debugging_data()
@@ -117,6 +121,9 @@ def run_vo(
     
     ground_truth_position = np.array(ground_truth_position)
     estimated_position = np.array(estimated_position)
+    min_len = min(len(ground_truth_position), len(estimated_position))
+    ground_truth_position = ground_truth_position[:min_len]
+    estimated_position = estimated_position[:min_len]
 
     vo_relative_pose = np.array(vo_relative_pose)
 
@@ -169,11 +176,12 @@ def run_vo(
     plt.grid()
     plt.legend()
     plt.savefig(output_image_filename)
+    plt.close()
 
 if __name__ == "__main__":
 
     args = parse_args()
-    setup_logging(log_level='INFO', log_output='.debugging/export_vo_estimate_log_2d3d')
+    setup_logging(log_level='INFO', log_output='.debugging/export_vo_estimate_log_hybrid')
 
     logging.info("Starting Visual Odometry experiment.")
     logging.debug(f"args: {args}")
@@ -193,14 +201,14 @@ if __name__ == "__main__":
     os.makedirs(args.output_path, exist_ok=True)
 
     variants = [
-        "01",
-        "02",
-        "03",
-        "04",
-        "05",
-        "06",
-        "07",
-        "08",
+        # "01",
+        # "02",
+        # "03",
+        # "04",
+        # "05",
+        # "06",
+        # "07",
+        # "08",
         "09",
         "10"
     ]
@@ -208,6 +216,8 @@ if __name__ == "__main__":
     for variant in variants:
 
         config = VisualOdometryConfig.from_json(vo_json_config)
+        config.estimator = "hybrid"
+
         run_vo(
             rootpath=args.dataset_path,
             variant=variant,

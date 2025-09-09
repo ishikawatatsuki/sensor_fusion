@@ -10,11 +10,11 @@ if __name__ == "__main__":
     sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
     from src.utils import get_oxts_gyroscope_noise, get_oxts_acceleration_noise
     from src.common import Pose, State, FilterConfig
-    from src.common.constants import KITTI_SEQUENCE_MAPS
+    from src.common.constants import KITTI_SEQUENCE_MAPS, VO_POSE_ESTIMATION_MAP
 else:
     from ...utils import get_oxts_gyroscope_noise, get_oxts_acceleration_noise
     from ...common import Pose, State, FilterConfig
-    from ...common.constants import KITTI_SEQUENCE_MAPS
+    from ...common.constants import KITTI_SEQUENCE_MAPS, VO_POSE_ESTIMATION_MAP
 
 class OXTS_IMUDataReader:
     def __init__(self, root_path, date, drive, starttime=-float('inf')):
@@ -223,15 +223,15 @@ class KITTI_VisualOdometry:
       root_path, 
       date, 
       drive, 
-      epipolar_geometry=True,
+      estimation_type:str="pnp",
       window_size=None,
       starttime=-float('inf')
     ):
     self.kitti_dataset = pykitti.raw(root_path, date, drive)
-    vo_pose_dir = "vo_pose_estimates" if epipolar_geometry else "vo_pose_estimates_2d3d"
+    pose_estimation_dir = VO_POSE_ESTIMATION_MAP.get(estimation_type.lower(), "vo_pose_estimates_2d3d")
     
     self.vo_estimates = pd.read_csv(
-      os.path.join(root_path, vo_pose_dir, date, drive, "data.csv"),
+      os.path.join(root_path, pose_estimation_dir, date, drive, "data.csv"),
       names=[str(i) for i in range(16)]
     ).values.reshape(-1, 4, 4)[:, :3, :]
 

@@ -170,9 +170,9 @@ class SingleThreadedPipeline(abc.ABC):
         self.dataset.start()
         self.visualizer.start()
         
-        if config.general.log_sensor_data:
-            f = open(config.general.sensor_data_output_filepath, "w")
-        
+        if self.config.general.log_sensor_data:
+            f = open(self.config.general.sensor_data_output_filepath, "w")
+
         sleep(0.5)
         logging.info("Starting the process.")
         is_debugging = logging.root.level is logging.DEBUG
@@ -234,15 +234,14 @@ class SingleThreadedPipeline(abc.ABC):
                             coord_from=CoordinateFrame.STEREO_LEFT,
                             coord_to=CoordinateFrame.INERTIAL))
                         data = gt_inertial[:3, 3].flatten()
-                        response = self.sensor_fusion.get_current_estimate(sensor_data.timestamp)
 
                     elif config.dataset.type == "euroc":
                         data = sensor_data.data.z.flatten()[:3]
-                        response = self.sensor_fusion.get_current_estimate(sensor_data.timestamp)
 
                     else:
                         continue
                     
+                    response = self.sensor_fusion.get_current_estimate(sensor_data.timestamp)
                     self._prepare_visualization(response)
 
                     self._visualize_data(

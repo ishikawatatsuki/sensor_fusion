@@ -202,6 +202,23 @@ class BaseGeometryTransformer(abc.ABC):
             [-s, c, 0],
             [0, 0, 1]
         ])
+    
+    @staticmethod
+    def yaw_misalignment_from_two_points(gps_1, gps_2, gt_1, gt_2):
+        # Compute displacement vectors in XY plane
+        v_gps = np.array(gps_2[:2]) - np.array(gps_1[:2])
+        v_gt = np.array(gt_2[:2]) - np.array(gt_1[:2])
+
+        # Normalize vectors
+        v_gps_norm = v_gps / np.linalg.norm(v_gps)
+        v_gt_norm = v_gt / np.linalg.norm(v_gt)
+
+        # Compute angle (radians)
+        dot = np.clip(np.dot(v_gt_norm, v_gps_norm), -1.0, 1.0)
+        cross = np.cross(v_gps_norm, v_gt_norm)  # scalar in 2D
+        theta_rad = np.arctan2(cross, dot)
+
+        return theta_rad
 
     @abc.abstractmethod
     def transform_data(self, fields: TransformationField) -> np.ndarray:

@@ -54,6 +54,26 @@ KITTI_GEOMETRIC_LIMITATIONS = {
     "default": {"min": [0, 0, 0], "max": [100, 100, 20]}
 }   
 
+# BaseGeometryTransformer.Rz(angle) @ vo_inertial.T
+KITTI_ANGLE_COMPENSATION_CAMERA_TO_INERTIAL = {
+    '01': 1.542716913970748,
+    '02': -0.9391753196528373,
+    '03': 1.5419232841294257,
+    '04': -1.6803487653782756,
+    '05': -1.7367656735535448,
+    '06': 3.061928672875269,
+    '07': 0.5632743853298365,
+    '08': 0.12451023372242316,
+    '09': 0.4789471166933768,
+    '10': 0.2806823046711377
+}
+
+VO_POSE_ESTIMATION_MAP = {
+    "epipolar": "vo_pose_estimates",
+    "pnp": "vo_pose_estimates_2d3d",
+    "hybrid": "hybrid_vo_pose_estimation"
+}
+
 IMU_FREQUENCY_MAP = {
     SensorType.OXTS_IMU.name: 10.0,
     SensorType.OXTS_IMU_UNSYNCED.name: 100.0,

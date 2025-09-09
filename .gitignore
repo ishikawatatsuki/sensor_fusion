@@ -25,5 +25,5 @@ src/visual_odometry/models
 outputs/vo_experiments
 outputs/vo_estimates/vo_debug/*
 outputs/experiments/*
-outputs/sensor_data
+outputs/sensor_data/*
 outputs/vo_estimates

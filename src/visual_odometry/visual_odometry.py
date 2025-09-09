@@ -29,6 +29,7 @@ from ..common.datatypes import ImageData
 class EstimatorType(Enum):
     EpipolarGeometryBased = '2d2d'
     PnP = '2d3d'
+    Hybrid = 'hybrid'
 
     @classmethod
     def from_string(cls, value: str):
@@ -36,6 +37,8 @@ class EstimatorType(Enum):
             return cls.EpipolarGeometryBased
         elif value.lower() == '2d3d':
             return cls.PnP
+        elif value.lower() == 'hybrid':
+            return cls.Hybrid
         else:
             raise ValueError(f"Unknown estimator type: {value}")
         
@@ -89,7 +92,8 @@ class VisualOdometry:
             logging.debug(f"Using advanced detector: {self.detector} and matcher: {self.matcher}")
 
 
-        if self.motion_estimator == EstimatorType.PnP:
+        if self.motion_estimator == EstimatorType.PnP or\
+            self.motion_estimator == EstimatorType.Hybrid:
             self.depth_estimator = DepthEstimator(config=config)
 
         self.K = self._get_intrinsic_matrix()
@@ -122,6 +126,8 @@ class VisualOdometry:
             return self._estimate_2d2d_pose
         elif self.motion_estimator == EstimatorType.PnP:
             return self._estimate_2d3d_pose
+        elif self.motion_estimator == EstimatorType.Hybrid:
+            return self._estimate_hybrid_pose
         else:
             raise ValueError(f"Unknown estimator type: {self.motion_estimator}")
 
@@ -270,6 +276,27 @@ class VisualOdometry:
         T[:3, 3] = tvec.flatten()
         return np.linalg.inv(T) 
     
+
+    def _estimate_hybrid_pose(
+            self, 
+            prev_pts: np.ndarray, 
+            next_pts: np.ndarray, 
+            mask: np.ndarray
+        ) -> np.ndarray:
+        
+        T_2d2d = self._estimate_2d2d_pose(prev_pts.copy(), next_pts.copy(), mask)
+        if T_2d2d is None:
+            return None
+        T_2d3d = self._estimate_2d3d_pose(prev_pts.copy(), next_pts.copy(), mask)
+        if T_2d3d is None:
+            return None
+        
+        T = np.eye(4)
+        T[:3, :3] = T_2d2d[:3, :3]
+        T[:3, 3] = T_2d3d[:3, 3]
+        return T
+    
+
     def _compute_keypoints(self, frame: np.ndarray) -> tuple:
 
         mask = self.object_detector.get_dynamic_mask(frame)
@@ -382,7 +409,7 @@ if __name__ == "__main__":
     
     config = VisualOdometryConfig(
         type='monocular',
-        estimator='2d3d',
+        estimator='hybrid',
         camera_id='left',
         depth_estimator='zoe_depth',
         use_advanced_detector=True,
