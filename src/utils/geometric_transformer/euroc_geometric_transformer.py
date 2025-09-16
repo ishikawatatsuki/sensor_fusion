@@ -23,7 +23,8 @@ class EuRoC_GeometricTransformer(BaseGeometryTransformer):
         self.T_from_cam_to_imu = hardware_config.transformation.T_from_cam_to_imu
         self.T_from_imu_to_cam = hardware_config.transformation.T_from_imu_to_cam
         self.T_imu_body_to_inertial = hardware_config.transformation.T_imu_body_to_inertial
-        self.T_imu_body_to_leica = hardware_config.transformation.T_imu_body_to_leica
+        self.T_leica_to_inertial = hardware_config.transformation.T_leica_to_inertial
+        self.T_leica_to_imu = np.linalg.inv(self.T_imu_body_to_inertial) @ self.T_leica_to_inertial
         
         self.origin = None
         self.vo_origin = None
@@ -33,7 +34,7 @@ class EuRoC_GeometricTransformer(BaseGeometryTransformer):
             case CoordinateFrame.LEICA:
                 return self._transform_leica_data(fields).reshape(-1, 1)
             case CoordinateFrame.STEREO_LEFT:
-                return self._transform_vo_data(fields).reshape(-1, 1)
+                return self._transform_vo_data(fields)
             case CoordinateFrame.IMU:
                 return self._transform_imu_data(fields).reshape(-1, 1)
             case _:
@@ -43,83 +44,68 @@ class EuRoC_GeometricTransformer(BaseGeometryTransformer):
     def _decimal_place_shift(self, values: np.ndarray) -> float:
         return np.array([float(value / 10**(len(str(value)) - 2)) for value in values])
 
-    def _process_leica_data(self, leica_data: np.ndarray) -> np.ndarray:
-        """Transform GPS data in KITTI dataset into ENU coordinate frame."""
-        pose = np.eye(4)
-        pose[:3, 3] = leica_data[:3]
-        pose = self.T_imu_body_to_leica @ pose
-        return pose[:3, 3].flatten()
+    def _transform_leica_to_inertial(self, leica_data: np.ndarray) -> np.ndarray:
+        """Transform LEICA data into inertial coordinate frame."""
+        leica_inertial = self.T_leica_to_inertial @ np.array([leica_data[0], leica_data[1], leica_data[2], 1])
+        return leica_inertial.flatten()[:3]
+
+    def _transform_leica_to_imu(self, leica_data: np.ndarray) -> np.ndarray:
+        """Transform LEICA data into IMU coordinate frame."""
+        leica_imu_body = self.T_leica_to_imu @ np.array([leica_data[0], leica_data[1], leica_data[2], 1])
+        return leica_imu_body[:3].flatten()
 
     def _transform_leica_data(self, fields: TransformationField) -> np.ndarray:
         """Transform data in GPS coordinate into other coordinate frames."""
         match (fields.coord_to):
-            case CoordinateFrame.IMU | CoordinateFrame.INERTIAL:
-                return self._process_leica_data(fields.value)
+            case CoordinateFrame.INERTIAL:
+                return self._transform_leica_to_inertial(fields.value)
+            case CoordinateFrame.IMU:
+                return self._transform_leica_to_imu(fields.value)
             case _:
                 logging.warning("GPS data is not transformed.")
                 return fields.value
 
     def _process_vo_data(self, data: np.ndarray) -> np.ndarray:
-        """Transform VO data in KITTI dataset into ENU coordinate frame."""
+        """Transform VO data into ENU coordinate frame.
+            data: 3x4 matrix
+        """
         pose = np.eye(4)
-        pose[:3, 3] = data[:3]
-        pose = self.T_from_cam_to_imu @ pose
+        pose[:3, :] = data
+        pose = self.T_from_cam_to_imu @ pose @ np.linalg.inv(self.T_from_cam_to_imu)
 
-        return pose[:3, 3].flatten()
+        return pose
     
     def _transform_vo_data(self, fields: TransformationField) -> np.ndarray:
         """Transform data in camera coordinate into other coordinate frame."""
         match (fields.coord_to):
             case CoordinateFrame.INERTIAL | CoordinateFrame.IMU:
                 vo_in_imu = self._process_vo_data(fields.value)
-                if self.vo_origin is None:
-                    self.vo_origin = vo_in_imu[:3]
-                vo_in_imu[:3] -= self.vo_origin
                 return vo_in_imu
             case _:
                 logging.warning("VO data is not transformed.")
                 return fields.value
 
-    def _process_px4_custom_vo_data(self, vo_data: np.ndarray) -> np.ndarray:
-        position = BaseGeometryTransformer.Rz(np.radians(180)) @ vo_data[:3]
-        position = position.flatten()
-        if vo_data.shape[0] > 3:
-            velocity = BaseGeometryTransformer.Rz(np.radians(180)) @ vo_data[3:]
-            velocity = velocity.flatten()
-            return np.hstack([position, velocity])
-        return position
-    
-
     def _process_imu_into_camera_coord(self, imu_data: np.ndarray) -> np.ndarray:
         """Transform IMU data in KITTI dataset into ENU coordinate frame."""
-        # pose = np.eye(4)
-        # pose[:3, 3] = imu_data[:3]
-        # pose = self.T_from_imu_to_cam @ pose
-        # a = pose[:3, 3].flatten()
-
-        a = imu_data.flatten()[:3]
-        w = imu_data.flatten()[3:6]
-        a = self.T_from_imu_to_cam[:3, :3] @ a
-        w = self.T_from_imu_to_cam[:3, :3] @ w
+        imu = imu_data.flatten()
+        a = imu[:3]
+        w = imu[3:6]
+        a = self.T_from_imu_to_cam @ np.array([a[0], a[1], a[2], 0])
+        w = self.T_from_imu_to_cam @ np.array([w[0], w[1], w[2], 0])
         a = a.flatten()
         w = w.flatten()
-        return np.hstack([a, w]).flatten()
+        return np.hstack([a[:3], w[:3]]).flatten()
         
     def _process_imu_into_inertial_coord(self, imu_data: np.ndarray) -> np.ndarray:
         """Transform IMU data in KITTI dataset into ENU coordinate frame."""
-        # pose = np.eye(4)
-        # pose[:3, 3] = imu_data[:3]
-        # pose = self.T_imu_body_to_inertial @ pose
-        # a = pose[:3, 3].flatten()
-
-        
-        a = imu_data.flatten()[:3]
-        w = imu_data.flatten()[3:6]
-        a = self.T_imu_body_to_inertial[:3, :3] @ a
-        w = self.T_imu_body_to_inertial[:3, :3] @ w
+        imu = imu_data.flatten()
+        a = imu[:3]
+        w = imu[3:6]
+        a = self.T_imu_body_to_inertial @ np.array([a[0], a[1], a[2], 0])
+        w = self.T_imu_body_to_inertial @ np.array([w[0], w[1], w[2], 0])
         a = a.flatten()
         w = w.flatten()
-        return np.hstack([a, w]).flatten()
+        return np.hstack([a[:3], w[:3]]).flatten()
         
     def _transform_imu_data(self, fields: TransformationField) -> np.ndarray:
         """Transform data in IMU coordinate into other coordinate frames."""

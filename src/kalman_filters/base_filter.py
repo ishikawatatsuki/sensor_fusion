@@ -142,7 +142,8 @@ class BaseFilter(abc.ABC):
                 return np.array([0., 0., -9.81])
             case "euroc":
                 logging.info("Setting gravitational vector for EuRoC")
-                return np.array([0., 0., 9.81])
+                return np.array([0., 0., -9.81])
+                # return np.array([-9.81, 0., 0.])
             case _:
                 logging.info("Setting a default gravitational vector")
                 return np.array([0., 0., 9.81])
@@ -341,7 +342,7 @@ class BaseFilter(abc.ABC):
         """
         fusion_fields = self.config.sensors.get(sensor_type, [])
         match(sensor_type.name):
-            case SensorType.KITTI_VO.name:
+            case SensorType.KITTI_VO.name | SensorType.EuRoC_VO.name:
                 H = np.empty((0, self.P.shape[0])) # 3 x 16
                 if FusionData.POSITION in fusion_fields:
                     H = np.vstack((H, self._get_position_update_H())) # [I_3x3, 0_3x3, 0_3x4, 0_3x3, 0_3x3]
@@ -364,7 +365,7 @@ class BaseFilter(abc.ABC):
         x_dim = self.P.shape[0]
         mask = None
         match(sensor_type.name):
-            case SensorType.KITTI_VO.name:
+            case SensorType.KITTI_VO.name | SensorType.EuRoC_VO.name:
                 if z_dim == 3:
                     mask = np.array([0., 0., 0., 1., 1., 1., 0., 0., 0., 0.])
                 mask = np.array([1., 1., 1., 1., 1., 1., 0., 0., 0., 0.])

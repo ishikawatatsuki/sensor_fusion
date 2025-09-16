@@ -4,7 +4,7 @@ general:
   save_sensor_data: True
   save_estimation: True
   save_output_debug_frames: True
-  sensor_data_output_filepath: ./.debugging/sensor_out.txt
+  sensor_data_output_filepath: ./.debugging/euroc_sensor_out.txt
   sensor_data_save_path: ./outputs/sensor_data
 
 visualization:
@@ -25,23 +25,24 @@ visualization:
     gyroscope: True
     estimation: True
     image: True
-    gps: True
-    vo: True
+    gps: False
+    vo: False
+    leica: True
     velocity: True
     angle: True
     state: False
     ground_truth: True
 
 dataset:
-  type: kitti
+  type: euroc
   mode: stream # NOTE: choose from (stream, live), and live is not implemented yet.
-  root_path: ./data/KITTI
-  variant: "07" #NOTE: variant for kitti
+  root_path: ./data/EuRoC
+  variant: "01" #NOTE: variant for kitti
   sensors:
     euroc_imu: # ADIS16448
       selected: True
       dropout_ratio: 0
-      window_size: 1
+      window_size: 20
       args:
         frequency: 200
         gyroscope_noise_density: 0.00023561944901923448 # [rad/s/√Hz] 0.0135 deg/s/√Hz
@@ -49,7 +50,7 @@ dataset:
         gyroscope_random_walk: 0.0033321622036187747 #
         accelerometer_random_walk: 0.03189800409232606 #
     euroc_leica: 
-      selected: False # select when motion_model is velocity
+      selected: True
       dropout_ratio: 0
       window_size: 1
       args:
@@ -61,7 +62,7 @@ dataset:
       args:
         frequency: 30
     euroc_vo:
-      selected: False
+      selected: True
       dropout_ratio: 0
       window_size: 1
       args:
@@ -70,18 +71,18 @@ dataset:
 
 report:
   export_error: False
-  error_output_root_path: ../outputs/KITTI
-  kitti_pose_result_folder: ""
+  error_output_root_path: ../outputs/EuRoC
+  pose_result_dir: ""
   location_only: False 
 
 filter:
-  type: ekf # Select from: ekf, ukf, pf, enkf, ckf
+  type: ckf # Select from: ekf, ukf, pf, enkf, ckf
   dimension: 2
-  motion_model: velocity # kinematics or velocity
+  motion_model: kinematics # kinematics or velocity
   innovation_masking: False
   is_imu_preintegrated: False
   compensate_gravity: True
-  use_imu_preprocessing: False
+  use_imu_preprocessing: True
   params:
     #ukf
     alpha: 1.0
@@ -94,44 +95,33 @@ filter:
     #enkf
     ensemble_size: 128
   sensors: # Sensor fields to be fused
-    oxts_imu:
+    euroc_imu:
       fields: 
         - linear_acceleration
         - angular_velocity
-    oxts_imu_unsynced:
-      fields: 
-        - linear_acceleration
-        - angular_velocity
-    oxts_gps: 
+    euroc_leica: 
       fields: 
         - position
-        # - heading_angle
-    oxts_gps_unsynced: 
+    euroc_vo:
       fields: 
-        - position
-        # - heading_angle
-    kitti_vo:
-      fields: 
-        - position
-        # - linear_velocity
+        # - position
+        - linear_velocity
         # - orientation
-    kitti_upward_leftward_velocity:
-      fields: 
-        - upward_velocity
-        - leftward_velocity
   noise:
     type: default # default, adaptive
     params:
-      alpha: 0.9 # 0 < alpha <= 1
+      alpha: 0.3 # 0 < alpha <= 1
 
 visual_odometry:
-  type: monocular # Select from: monocular
-  estimator: 2d2d # Select from: 2d2d, 3d3d, 2d3d
+  type: static # Select from: monocular or static (saved vo data)
+  estimator: 2d2d # Select from: 2d2d, 2d3d, hybrid
   camera_id: left
   depth_estimator: zoe_depth # Select from: zoe_depth
   feature_detector: sift # Select from: sift, orb, akaze, kaze, superpoint
   feature_matcher: bf # Select from: bf, flann
   use_advanced_detector: True
+  export_vo_data: True
+  export_vo_data_path: ./data/EuRoC/
   params: 
     # 2d2d
     confidence: 0.99

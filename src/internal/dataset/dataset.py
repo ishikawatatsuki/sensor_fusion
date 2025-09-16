@@ -247,14 +247,14 @@ class KITTIDataset(BaseDataset):
                     return OXTS_GPSDataReader(**kwargs)
                 case KITTI_SensorType.KITTI_STEREO:
                     return KITTI_StereoFrameReader(**kwargs)
-                case KITTI_SensorType.KITTI_VO:
+                # case KITTI_SensorType.KITTI_VO:
                     # NOTE: This is experimental
                     # kwargs["simulate_delay"] = sensor.args.get("simulate_delay", False)
                     # kwargs["min_confidence"] = sensor.args.get("min_confidence", 0.8)
                     # kwargs["max_confidence"] = sensor.args.get("max_confidence", 1.0)
                     # kwargs["avg_delay"] = sensor.args.get("avg_delay", 0.5)
-                    kwargs["estimation_type"] = sensor.args.get("estimation_type", "pnp")
-                    return KITTI_VisualOdometry(**kwargs)
+                    # kwargs["estimation_type"] = sensor.args.get("estimation_type", "pnp")
+                    # return KITTI_VisualOdometry(**kwargs)
                 case KITTI_SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY:
                     return KITTI_UpwardLeftwardVelocityDataReader(**kwargs)
                 case SensorType.GROUND_TRUTH:
@@ -333,7 +333,7 @@ class KITTIDataset(BaseDataset):
                         right_frame_id=sensor_data.data.right_frame_id),
                     coordinate_frame=CoordinateFrame.STEREO_LEFT)
             
-            case KITTI_SensorType.KITTI_VO:
+            # case KITTI_SensorType.KITTI_VO:
                 # data = VisualOdometryData(
                 #     last_pose=sensor_data.data.last_pose,
                 #     relative_pose=sensor_data.data.relative_pose,
@@ -342,16 +342,17 @@ class KITTIDataset(BaseDataset):
                 #     received_timestamp=timestamp,
                 #     processed_timestamp=sensor_data.data.processed_timestamp,
                 # )
-                data = VisualOdometryData(
-                    timestamp=timestamp,
-                    relative_pose=sensor_data.data.relative_pose,
-                    dt=sensor_data.data.dt
-                )
-                return SensorDataField(
-                    type=sensor_data.type, 
-                    timestamp=timestamp, 
-                    data=data,
-                    coordinate_frame=CoordinateFrame.STEREO_LEFT)
+                # data = VisualOdometryData(
+                #     image_timestamp=timestamp,
+                #     estimate_timestamp=timestamp,
+                #     relative_pose=sensor_data.data.relative_pose,
+                #     dt=sensor_data.data.dt
+                # )
+                # return SensorDataField(
+                #     type=sensor_data.type, 
+                #     timestamp=timestamp, 
+                #     data=data,
+                #     coordinate_frame=CoordinateFrame.STEREO_LEFT)
             
             case KITTI_SensorType.KITTI_COLOR_IMAGE:
                 return SensorDataField(
@@ -420,6 +421,7 @@ class EuRoCDataset(BaseDataset):
                 case EuRoC_SensorType.EuRoC_IMU:
                     # kwargs["gyro_spec"] = GyroSpecification(**self.imu_config.adis_16448["gyroscope"])
                     # kwargs["acc_spec"] = AccelSpecification(**self.imu_config.adis_16448["accelerometer"])
+                    kwargs["window_size"] = sensor.window_size
                     return EuRoC_IMUDataReader(**kwargs)
 
                 case EuRoC_SensorType.EuRoC_LEICA:
@@ -476,7 +478,7 @@ class EuRoCDataset(BaseDataset):
         if SensorType.is_time_update(sensor_data.type):
             last_timestamp = self.last_timestamp
             self.last_timestamp = timestamp
-            dt = (timestamp - last_timestamp) / 1e9
+            dt = timestamp - last_timestamp
         
         match(sensor_data.type):
             case EuRoC_SensorType.EuRoC_IMU:

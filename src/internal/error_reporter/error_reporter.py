@@ -158,7 +158,7 @@ class KITTI_ErrorReporter:
         self.pose_error_in_cam_path = os.path.join(
             self.report_config.error_output_root_path, 
             "errors/errors_for_eval",
-            self.report_config.kitti_pose_result_folder
+            self.report_config.pose_result_dir
         )
         logging.info(self.pose_error_in_cam_path)
         

@@ -85,13 +85,30 @@ class FilterConfig:
         get_sensor_type_fn = SensorType.get_sensor_from_str_func(dataset_type)
         sensors = {}
         fusion_data_fields = FusionData.get_enum_name_list()
-        for  sensor_type_str, values in self.sensors.items():
+        for sensor_type_str, values in self.sensors.items():
             sensor_type = get_sensor_type_fn(sensor_type_str)
             fields = values.get("fields", [])
             if sensor_type is not None:
                 sensors[sensor_type] = [FusionData.get_type(field) for field in fields if field in fusion_data_fields]
 
         self.sensors = sensors
+
+    def to_dict(self):
+        return {
+            "type": self.type,
+            "dimension": self.dimension,
+            "motion_model": self.motion_model,
+            "innovation_masking": self.innovation_masking,
+            "params": self.params,
+            "is_imu_preintegrated": self.is_imu_preintegrated,
+            "compensate_gravity": self.compensate_gravity,
+            "use_imu_preprocessing": self.use_imu_preprocessing,
+            "sensors": {sensor_type.name: [field.name for field in fields] for sensor_type, fields in self.sensors.items()},
+            "noise": {
+                "type": self.noise.type,
+                "params": self.noise.params
+            }
+        }
 
 @dataclass
 class ImuConfig:
@@ -170,43 +187,67 @@ class TransformationConfig:
     T_imu_body_to_inertial: np.ndarray
     
     T_imu_to_virtual_imu: Dict[SensorType, np.ndarray]
+    T_leica_to_inertial: np.ndarray
+
+    T_angle_compensation: np.ndarray
 
     def __init__(self,
                     T_from_cam_to_imu: np.ndarray = None,
                     T_from_imu_to_cam: np.ndarray = None,
                     T_imu_body_to_inertial: np.ndarray = None,
-                    T_imu_to_virtual_imu: Dict[SensorType, np.ndarray] = {}):
+                    T_leica_to_inertial: np.ndarray = None,
+                    T_imu_to_virtual_imu: Dict[SensorType, np.ndarray] = {},
+                    T_angle_compensation: np.ndarray = np.eye(4)):
             """Initialize transformation configuration.
             Args:
                 T_from_cam_to_imu (np.ndarray): Transformation matrix from camera to IMU.
                 T_from_imu_to_cam (np.ndarray): Transformation matrix from IMU to camera.
                 T_imu_body_to_inertial (np.ndarray): Transformation matrix from IMU body frame to inertial frame.
-                T_imu_body_to_leica (np.ndarray, optional): Transformation matrix from IMU body frame to Leica frame.
+                T_leica_to_inertial (np.ndarray, optional): Transformation matrix from IMU body frame to Leica frame.
                 T_imu_to_virtual_imu (Dict[SensorType, np.ndarray], optional): Transformation matrices for virtual IMUs.
             """
             self.T_from_cam_to_imu = T_from_cam_to_imu if T_from_cam_to_imu is not None else np.eye(4)
             self.T_from_imu_to_cam = T_from_imu_to_cam if T_from_imu_to_cam is not None else np.eye(4)
             self.T_imu_body_to_inertial = T_imu_body_to_inertial if T_imu_body_to_inertial is not None else np.eye(4)
             
+            self.T_leica_to_inertial = T_leica_to_inertial
             self.T_imu_to_virtual_imu = T_imu_to_virtual_imu
+            self.T_angle_compensation = T_angle_compensation
             
 
     @classmethod
-    def from_kitti_config(cls, T_calib_velo_to_cam: np.ndarray, T_calib_imu_to_velo: np.ndarray):
+    def from_kitti_config(cls, T_from_imu_to_cam: np.ndarray, T_angle_compensation: np.ndarray = np.eye(4)):
         """Get transformation matrix for the sensor hardware configuration.
         Args:
             dataset_type (str): Type of the dataset (e.g., "kitti", "paldiski", "vlaardingan").
             calibration_root_path (str): Path to the folder that stores calibration files.
         """
-
-        T_from_imu_to_cam = T_calib_imu_to_velo @ T_calib_velo_to_cam
         T_from_cam_to_imu = np.linalg.inv(T_from_imu_to_cam)
         
         return cls(
             T_from_cam_to_imu=T_from_cam_to_imu,
             T_from_imu_to_cam=T_from_imu_to_cam,
             T_imu_body_to_inertial=np.eye(4),
+            T_angle_compensation=T_angle_compensation
         )
+    
+    @classmethod
+    def from_euroc_config(
+        cls, 
+        T_from_cam_to_imu: np.ndarray,
+        T_from_imu_to_cam: np.ndarray, 
+        T_from_imu_to_inertial: np.ndarray,
+        T_leica_to_inertial: np.ndarray
+    ):
+        T_from_cam_to_imu = np.linalg.inv(T_from_imu_to_cam)
+        
+        return cls(
+            T_from_cam_to_imu=T_from_cam_to_imu,
+            T_from_imu_to_cam=T_from_imu_to_cam,
+            T_imu_body_to_inertial=T_from_imu_to_inertial,
+            T_leica_to_inertial=T_leica_to_inertial
+        )
+
 
     @classmethod
     def from_uav_config(cls, yaml_config: dict):
@@ -268,6 +309,8 @@ class VisualOdometryConfig:
         feature_matcher: str = "bf",
         depth_estimator: str = None,
         use_advanced_detector: bool = False,
+        export_vo_data: bool = False,
+        export_vo_data_path: str = "./data/",
         params: Dict[str, Union[int, float]] = {},
     ):
         self.type = type
@@ -278,6 +321,8 @@ class VisualOdometryConfig:
         self.depth_estimator = depth_estimator
         self.use_advanced_detector = use_advanced_detector
         self.params = params
+        self.export_vo_data = export_vo_data
+        self.export_vo_data_path = export_vo_data_path
 
         logging.debug(f"VisualOdometryConfig initialized with: {self}")
 
@@ -298,6 +343,8 @@ class VisualOdometryConfig:
         feature_matcher = json_data.get("feature_matcher", "bf")
         depth_estimator = json_data.get("depth_estimator", None)
         use_advanced_detector = json_data.get("use_advanced_detector", False)
+        export_vo_data = json_data.get("export_vo_data", False)
+        export_vo_data_path = json_data.get("export_vo_data_path", "./data/")
         params = json_data.get("params", {})
 
         return cls(
@@ -308,6 +355,8 @@ class VisualOdometryConfig:
             feature_matcher=feature_matcher,
             depth_estimator=depth_estimator,
             use_advanced_detector=use_advanced_detector,
+            export_vo_data=export_vo_data,
+            export_vo_data_path=export_vo_data_path,
             params=params
         )
     def __str__(self):
@@ -320,6 +369,8 @@ class VisualOdometryConfig:
             f"\tcamera_id={self.camera_id}\n" \
             f"\tdepth_estimator={self.depth_estimator}\n" \
             f"\tuse_advanced_detector={self.use_advanced_detector}\n" \
+            f"\texport_vo_data={self.export_vo_data}\n" \
+            f"\texport_vo_data_path={self.export_vo_data_path}\n" \
             f"\tparams={self.params}\n" \
             f")"
 

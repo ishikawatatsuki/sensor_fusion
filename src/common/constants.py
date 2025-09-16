@@ -56,22 +56,29 @@ KITTI_GEOMETRIC_LIMITATIONS = {
 
 # BaseGeometryTransformer.Rz(angle) @ vo_inertial.T
 KITTI_ANGLE_COMPENSATION_CAMERA_TO_INERTIAL = {
-    '01': 1.542716913970748,
-    '02': -0.9391753196528373,
-    '03': 1.5419232841294257,
-    '04': -1.6803487653782756,
-    '05': -1.7367656735535448,
-    '06': 3.061928672875269,
-    '07': 0.5632743853298365,
-    '08': 0.12451023372242316,
-    '09': 0.4789471166933768,
-    '10': 0.2806823046711377
+    '01': 1.6094591872298871,
+    '02': -0.9372291460128102,
+    '03': 2.619759341608741,
+    '04': -1.6808379130084723,
+    '05': -1.7388183857263326,
+    '06': 3.0622027349914167,
+    '07': 0.5641313911083438,
+    '08': 0.44960066680059524,
+    '09': 0.4801864400707715,
+    '10': 0.2800126998468973
+}
+
+EUROC_SEQUENCE_MAPS = {
+    "01": "mav_01",
+    "02": "mav_02",
+    "03": "mav_03"
 }
 
 VO_POSE_ESTIMATION_MAP = {
     "epipolar": "vo_pose_estimates",
     "pnp": "vo_pose_estimates_2d3d",
-    "hybrid": "hybrid_vo_pose_estimation"
+    "hybrid": "vo_pose_estimates_hybrid",
+    "stereo": "vo_pose_estimates_stereo"
 }
 
 IMU_FREQUENCY_MAP = {

@@ -192,7 +192,7 @@ class SensorFusion:
         # NOTE: Construct a VO estimated position from the relative pose between image frames at t1 and t2
         relative_pose_in_camera_coord = sensor_data.data.relative_pose
         if relative_pose_in_camera_coord.shape != (3, 4):
-            relative_pose_in_camera_coord = relative_pose_in_camera_coord.reshape(3, 4)
+            relative_pose_in_camera_coord = relative_pose_in_camera_coord[:3, :]
 
         relative_pose_inertial = self.geo_transformer.transform(fields=TransformationField(
             state=self.kalman_filter.x,
@@ -208,15 +208,17 @@ class SensorFusion:
         dt = sensor_data.data.dt if sensor_data.data.dt > 1e-6 else 0.1
 
         position = self.independent_vo_pose.t.reshape(-1, 1)  # NOTE: VO position independent on the fusion system
-        # position = last_pose.t.reshape(-1, 1)  # NOTE: Fused VO position
+
         velocity = relative_pose.t.reshape(-1, 1) / dt # velocity
-        velocity *= np.array([1., 0., 0.]).reshape(-1, 1)  # only x velocity is used for KITTI dataset
+        
         quaternion = State.get_quaternion_from_rotation_matrix(last_pose.R).reshape(-1, 1)
 
         _logging_data = VisualOdometryData(
             dt=dt,
+            success=sensor_data.data.success,
             relative_pose=relative_pose_inertial[:3, :],
-            timestamp=sensor_data.timestamp,
+            image_timestamp=sensor_data.timestamp,
+            estimate_timestamp=sensor_data.timestamp,
         )
 
         return position, velocity, quaternion, _logging_data
@@ -379,3 +381,4 @@ class SensorFusion:
         response.estimated_linear_velocity = self.kalman_filter.x.v.flatten()
         response.timestamp = timestamp
         return response
+    

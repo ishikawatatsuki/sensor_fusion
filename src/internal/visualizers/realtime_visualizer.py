@@ -14,7 +14,7 @@ import multiprocessing as mp
 from multiprocessing import Event
 
 from ..extended_common import (
-    VisualizationConfig, FilterConfig, Pose, VisualizationDataType, VisualizationMessage, VisualizationData
+    VisualizationConfig, FilterConfig, Pose, VisualizationDataType, VisualizationMessage, VisualizationData, DatasetConfig
 )
 
 WindowParam = namedtuple(
@@ -32,6 +32,7 @@ LINE_GRAPH_TYPES = [
 XY_GRAPH_TYPES = [
     VisualizationDataType.GPS, 
     VisualizationDataType.VO, 
+    VisualizationDataType.LEICA,
     VisualizationDataType.ESTIMATION, 
     VisualizationDataType.GROUND_TRUTH
     ]
@@ -39,6 +40,7 @@ XY_GRAPH_TYPES = [
 COLOR_MAP = {
     VisualizationDataType.GROUND_TRUTH: "black",
     VisualizationDataType.GPS: "gray",
+    VisualizationDataType.LEICA: "gray",
     VisualizationDataType.VO: "red",
     VisualizationDataType.ESTIMATION: "blue"
 }
@@ -126,9 +128,6 @@ WINDOW_PARAMS = {
                 patches=[
                     mpatches.Patch(color='black', linestyle='--', 
                                     label='Ground truth trajectory'),
-                    mpatches.Patch(color='gray', label='GPS trajectory'),
-                    mpatches.Patch(color='red',
-                                    label='Visual odometry estimation'),
                     mpatches.Patch(color='blue',
                                     label='Estimated trajectory'),
                 ]),
@@ -139,9 +138,13 @@ REFRESH_RATE = 0.5  # seconds
 
 class RealtimeVisualizer:
 
-    def __init__(self, config: VisualizationConfig):
+    def __init__(self, config: VisualizationConfig, dataset_config: DatasetConfig):
         self.config = config
+        self.dataset_config = dataset_config
         self.data_queue = mp.Queue()  # Single shared queue
+        
+        self.window_params = WINDOW_PARAMS.copy()
+        self._set_window_param()
         
         if self.config.realtime:
             self.figure, self.windows = self._create_window()
@@ -163,6 +166,18 @@ class RealtimeVisualizer:
 
         self.stop_event = Event()
         self.process = mp.Process(target=self.run)
+
+    def _set_window_param(self):
+        params = self.window_params[VisualizationDataType.ESTIMATION]
+        for sensor in self.dataset_config.sensors:
+            if sensor.name in ['euroc_leica']:
+                params.patches.append(mpatches.Patch(color='gray', label='LEICA trajectory'))
+            elif sensor.name in ['kitti_vo', 'uav_vo', 'euroc_vo']:
+                params.patches.append(mpatches.Patch(color='red', label='Visual odometry estimation'))
+            elif sensor.name in ['oxts_gps', 'px4_gps']:
+                params.patches.append(mpatches.Patch(color='gray', label='GPS trajectory'))
+                
+        self.window_params[VisualizationDataType.ESTIMATION] = params.patches
 
     def _create_window(
             self
@@ -293,7 +308,7 @@ class RealtimeVisualizer:
             case VisualizationDataType.ACCELEROMETER | VisualizationDataType.GYROSCOPE | \
                 VisualizationDataType.VELOCITY | VisualizationDataType.ANGLE:
                 self._set_general_data(message)
-            case VisualizationDataType.GPS | VisualizationDataType.VO | \
+            case VisualizationDataType.GPS | VisualizationDataType.VO | VisualizationDataType.LEICA |\
                 VisualizationDataType.ESTIMATION | VisualizationDataType.GROUND_TRUTH:
                 self._set_estimation(message)
             case _:

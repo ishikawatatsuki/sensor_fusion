@@ -90,7 +90,7 @@ dataset:
 report:
   export_error: False
   error_output_root_path: ../outputs/UAV
-  kitti_pose_result_folder: ""
+  pose_result_dir: ""
   location_only: False 
 
 filter:

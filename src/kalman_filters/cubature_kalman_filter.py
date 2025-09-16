@@ -51,7 +51,7 @@ class CubatureKalmanFilter(BaseFilter):
         # Take into account the IMU sensor error
         imu_sensor_error = self.get_imu_sensor_error()
 
-        a -=  imu_sensor_error.acc_bias + self.x.b_a + imu_sensor_error.acc_noise
+        a -= imu_sensor_error.acc_bias + self.x.b_a + imu_sensor_error.acc_noise
         w -= imu_sensor_error.gyro_bias + self.x.b_w + imu_sensor_error.gyro_noise
 
         R = np.array([self.x.get_rotation_matrix(q_) for q_ in q])
@@ -103,7 +103,7 @@ class CubatureKalmanFilter(BaseFilter):
 
         a = u[:3]
         w = u[3:]
-        wx, _, wz = w
+        wx, _, wz = w + 1e-17
         a = a.reshape(-1, 1)
         w = w.reshape(-1, 1)
 

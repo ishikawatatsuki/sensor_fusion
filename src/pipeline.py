@@ -1,6 +1,7 @@
 import os
 import sys
 import abc
+import cv2
 import logging
 from time import sleep
 import numpy as np
@@ -14,6 +15,8 @@ from .common import (
     NoiseType,
     DatasetType,
     FusionResponse,
+    ImageData,
+    SensorDataField,
     VisualizationData
 )
 from .visual_odometry import VisualOdometry
@@ -28,6 +31,7 @@ from .internal.visualizers import (
 from .internal.error_reporter import ErrorReporter, ErrorReportType, ReportMessage
 from .utils.time_reporter import time_reporter
 from .utils.geometric_transformer import TransformationField
+from .utils.geometric_transformer.base_geometric_transformer import BaseGeometryTransformer
 from .utils.data_logger import DataLogger, LoggingData, LoggingMessage
 from .misc import setup_logging, parse_args
 from .sensor_fusion import SensorFusion
@@ -44,7 +48,7 @@ class SingleThreadedPipeline(abc.ABC):
         
         self.data_logger = DataLogger(
             config=config.general,
-            data_config=config.dataset
+            dataset_config=config.dataset
         )
         self.data_logger.prepare()
 
@@ -65,8 +69,8 @@ class SingleThreadedPipeline(abc.ABC):
         #     report_config=config.report, 
         #     dataset_config=config.dataset
         # )
-        
-        self.visualizer = RealtimeVisualizer(config=config.visualization)
+
+        self.visualizer = RealtimeVisualizer(config=config.visualization, dataset_config=config.dataset)
 
         initial_state = self.dataset.get_initial_state(filter_config=config.filter)
         self.sensor_fusion.set_initial_state(initial_state=initial_state)
@@ -78,8 +82,6 @@ class SingleThreadedPipeline(abc.ABC):
 
     def _visualize_data(self, message: VisualizationMessage):
         """Visualize data including sensors, estimation, and etc."""
-
-        # message.timestamp = message.timestamp / 1e9
         self.visualization_queue.put(message)
         
     def _prepare_visualization(self, response: FusionResponse):
@@ -164,6 +166,16 @@ class SingleThreadedPipeline(abc.ABC):
                 )
             )
 
+        if response.leica_data is not None:
+            self._visualize_data(
+                message=VisualizationMessage(
+                    type=VisualizationDataType.LEICA,
+                    timestamp=response.timestamp,
+                    data=VisualizationData(
+                        data=response.leica_data
+                    )
+                )
+            )
 
     def run(self):
         
@@ -213,6 +225,7 @@ class SingleThreadedPipeline(abc.ABC):
                         measurement_update_step_durations.append(duration)
 
                 elif SensorType.is_stereo_image_data(sensor_data.type):
+                    # Visualize the left image
                     self._visualize_data(
                         message=VisualizationMessage(
                             type=VisualizationDataType.IMAGE,
@@ -223,7 +236,24 @@ class SingleThreadedPipeline(abc.ABC):
                             )
                         )
                     )
-                
+
+                    if self.config.dataset.should_run_visual_odometry:
+                        # Run visual odometry
+                        frame = cv2.imread(sensor_data.data.left_frame_id)
+                        image_data = ImageData(image=frame, timestamp=sensor_data.timestamp)
+                        vo_response = self.visual_odometry.compute_pose(data=image_data)
+                        if vo_response.success:
+                            _sensor_data = SensorDataField(
+                                type=self.visual_odometry.get_datatype, 
+                                timestamp=vo_response.estimate_timestamp, 
+                                data=vo_response,
+                                coordinate_frame=CoordinateFrame.STEREO_LEFT)
+                            response, duration = self.sensor_fusion.run_measurement_update(_sensor_data)
+                            self._prepare_visualization(response)
+
+                            if is_debugging:
+                                measurement_update_step_durations.append(duration)
+
                 elif SensorType.is_reference_data(sensor_data.type):
                     # For visualization
                     if config.dataset.type == "kitti":
@@ -236,8 +266,9 @@ class SingleThreadedPipeline(abc.ABC):
                         data = gt_inertial[:3, 3].flatten()
 
                     elif config.dataset.type == "euroc":
-                        data = sensor_data.data.z.flatten()[:3]
-
+                        gt = sensor_data.data.z.flatten()
+                        data = gt[:3]
+                        
                     else:
                         continue
                     
@@ -255,10 +286,10 @@ class SingleThreadedPipeline(abc.ABC):
                     )
 
                     # NOTE: this works only for KITTI dataset
-                    current_estimate = self.sensor_fusion.kalman_filter.get_current_estimate().t.flatten()
-                    estimated = np.array([current_estimate[0], current_estimate[1], current_estimate[2]])
-                    report1 = ReportMessage(t=VisualizationDataType.ESTIMATION, timestamp=sensor_data.timestamp, value=estimated)
-                    report2 = ReportMessage(t=VisualizationDataType.GPS, timestamp=sensor_data.timestamp, value=sensor_data.data.z)
+                    # current_estimate = self.sensor_fusion.kalman_filter.get_current_estimate().t.flatten()
+                    # estimated = np.array([current_estimate[0], current_estimate[1], current_estimate[2]])
+                    # report1 = ReportMessage(t=VisualizationDataType.ESTIMATION, timestamp=sensor_data.timestamp, value=estimated)
+                    # report2 = ReportMessage(t=VisualizationDataType.GPS, timestamp=sensor_data.timestamp, value=sensor_data.data.z)
                     # self.error_reporter.enqueue_data(
                     #     y=report1,
                     #     y_hat=report2

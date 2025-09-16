@@ -362,7 +362,7 @@ def run_vo_data_drop_experiment():
     _new_dataset_config['variant'] = variant
     
     _new_report_config = config.report._asdict()
-    _new_report_config['kitti_pose_result_folder'] = f"vo_dropout/ckf/{data_loss_variant}/{str(int(second))}"
+    _new_report_config['pose_result_dir'] = f"vo_dropout/ckf/{data_loss_variant}/{str(int(second))}"
     
     _new_visualization_config = config.visualization._asdict()
     _new_visualization_config['output_filepath'] = os.path.join(

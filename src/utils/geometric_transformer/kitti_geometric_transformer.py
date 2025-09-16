@@ -22,7 +22,8 @@ class KITTI_GeometricTransformer(BaseGeometryTransformer):
         self.T_from_imu_to_cam = hardware_config.transformation.T_from_imu_to_cam
         self.T_from_cam_to_imu = hardware_config.transformation.T_from_cam_to_imu
         self.T_imu_body_to_inertial = hardware_config.transformation.T_imu_body_to_inertial
-        
+        self.T_angle_compensation = hardware_config.transformation.T_angle_compensation
+
         self.origin = None
         self.vo_origin = None
 
@@ -35,7 +36,7 @@ class KITTI_GeometricTransformer(BaseGeometryTransformer):
             case CoordinateFrame.STEREO_LEFT:
                 return self._transform_vo_data(fields)
             case CoordinateFrame.INERTIAL:
-                return self._transform_inertial_data(fields).reshape(-1, 1)
+                return self._transform_inertial_data(fields)
             case _:
                 return np.array(fields.value).reshape(-1, 1)
             
@@ -47,8 +48,11 @@ class KITTI_GeometricTransformer(BaseGeometryTransformer):
         
         # NOTE: lla to enu coord
         gps_data = self.lla_to_enu(gps_data.reshape(-1, 1), self.origin).flatten()
+        gps_data = self.T_angle_compensation @ np.array([gps_data[0], gps_data[1], gps_data[2], 0.])
+        gps_data = gps_data[:3]
+
         return gps_data
-    
+
     def _transform_gps_data(self, fields: TransformationField) -> np.ndarray:
         """Transform data in GPS coordinate into other coordinate frames."""
         match (fields.coord_to):
@@ -72,6 +76,16 @@ class KITTI_GeometricTransformer(BaseGeometryTransformer):
                 return fields.value
 
     def _transform_inertial_data_into_camera_coord(self, data: np.ndarray) -> np.ndarray:
+        """Transform inertial data into camera coordinate frame."""
+
+        if data.ndim == 2:
+            pose = np.eye(4)
+            pose[:3, :] = data.copy()[:3, :]
+            pose_in_camera_coord = self.T_from_imu_to_cam @ pose
+
+            return pose_in_camera_coord[:3, :]
+
+
         if data.shape[0] == 3:
             return (self.T_from_imu_to_cam @ np.hstack([data, np.array([1.])]))[:3]
         elif data.shape[0] == 6:
@@ -118,12 +132,12 @@ class KITTI_GeometricTransformer(BaseGeometryTransformer):
         match (fields.coord_to):
             case CoordinateFrame.IMU:
                 # NOTE: In KITTI dataset, IMU Coordinate is aligned with the inertial frame. So, no transformation is required.
-                return fields.value
+                return fields.value.reshape(-1, 1)
             case CoordinateFrame.STEREO_LEFT:
                 return self._transform_inertial_data_into_camera_coord(fields.value)
             case CoordinateFrame.GPS:
                 # TODO: implement transformation into the GPS coordinate frame (lon, lat, alt)
-                return self._transform_inertial_data_into_gps_coord(fields.value)
+                return self._transform_inertial_data_into_gps_coord(fields.value).reshape(-1, 1)
             case _:
                 logging.warning("Inertial data is not transformed.")
                 return fields.value
@@ -134,7 +148,7 @@ class KITTI_GeometricTransformer(BaseGeometryTransformer):
         relative_pose = np.eye(4)
         relative_pose[:3, :] = vo_data.copy()
         relative_pose_inertial_coord = self.T_from_cam_to_imu @ relative_pose @ np.linalg.inv(self.T_from_cam_to_imu)
-        
+
         return relative_pose_inertial_coord[:3, :]
 
     def _transform_vo_data(self, fields: TransformationField) -> np.ndarray:
@@ -142,9 +156,6 @@ class KITTI_GeometricTransformer(BaseGeometryTransformer):
         match (fields.coord_to):
             case CoordinateFrame.INERTIAL | CoordinateFrame.IMU:
                 vo_in_imu = self._transform_kitti_vo_data_into_imu_coord(fields.value)
-                # if self.vo_origin is None:
-                #     self.vo_origin = vo_in_imu[:3]
-                # vo_in_imu[:3] -= self.vo_origin
                 return vo_in_imu
             case _:
                 logging.warning("VO data is not transformed.")

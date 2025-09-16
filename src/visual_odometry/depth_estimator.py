@@ -15,9 +15,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.common.config import VisualOdometryConfig
 
 class DepthEstimatorType(Enum):
-    DepthAnything = 'depth_anything'
     ZoeMap = "zoe_depth"
-    Metric3D = "metric_3d"
+    DinoV2 = "dino_v2"
+
+    DepthAnything = 'depth_anything'
     Midas = "dpt_midas"
 
     @classmethod
@@ -26,10 +27,10 @@ class DepthEstimatorType(Enum):
             return cls.DepthAnything
         elif value.lower() == 'zoe_depth':
             return cls.ZoeMap
-        elif value.lower() == 'metric_3d':
-            return cls.Metric3D
         elif value.lower() == 'dpt_midas':
             return cls.Midas
+        elif value.lower() == 'dino_v2':
+            return cls.DinoV2
         else:
             raise ValueError(f"Unknown depth estimator type: {value}")
 
@@ -56,10 +57,12 @@ class DepthEstimator:
     def _get_image_processor(self):
         if self.depth_estimator == DepthEstimatorType.DepthAnything:
             return AutoImageProcessor.from_pretrained("depth-anything/Depth-Anything-V2-Small-hf")
-        elif self.depth_estimator == DepthEstimatorType.ZoeMap or self.depth_estimator == DepthEstimatorType.Metric3D:
+        elif self.depth_estimator == DepthEstimatorType.ZoeMap:
             return AutoImageProcessor.from_pretrained("Intel/zoedepth-nyu-kitti")
         elif self.depth_estimator == DepthEstimatorType.Midas:
-            return DPTImageProcessor.from_pretrained("Intel/dpt-large")
+            return DPTImageProcessor.from_pretrained("Intel/dpt-hybrid-midas")
+        elif self.depth_estimator == DepthEstimatorType.DinoV2:
+            return AutoImageProcessor.from_pretrained("facebook/dpt-dinov2-base-kitti")
         else:
             raise ValueError(f"Unknown depth estimator type: {self.depth_estimator}")
 
@@ -69,7 +72,9 @@ class DepthEstimator:
         elif self.depth_estimator == DepthEstimatorType.ZoeMap:
             return AutoModelForDepthEstimation.from_pretrained("Intel/zoedepth-nyu-kitti")
         elif self.depth_estimator == DepthEstimatorType.Midas:
-            return DPTForDepthEstimation.from_pretrained("Intel/dpt-large")
+            return DPTForDepthEstimation.from_pretrained("Intel/dpt-hybrid-midas", low_cpu_mem_usage=True)
+        elif self.depth_estimator == DepthEstimatorType.DinoV2:
+            return AutoModelForDepthEstimation.from_pretrained("facebook/dpt-dinov2-base-kitti")
         else:
             raise ValueError(f"Unknown depth estimator type: {self.depth_estimator}")
 
@@ -95,19 +100,31 @@ class DepthEstimator:
             depth = post_processed_output[0]["predicted_depth"]
             depth = depth.detach().cpu().numpy().astype("float32")
         elif self.depth_estimator == DepthEstimatorType.Midas:
-            post_processed_output = self.image_processor.post_process_depth_estimation(
-                outputs,
-                target_sizes=[(image.height, image.width)],
+            predicted_depth = outputs.predicted_depth
+            prediction = torch.nn.functional.interpolate(
+                predicted_depth.unsqueeze(1),
+                size=image.size[::-1],
+                mode="bicubic",
+                align_corners=False,
             )
-            predicted_depth = post_processed_output[0]["predicted_depth"]
-            depth = predicted_depth.detach().cpu().numpy().astype("float32")
+            outputs = prediction.squeeze().cpu().numpy()
+            depth = ((np.max(outputs) - outputs) * 255 / np.max(outputs)).astype("float32")
+        elif self.depth_estimator == DepthEstimatorType.DinoV2:
+            predicted_depth = outputs.predicted_depth
+            prediction = torch.nn.functional.interpolate(
+                predicted_depth.unsqueeze(1),
+                size=image.size[::-1],
+                mode="bicubic",
+                align_corners=False,
+            )
+            depth = prediction.squeeze().cpu().numpy().astype("float32")
         else:
             post_processed_output = self.image_processor.post_process_depth_estimation(
                 outputs,
                 target_sizes=[(frame.shape[0], frame.shape[1])],
             )
-            depth = post_processed_output[0]["predicted_depth"]
-            depth = depth.detach().cpu().numpy().astype("float32")
+            outputs = post_processed_output[0]["predicted_depth"]
+            depth = outputs.detach().cpu().numpy().astype("float32")
         
         logging.debug(f"Depth shape: {depth.shape}")  
 
@@ -146,7 +163,7 @@ if __name__ == "__main__":
         type='monocular',
         estimator='2d3d',
         camera_id='left',
-        depth_estimator='zoe_depth',
+        depth_estimator='depth_anything',
         params={
             'max_features': 1000,
             'ransac_reproj_threshold': 1.0,

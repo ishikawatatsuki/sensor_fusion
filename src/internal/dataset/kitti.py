@@ -16,6 +16,8 @@ else:
     from ...common import Pose, State, FilterConfig
     from ...common.constants import KITTI_SEQUENCE_MAPS, VO_POSE_ESTIMATION_MAP
 
+TIMESTAMP_MULTIPLIER = 1
+
 class OXTS_IMUDataReader:
     def __init__(self, root_path, date, drive, starttime=-float('inf')):
         self.kitti_dataset = pykitti.raw(root_path, date, drive)
@@ -28,7 +30,7 @@ class OXTS_IMUDataReader:
     def __iter__(self):
       for i, oxts in enumerate(self.kitti_dataset.oxts):
           packet = oxts.packet
-          timestamp = datetime.timestamp(self.kitti_dataset.timestamps[i])
+          timestamp = datetime.timestamp(self.kitti_dataset.timestamps[i]) * TIMESTAMP_MULTIPLIER
           if timestamp < self.starttime:
               continue
           
@@ -61,7 +63,7 @@ class OXTS_IMUDataReader:
     def __iter__(self):
       for i, oxts in enumerate(self.kitti_dataset.oxts):
           packet = oxts.packet
-          timestamp = datetime.timestamp(self.kitti_dataset.timestamps[i])
+          timestamp = datetime.timestamp(self.kitti_dataset.timestamps[i]) * TIMESTAMP_MULTIPLIER
           if timestamp < self.starttime:
               continue
           
@@ -91,7 +93,7 @@ class OXTS_GPSDataReader:
     def __iter__(self):
       for i, oxts in enumerate(self.kitti_dataset.oxts):
           packet = oxts.packet
-          timestamp = datetime.timestamp(self.kitti_dataset.timestamps[i])
+          timestamp = datetime.timestamp(self.kitti_dataset.timestamps[i]) * TIMESTAMP_MULTIPLIER
           if timestamp < self.starttime:
               continue
           yield self.field(timestamp, packet.lon, packet.lat, packet.alt)
@@ -129,7 +131,7 @@ class KITTI_GroundTruthDataReader:
       R = mat[:3, :3]
       t = mat[:, 3]
       
-      timestamp = datetime.timestamp(self.timestamps[i])
+      timestamp = datetime.timestamp(self.timestamps[i]) * TIMESTAMP_MULTIPLIER
 
       return self.field(timestamp, R=R, t=t)
 
@@ -194,7 +196,7 @@ class KITTI_StereoFrameReader:
   def __iter__(self):
       for i, _ in enumerate(self.kitti_dataset.oxts):
           id = i + self.iter_offset
-          timestamp = datetime.timestamp(self.kitti_dataset.timestamps[i])
+          timestamp = datetime.timestamp(self.kitti_dataset.timestamps[i]) * TIMESTAMP_MULTIPLIER
           if timestamp < self.starttime:
               continue
           
@@ -239,7 +241,7 @@ class KITTI_VisualOdometry:
     self.field = namedtuple('data', 
         ['timestamp', 'relative_pose', 'dt'])
 
-    self.last_timestamp = datetime.timestamp(self.kitti_dataset.timestamps[0])
+    self.last_timestamp = datetime.timestamp(self.kitti_dataset.timestamps[0]) * TIMESTAMP_MULTIPLIER
 
     self.window_size = window_size
     self.buffer = []
@@ -247,7 +249,7 @@ class KITTI_VisualOdometry:
   def __iter__(self):
     for i, timestamp in enumerate(self.kitti_dataset.timestamps[1:self.vo_estimates.shape[0]]):
 
-      timestamp = datetime.timestamp(timestamp)
+      timestamp = datetime.timestamp(timestamp) * TIMESTAMP_MULTIPLIER
       if timestamp < self.starttime:
         self.last_timestamp = timestamp
         continue
@@ -275,7 +277,7 @@ class KITTI_ColorImageDataReader:
   
   def __iter__(self):
       for i, _ in enumerate(self.kitti_dataset.oxts):
-          timestamp = datetime.timestamp(self.kitti_dataset.timestamps[i])
+          timestamp = datetime.timestamp(self.kitti_dataset.timestamps[i]) * TIMESTAMP_MULTIPLIER
           if timestamp < self.starttime:
               continue
           
@@ -300,7 +302,7 @@ class KITTI_UpwardLeftwardVelocityDataReader:
   
   def __iter__(self):
       for i, _ in enumerate(self.kitti_dataset.oxts):
-          timestamp = datetime.timestamp(self.kitti_dataset.timestamps[i])
+          timestamp = datetime.timestamp(self.kitti_dataset.timestamps[i]) * TIMESTAMP_MULTIPLIER
           if timestamp < self.starttime:
               continue
           

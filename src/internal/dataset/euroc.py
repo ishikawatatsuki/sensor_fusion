@@ -20,7 +20,7 @@ else:
         State
     )
 
-
+DIVIDER = 1_000_000_000  # ns to s
 class EuRoC_IMUDataReader:
     """
         Read IMU data from EuRoC dataset.
@@ -31,7 +31,7 @@ class EuRoC_IMUDataReader:
             starttime=-float('inf'),
             window_size=None
         ):
-        self.divider = 1
+
         self.root_path = os.path.join(root_path, "imu0/data.csv")
         self.starttime = starttime
         self.field = namedtuple('data', 
@@ -47,7 +47,7 @@ class EuRoC_IMUDataReader:
         """
         line = [float(_) for _ in line.strip().split(',')]
 
-        timestamp = line[0] / self.divider
+        timestamp = int(line[0]) / DIVIDER
         w = np.array(line[1:4])
         a = np.array(line[4:7])
         return self.field(timestamp, a, w)
@@ -85,7 +85,6 @@ class EuRoC_IMUDataReader:
     
 class EuRoC_StereoFrameReader:
     def __init__(self, root_path: str, starttime=-float('inf')):
-        self.divider = 1
         self.starttime = starttime
         self.root_path = root_path
         self.left_image_path = os.path.join(root_path, "cam0")
@@ -100,8 +99,7 @@ class EuRoC_StereoFrameReader:
         l_line = [_ for _ in left_line.strip().split(',')]
         r_line = [_ for _ in right_line.strip().split(',')]
 
-        timestamp = int(l_line[0])
-        timestamp = timestamp / self.divider
+        timestamp = int(l_line[0]) / DIVIDER
         left_frame_id = os.path.join(self.left_image_path, 'data', l_line[1])
         right_frame_id = os.path.join(self.right_image_path, 'data', r_line[1])
         if not os.path.exists(left_frame_id) or\
@@ -133,7 +131,6 @@ class EuRoC_LeiCaDataReader:
     
     def __init__(self, root_path: str, starttime=-float('inf')):
         self.root_path = os.path.join(root_path, "leica0/data.csv")
-        self.divider = 1
         self.starttime = starttime
         self.field = namedtuple('data', 
             ['timestamp', 'p_x', 'p_y', 'p_z'])
@@ -145,8 +142,7 @@ class EuRoC_LeiCaDataReader:
         """
         line = [float(_) for _ in line.strip().split(',')]
         
-        timestamp = int(line[0])
-        timestamp = timestamp / self.divider
+        timestamp = int(line[0]) / DIVIDER
         p_x = line[1]
         p_y = line[2]
         p_z = line[3]
@@ -178,7 +174,6 @@ class EuRoC_GroundTruthDataReader:
             starttime=-float('inf'),
             window_size=None,
         ):
-        self.divider = 1
         self.root_path = os.path.join(root_path, "state_groundtruth_estimate0/data.csv")
         self.starttime = starttime
         self.field = namedtuple('data', 
@@ -193,7 +188,7 @@ class EuRoC_GroundTruthDataReader:
         """
         line_list = [float(_) for _ in line.strip().split(',')]
 
-        timestamp = line_list[0] / self.divider
+        timestamp = int(line_list[0]) / DIVIDER
         p = np.array(line_list[1:4])
         q = np.array(line_list[4:8])
         v = np.array(line_list[8:11])

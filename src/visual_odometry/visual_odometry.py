@@ -1,11 +1,13 @@
 import os
 import sys
 import cv2
+import yaml
 import logging
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass
 from enum import Enum
+from datetime import datetime
 from einops import rearrange
 from sklearn.metrics import mean_absolute_error
 
@@ -17,14 +19,15 @@ from .vo_utils import (
     RANSAC_FlagType, 
     draw_reprojection, 
     print_reprojection_error,
-    grid_sample_indices
+    grid_sample_indices,
+    get_saved_vo_pose_dir
 )
 
 
 from ..common.config import VisualOdometryConfig
 from ..internal.extended_common.extended_config import DatasetConfig
-from ..common.datatypes import ImageData
-
+from ..common.datatypes import ImageData, VisualOdometryData, SensorType
+from ..common.constants import EUROC_SEQUENCE_MAPS, VO_POSE_ESTIMATION_MAP, KITTI_SEQUENCE_TO_DATE, KITTI_SEQUENCE_TO_DRIVE
 
 class EstimatorType(Enum):
     EpipolarGeometryBased = '2d2d'
@@ -57,7 +60,7 @@ class DebuggingData:
     [] Measure optical flow on a segment detected by object detector and when the vector is aligning with the camera motion, remove the mask on that segment since it is static
 """
 
-class VisualOdometry:
+class MonocularVisualOdometry:
 
     def __init__(
             self, 
@@ -81,7 +84,7 @@ class VisualOdometry:
 
         self.dataset_config = dataset_config
         self.motion_estimator = EstimatorType.from_string(config.estimator)
-        self.object_detector = DynamicObjectDetector(model_path="src/visual_odometry/yolo11n-seg.pt", dynamic_classes=["person", "car", "bicycle", "motorbike", "bus", "truck"], conf=0.6)
+        self.object_detector = DynamicObjectDetector(model_path="src/visual_odometry/yolo11n-seg.pt", dynamic_classes=["person", "car", "bicycle", "motorbike", "bus", "truck"], conf=0.8)
 
     
         self.advanced_detector = config.use_advanced_detector
@@ -96,7 +99,7 @@ class VisualOdometry:
             self.motion_estimator == EstimatorType.Hybrid:
             self.depth_estimator = DepthEstimator(config=config)
 
-        self.K = self._get_intrinsic_matrix()
+        self.K, self.distortion_coeffs = self._get_calibration_parameters()
 
         self.pose_estimator_fn = self._get_pose_estimator()
 
@@ -109,17 +112,32 @@ class VisualOdometry:
 
         self.debugging_data = DebuggingData()
 
-    def _get_calib_path(self):
+    def _get_calibration_parameters(self):
         if self.dataset_config.type == "kitti":
-            return os.path.join(self.dataset_config.root_path, "vo_calibrations", self.dataset_config.variant, f"calib.txt"), "P0:"
+            calibration_file = os.path.join(self.dataset_config.root_path, "vo_calibrations", self.dataset_config.variant, f"calib.txt")
+            camera_id ="P0:"
+            calib_params = pd.read_csv(calibration_file, delimiter=' ', header=None, index_col=0)
+            K, _, _, _, _, _, _  = cv2.decomposeProjectionMatrix(np.array(calib_params.loc[camera_id]).reshape((3,4)))
+            distortion_coeffs = np.zeros(4)
+            return K, distortion_coeffs
+        elif self.dataset_config.type == "euroc":
+            sequence = EUROC_SEQUENCE_MAPS.get(self.dataset_config.variant, "mav_01")
+            calibration_file = os.path.join(self.dataset_config.root_path, sequence, "cam0", "sensor.yaml")
+            with open(calibration_file, 'r') as f:
+                calib_params = yaml.safe_load(f)
+                fu, fv, cu, cv = calib_params['intrinsics']
+                k1, k2, p1, p2 = calib_params['distortion_coefficients']
+                resolution = calib_params['resolution']
+                K = np.array([
+                    [fu,  0, cu],
+                    [0,  fv, cv],
+                    [0,   0,  1]
+                ])
+                distortion_coeffs = np.array([k1, k2, p1, p2])
+
+            return K, distortion_coeffs
         else:
             raise ValueError("Unsupported dataset type")
-
-    def _get_intrinsic_matrix(self):
-        calibration_file, camera_id = self._get_calib_path()
-        calib_params = pd.read_csv(calibration_file, delimiter=' ', header=None, index_col=0)
-        K, _, _, _, _, _, _  = cv2.decomposeProjectionMatrix(np.array(calib_params.loc[camera_id]).reshape((3,4)))
-        return K
 
     def _get_pose_estimator(self):
         if self.motion_estimator == EstimatorType.EpipolarGeometryBased:
@@ -145,8 +163,27 @@ class VisualOdometry:
         return np.stack((x, y, z), axis=1)  # shape: (N, 3)
     
     def _create_output(self, pose: np.ndarray, timestamp: float):
-        return pose
-    
+        dt = timestamp - self.prev_timestamp
+        if pose is None:
+            return VisualOdometryData(
+                success=False, 
+                relative_pose=None, 
+                image_timestamp=timestamp, 
+                estimate_timestamp=timestamp, 
+                dt=dt
+            )
+
+        # generate random time delay to simulate real world scenario
+        processed_time = 0.0
+
+        return VisualOdometryData(
+            success=True, 
+            relative_pose=pose, 
+            image_timestamp=timestamp, 
+            estimate_timestamp=timestamp+processed_time, 
+            dt=dt
+        )
+
     def _inlier_reprojection(self, pts3d, rvec, tvec):
         reprojected_points, _ = cv2.projectPoints(pts3d, rvec, tvec, self.K, None)
         if reprojected_points.ndim == 3:
@@ -329,6 +366,9 @@ class VisualOdometry:
             prev_pts = np.float32([self.prev_kp[m.queryIdx].pt for m in good_points])
             next_pts = np.float32([current_kp[m.trainIdx].pt for m in good_points])
 
+            prev_pts = cv2.undistortPoints(np.expand_dims(prev_pts, axis=1), self.K, self.distortion_coeffs, P=self.K)
+            next_pts = cv2.undistortPoints(np.expand_dims(next_pts, axis=1), self.K, self.distortion_coeffs, P=self.K)
+
             self.prev_kp = current_kp
             self.prev_desc = desc
         else:
@@ -341,7 +381,10 @@ class VisualOdometry:
                 return None, None, None
             next_pts, status, _ = cv2.calcOpticalFlowPyrLK(self.prev_frame, frame, prev_pts, None)
             prev_pts, next_pts = prev_pts[status.flatten() == 1], next_pts[status.flatten() == 1]
-        
+
+            prev_pts = cv2.undistortPoints(np.expand_dims(prev_pts, axis=1), self.K, self.distortion_coeffs, P=self.K)
+            next_pts = cv2.undistortPoints(np.expand_dims(next_pts, axis=1), self.K, self.distortion_coeffs, P=self.K)
+
         return prev_pts, next_pts, mask
 
 
@@ -357,10 +400,9 @@ class VisualOdometry:
 
         if self.prev_frame is None:
             self.initialize_frame(data)
-            return None
+            return self._create_output(None, data.timestamp)
 
-
-        logging.debug(f"prev_pts: {prev_pts.shape}, next_pts: {next_pts.shape}")
+        logging.info(f"prev_pts: {prev_pts.shape}, next_pts: {next_pts.shape}")
 
         pose = self.pose_estimator_fn(prev_pts, next_pts, mask)
 
@@ -381,40 +423,208 @@ class VisualOdometry:
     def get_debugging_data(self) -> DebuggingData:
         return self.debugging_data
 
+class StaticVisualOdometry:
+    """Parse expoerted visual odometry estimates and simulate real visual odometry output."""
+    def __init__(
+            self, 
+            config: VisualOdometryConfig, 
+            dataset_config: DatasetConfig, 
+            debug: bool = False
+        ):
+        self.config = config
+        self.dataset_config = dataset_config
+        self.is_debugging = debug
+        self.previous_timestamp = None
+        self.debugging_data = DebuggingData()
+
+        self.vo_poses = self._get_exported_vo_poses()
+
+    def _get_kitti_vo_poses(self, vo_pose_dir: str) -> dict[float, np.ndarray]:
+        import pykitti
+        root_path, variant = self.dataset_config.root_path, self.dataset_config.variant
+        date = KITTI_SEQUENCE_TO_DATE.get(variant)
+        drive = KITTI_SEQUENCE_TO_DRIVE.get(variant)
+        kitti_dataset = pykitti.raw(root_path, date, drive)
+
+        vo_estimates = pd.read_csv(
+            vo_pose_dir,
+            names=[str(i) for i in range(16)]
+        ).values.reshape(-1, 4, 4)[:, :3, :]
+        self.previous_timestamp = datetime.timestamp(kitti_dataset.timestamps[0])
+        return {datetime.timestamp(ts): pose for ts, pose in zip(kitti_dataset.timestamps[1:], vo_estimates)}
+
+
+    def _get_euroc_vo_poses(self, vo_pose_dir: str):
+        
+        sequence = EUROC_SEQUENCE_MAPS.get(self.dataset_config.variant, "mav_01")
+        vo_estimates = pd.read_csv(
+            vo_pose_dir,
+            names=[str(i) for i in range(16)]
+        ).values.reshape(-1, 4, 4)[:, :3, :]
+
+        timestamps_file = os.path.join(self.dataset_config.root_path, sequence, "cam0", "data.csv")
+        columns = "#timestamp [ns], filename".split(", ")
+        df = pd.read_csv(timestamps_file, names=columns, skiprows=1)
+        timestamps = df["#timestamp [ns]"].values
+        self.previous_timestamp = timestamps[0]
+
+        return {ts: pose for ts, pose in zip(timestamps[1:], vo_estimates)}
+
+    def _get_exported_vo_poses(self):
+        vo_pose_dir = get_saved_vo_pose_dir(
+            root_path=self.dataset_config.root_path,
+            variant=self.dataset_config.variant,
+            dataset_type=self.dataset_config.type,
+            estimation_type=self.config.type
+        )
+
+        if self.dataset_config.type == "kitti":
+            return self._get_kitti_vo_poses(vo_pose_dir)
+        elif self.dataset_config.type == "euroc":
+            return self._get_euroc_vo_poses(vo_pose_dir)
+        else:
+            raise ValueError("Unsupported dataset type for static visual odometry")
+
+    def compute_pose(self, data: ImageData):
+        dt = data.timestamp - self.previous_timestamp
+        self.previous_timestamp = data.timestamp
+        pose = self.vo_poses.get(data.timestamp, None)
+        processed_time = 0.0
+
+        if pose is None:
+            return VisualOdometryData(
+                success=False, 
+                relative_pose=pose, 
+                image_timestamp=data.timestamp, 
+                estimate_timestamp=data.timestamp+processed_time, 
+                dt=dt
+            )
+
+        relative_pose = np.eye(4)
+        relative_pose[:3, :] = pose
+        return VisualOdometryData(
+            success=True, 
+            relative_pose=relative_pose, 
+            image_timestamp=data.timestamp, 
+            estimate_timestamp=data.timestamp+processed_time, 
+            dt=dt)
+    
+    def initialize_frame(self, data: ImageData):
+        # Convert to grayscale if the image is in color
+        self.prev_timestamp = data.timestamp
+
+    def get_debugging_data(self) -> DebuggingData:
+        return self.debugging_data
+
+
+class VisualOdometry:
+    def __init__(self, config: VisualOdometryConfig, dataset_config: DatasetConfig, debug: bool = False):
+
+        if config.type == "static":
+            vo_pose_dir = get_saved_vo_pose_dir(
+                root_path=dataset_config.root_path,
+                variant=dataset_config.variant,
+                dataset_type=dataset_config.type,
+                estimation_type=config.type
+            )
+            
+            if os.path.exists(vo_pose_dir):
+                self._vo_provider = StaticVisualOdometry(config=config, dataset_config=dataset_config, debug=debug)
+            else:
+                logging.warning("Static visual odometry data not found. Falling back to MonocularVisualOdometry.")
+                self._vo_provider = MonocularVisualOdometry(config=config, dataset_config=dataset_config, debug=debug)
+        elif config.type == "monocular":
+            self._vo_provider = MonocularVisualOdometry(config=config, dataset_config=dataset_config, debug=debug)
+        else:
+            raise ValueError(f"Unsupported visual odometry type: {config.type}")
+    
+    def compute_pose(self, data: ImageData) -> VisualOdometryData:
+        return self._vo_provider.compute_pose(data=data)
+    
+    def get_debugging_data(self) -> DebuggingData:
+        return self._vo_provider.get_debugging_data()
+    
+    @property
+    def is_debugging(self) -> bool:
+        return self._vo_provider.is_debugging
+    
+    @property
+    def get_datatype(self) -> SensorType:
+        if self._vo_provider.dataset_config.type == "kitti":
+            return SensorType.KITTI_VO
+        elif self._vo_provider.dataset_config.type == "euroc":
+            return SensorType.EuRoC_VO
+        return None
+
 if __name__ == "__main__":
     import time
     import sys
     import os
+    import pykitti
     from tqdm import tqdm
     import matplotlib.pyplot as plt
     from src.internal.visualizers.vo_visualizer import VO_Visualizer, VO_VisualizationData
-    from src.common.constants import KITTI_SEQUENCE_TO_DATE, KITTI_SEQUENCE_TO_DRIVE
+    from src.common.constants import KITTI_SEQUENCE_TO_DATE, KITTI_SEQUENCE_TO_DRIVE, EUROC_SEQUENCE_MAPS
 
 
     logging.basicConfig(level=logging.INFO)
     logging.getLogger('matplotlib.font_manager').disabled = True
+    use_kitti = False
 
-    # rootpath = "/gpfs/mariana/home/taishi/workspace/researches/sensor_fusion/data/KITTI"
-    rootpath = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/KITTI"
-    variant = "07"
-    date = KITTI_SEQUENCE_TO_DATE.get(variant, "2011_09_30")
-    drive = KITTI_SEQUENCE_TO_DRIVE.get(variant, "0033")
+    if use_kitti:
+        rootpath = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/KITTI"
+        variant = "07"
+        date = KITTI_SEQUENCE_TO_DATE.get(variant, "2011_09_30")
+        drive = KITTI_SEQUENCE_TO_DRIVE.get(variant, "0033")
+        dataset_config = DatasetConfig(
+            type='kitti',
+            mode='stream',
+            root_path=rootpath,
+            variant=variant,
+        )
+        image_path = os.path.join(rootpath, f"{date}/{date}_drive_{drive}_sync/image_00/data")
+        image_files = sorted([f for f in os.listdir(image_path) if f.endswith('.png')])
+        date = KITTI_SEQUENCE_TO_DATE.get(variant)
+        drive = KITTI_SEQUENCE_TO_DRIVE.get(variant)
+        kitti_dataset = pykitti.raw(rootpath, date, drive)
+        image_timestamps = np.array([datetime.timestamp(ts) for ts in kitti_dataset.timestamps])
+        logging.debug(f"Found {len(image_files)} image files.")
+        ground_truth_path = os.path.join(rootpath, f"ground_truth/{variant}.txt")
+        ground_truth = pd.read_csv(ground_truth_path, sep=' ', header=None, skiprows=1).values
+        ground_truth = ground_truth.reshape(-1, 3, 4)
+        gt_pos = ground_truth[:, :3, 3]
+    else:
+        rootpath = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/EuRoC"
+        variant = "01"
+        sequence = EUROC_SEQUENCE_MAPS.get(variant, "mav_01")
+        dataset_config = DatasetConfig(
+            type='euroc',
+            mode='stream',
+            root_path=rootpath,
+            variant=variant,
+        )
+        image_path = os.path.join(rootpath, f"{sequence}/cam0/data")
+        image_timestamps = pd.read_csv(os.path.join(rootpath, f"{sequence}/cam0/data.csv"), names=["#timestamp [ns]", "filename"], skiprows=1)['#timestamp [ns]'].values
+        image_files = sorted([f for f in os.listdir(image_path) if f.endswith('.png')])
+        logging.debug(f"Found {len(image_files)} image files.")
 
-    dataset_config = DatasetConfig(
-        type='kitti',
-        mode='stream',
-        root_path=rootpath,
-        variant=variant,
-    )
+        ground_truth_path = os.path.join(rootpath, f"{sequence}/state_groundtruth_estimate0/data.csv")
+        columns = "#timestamp, p_RS_R_x [m], p_RS_R_y [m], p_RS_R_z [m], q_RS_w [], q_RS_x [], q_RS_y [], q_RS_z [], v_RS_R_x [m s^-1], v_RS_R_y [m s^-1], v_RS_R_z [m s^-1], b_w_RS_S_x [rad s^-1], b_w_RS_S_y [rad s^-1], b_w_RS_S_z [rad s^-1], b_a_RS_S_x [m s^-2], b_a_RS_S_y [m s^-2], b_a_RS_S_z [m s^-2]".split(", ")
+        df = pd.read_csv(ground_truth_path, names=columns, skiprows=1)
+        gt_pos = df[["p_RS_R_x [m]", "p_RS_R_y [m]", "p_RS_R_z [m]"]].values
+
+    
     
     config = VisualOdometryConfig(
-        type='monocular',
-        estimator='hybrid',
+        type='static',
+        estimator='2d2d',
         camera_id='left',
-        depth_estimator='zoe_depth',
+        depth_estimator='dino_v2',
         use_advanced_detector=True,
         feature_detector='SIFT',
         feature_matcher='BF',
+        export_vo_data=False,
+        export_vo_data_path='./data/EuRoC',
         params={
             'confidence': 0.90,
             'ransac_reproj_threshold': 0.99,
@@ -426,18 +636,8 @@ if __name__ == "__main__":
     vo = VisualOdometry(config=config, dataset_config=dataset_config, debug=True)
     logging.debug("Visual Odometry initialized.")
 
-    image_path = os.path.join(rootpath, f"{date}/{date}_drive_{drive}_sync/image_00/data")
-    image_files = sorted([f for f in os.listdir(image_path) if f.endswith('.png')])
-
-    logging.debug(f"Found {len(image_files)} image files.")
-
-    ground_truth_path = os.path.join(rootpath, f"ground_truth/{variant}.txt")
-    ground_truth = pd.read_csv(ground_truth_path, sep=' ', header=None, skiprows=1).values
-    ground_truth = ground_truth.reshape(-1, 3, 4)
-    gt_pos = ground_truth[:, :3, 3]
-
     logging.debug(gt_pos.shape)
-    logging.debug(f"Loaded ground truth data with {len(ground_truth)} entries.")
+    logging.debug(f"Loaded ground truth data with {len(gt_pos)} entries.")
 
     # frame1 = cv2.imread(os.path.join(image_path, image_files[0]))
     # frame2 = cv2.imread(os.path.join(image_path, image_files[1]))
@@ -455,22 +655,25 @@ if __name__ == "__main__":
     max_points = 200
     if vo.is_debugging:
         vis = VO_Visualizer(
-            save_path=f"/Volumes/Data_EXT/data/workspaces/sensor_fusion/outputs/vo_estimates/vo_debug/2d3d_{variant}",
+            save_path=f"/Volumes/Data_EXT/data/workspaces/sensor_fusion/outputs/vo_estimates/vo_debug/2d2d_{variant}",
             save_frame=True
         )
         vis.start()
 
-    for i, image_file in enumerate(tqdm(image_files)):
-        idx = (i + 1) % len(gt_pos)
+    for i, (image_file, timestamp) in enumerate(tqdm(zip(image_files, image_timestamps), total=len(image_files))):
+        idx = i + 1
         frame_path = os.path.join(image_path, image_file)
         frame = cv2.imread(frame_path)
-        pose = vo.compute_pose(ImageData(image=frame, timestamp=time.time()))
-        if pose is not None:
+        vo_data = vo.compute_pose(ImageData(image=frame, timestamp=timestamp))
+        if vo_data.success:
+            if idx >= len(gt_pos):
+                continue
+
+            pose = vo_data.relative_pose
             current_pose = current_pose @ pose
             estimated_pose.append(current_pose[:3, :].flatten())
             estimated_position.append(current_pose[:3, 3])
             ground_truth_position.append(gt_pos[idx])
-
             debugging_data = vo.get_debugging_data()
             if debugging_data.prev_pts is not None:
                 x, y, z = current_pose[:3, 3]
@@ -492,6 +695,10 @@ if __name__ == "__main__":
     
     ground_truth_position = np.array(ground_truth_position)
     estimated_position = np.array(estimated_position)
+    min_len = min(len(ground_truth_position), len(estimated_position))
+    ground_truth_position = ground_truth_position[:min_len]
+    estimated_position = estimated_position[:min_len]
+
 
     logging.info(f"Estimated Positions shape: {ground_truth_position.shape}")
     logging.info(f"Estimated Pose shape: {estimated_position.shape}")

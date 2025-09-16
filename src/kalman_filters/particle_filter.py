@@ -3,7 +3,7 @@ import sys
 import logging
 import numpy as np
 from enum import Enum, auto
-from scipy.stats import multivariate_normal
+from scipy.stats import multivariate_normal, multivariate_t
 
 from .base_filter import BaseFilter
 from ..common import (
@@ -14,6 +14,23 @@ from ..common import (
 from filterpy.monte_carlo import (
     multinomial_resample, residual_resample, systematic_resample, stratified_resample
 )
+
+class DistributionType(Enum):
+    MULTIVARIATE_NORMAL = auto()
+    MULTIVARIATE_STUDENT_T = auto()
+    
+    @staticmethod
+    def get_enum_name_list():
+        return [s.lower() for s in list(DistributionType.__members__.keys())]
+    
+    @classmethod
+    def get_distribution_type_from_str(cls, dist_str: str):
+        s = dist_str.lower()
+        try: 
+            index = DistributionType.get_enum_name_list().index(s)
+            return cls(index + 1)
+        except:
+            return None
 
 class ResamplingAlgorithms(Enum):
     MULTINOMIAL = auto()
@@ -45,6 +62,8 @@ class ParticleFilter(BaseFilter):
         self.particle_size = self._get_params(params=self.config.params, key="particle_size", default_value=1024)
         resampling_algorithm = self._get_params(params=self.config.params, key="resampling_algorithm", default_value="multinomial")
         self.scale_for_ess_threshold = self._get_params(params=self.config.params, key="scale_for_ess_threshold", default_value=1.)
+        distribution = self._get_params(params=self.config.params, key="distribution", default_value="multivariate_normal")
+        self.distribution = DistributionType.get_distribution_type_from_str(distribution)
 
         x = self.x.get_state_vector()
         
@@ -125,7 +144,7 @@ class ParticleFilter(BaseFilter):
         
         a = u[:3]
         w = u[3:]
-        wx, _, wz = w
+        wx, _, wz = w + 1e-17
         a = a.reshape(-1, 1)
         w = w.reshape(-1, 1)
         
@@ -195,7 +214,11 @@ class ParticleFilter(BaseFilter):
         sensor_type = data.sensor_type
         H = self.get_transition_matrix(sensor_type, z_dim=z.shape[0])
         
-        target_distribution = multivariate_normal(mean=z.flatten(), cov=R) 
+        if self.distribution is DistributionType.MULTIVARIATE_NORMAL:
+            target_distribution = multivariate_normal(mean=z.flatten(), cov=R) 
+        else:
+            target_distribution = multivariate_t(df=2, loc=z.flatten(), shape=R)
+
         measurement_noise = np.random.multivariate_normal(
             np.zeros(R.shape[0]), 
             R, 

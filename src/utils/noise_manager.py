@@ -71,6 +71,28 @@ class BaseNoise(abc.ABC):
                 case SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY.name:
                     return np.eye(2) * np.array([.5, .5])**2
 
+                case SensorType.EuRoC_VO.name:
+                    # Velocity noise
+                    if len(fusion_fields) == 0:
+                        logging.warning(f"Fusion field is not set for sensor: {sensor_type.name}")
+                    
+                    noise_vector = np.empty(0)
+                    if FusionData.POSITION in fusion_fields:
+                        position_noise = np.array([3., 3., 3])
+                        noise_vector = np.append(noise_vector, position_noise)
+                    if FusionData.LINEAR_VELOCITY in fusion_fields:
+                        velocity_noise = np.array([.5, .5, .5])
+                        noise_vector = np.append(noise_vector, velocity_noise)
+                    if FusionData.ORIENTATION in fusion_fields:
+                        orientation_noise = np.array([0.01, 0.01, 0.01, 0.01])
+                        noise_vector = np.append(noise_vector, orientation_noise)
+                    
+                    return np.eye(noise_vector.shape[0]) * noise_vector**2
+                
+                case SensorType.EuRoC_LEICA.name:
+                    noise_vector = np.array([1., 1.0, 1.0])
+                    return np.eye(noise_vector.shape[0]) * noise_vector**2
+                
                 case _:
                     logging.warning(
                         f"Not registered sensor type appeared {sensor_type.name}")
@@ -89,14 +111,14 @@ class BaseNoise(abc.ABC):
     def _initialize_Q(self):
         """Initialize process noise covariance matrix Q for each sensor type."""
         p_noise = np.repeat(2.0, 3)
-        v_noise = np.repeat(1.0, 3)
+        v_noise = np.repeat(0.5, 3)
         q_noise = np.repeat(0.01, 4)
         b_w_noise = np.repeat(self.imu_hardware_config.gyroscope_random_walk, 3)
         b_a_noise = np.repeat(self.imu_hardware_config.accelerometer_random_walk, 3)
 
         if self.filter_config.type == "ekf":
-            q = np.hstack([b_w_noise, b_a_noise])
-            # q = np.hstack([p_noise, v_noise, q_noise, b_w_noise, b_a_noise])
+            # q = np.hstack([b_w_noise, b_a_noise])
+            q = np.hstack([p_noise, v_noise, q_noise, b_w_noise, b_a_noise])
         else:
             q = np.hstack([p_noise, v_noise, q_noise, b_w_noise, b_a_noise])
 
@@ -174,6 +196,10 @@ class AdaptiveNoise(BaseNoise):
         logging.debug(f"Updating noise matrix for sensor: {sensor_data.type.name}")
         logging.debug(f"[Shape] residual: {residual.shape}, innovation: {innovation.shape}, P: {P.shape}, H: {H.shape}, K: {K.shape}")
         # Update R using the residual
+        # alpha is called forgetting factor
+        """
+        The paper introduces a forgetting factor (alpha), which takes a value between 0 and 1 to adaptively estimate Rk. A higher alpha puts more weights on previous estimates and therefore incurs less fluctuation of Rk, and longer time delay to catch up with changes. The paper set alpha to 0.3.
+        """
         self.Rs[sensor_data.type] = self.alpha * R + (1 - self.alpha) * (residual @ residual.T + H @ P @ H.T)
         self.Qs[self.process_data_type] = self.alpha * Q + (1 - self.alpha) * (K @ innovation @ innovation.T @ K.T)[:Q.shape[0], :Q.shape[0]]
 

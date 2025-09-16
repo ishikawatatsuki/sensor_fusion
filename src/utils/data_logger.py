@@ -62,8 +62,9 @@ class LoggingData:
 
 
 class DataLogger:
-    def __init__(self, config: GeneralConfig, data_config: DatasetConfig):
+    def __init__(self, config: GeneralConfig, dataset_config: DatasetConfig):
         self.config = config
+        self.dataset_type = dataset_config.type
         self.base_log_dir = os.path.join(config.sensor_data_save_path, str(int(time.time())))
 
         self.log_filename = os.path.join(self.base_log_dir, "sensor_data.csv")
@@ -73,12 +74,17 @@ class DataLogger:
         if not self.config.save_sensor_data:
             return
         
+        if self.dataset_type == 'kitti':
+            pos_fields = 'gps_x,gps_y,gps_z'
+        else:
+            pos_fields = 'pos_x,pos_y,pos_z'
+        
         os.makedirs(self.base_log_dir, exist_ok=True)
 
         with open(self.log_filename, "w") as f:
-            f.write("timestamp,type,acc_x,acc_y,acc_z,gyro_x,gyro_y,gyro_z,gps_x,gps_y,gps_z,vo_dt,vo_0,vo_1,vo_2,vo_3,vo_4,vo_5,vo_6,vo_7,vo_8,vo_9,vo_10,vo_11,lat_vel,upward_vel\n")
+            f.write(f"timestamp,type,acc_x,acc_y,acc_z,gyro_x,gyro_y,gyro_z,{pos_fields},vo_dt,vo_0,vo_1,vo_2,vo_3,vo_4,vo_5,vo_6,vo_7,vo_8,vo_9,vo_10,vo_11,lat_vel,upward_vel\n")
         with open(self.raw_log_filename, "w") as f:
-            f.write("timestamp,type,acc_x,acc_y,acc_z,gyro_x,gyro_y,gyro_z,gps_x,gps_y,gps_z,vo_dt,vo_0,vo_1,vo_2,vo_3,vo_4,vo_5,vo_6,vo_7,vo_8,vo_9,vo_10,vo_11,lat_vel,upward_vel\n")
+            f.write(f"timestamp,type,acc_x,acc_y,acc_z,gyro_x,gyro_y,gyro_z,{pos_fields},vo_dt,vo_0,vo_1,vo_2,vo_3,vo_4,vo_5,vo_6,vo_7,vo_8,vo_9,vo_10,vo_11,lat_vel,upward_vel\n")
 
         logging.info("Data logging initialized.")
 
@@ -87,7 +93,9 @@ class DataLogger:
             timestamp=message.timestamp,
             type=message.sensor_type
         )
-        if message.sensor_type == SensorType.OXTS_IMU:
+        
+        if message.sensor_type.name == SensorType.OXTS_IMU.name or\
+                message.sensor_type.name == SensorType.EuRoC_IMU.name:
             data: ControlInput = message.data
             _data.acc_x = data.u[0]
             _data.acc_y = data.u[1]
@@ -96,13 +104,16 @@ class DataLogger:
             _data.gyro_y = data.u[4]
             _data.gyro_z = data.u[5]
 
-        elif message.sensor_type == SensorType.OXTS_GPS:
+        elif message.sensor_type.name == SensorType.OXTS_GPS.name or\
+                message.sensor_type.name == SensorType.EuRoC_LEICA.name:
             data: SensorData = message.data
 
             _data.gps_x = data.z[0]
             _data.gps_y = data.z[1]
             _data.gps_z = data.z[2]
-        elif message.sensor_type == SensorType.KITTI_VO:
+        
+        elif message.sensor_type.name == SensorType.KITTI_VO.name or\
+                message.sensor_type.name == SensorType.EuRoC_VO.name:
             data: VisualOdometryData = message.data
             _relative_pose = data.relative_pose.flatten()
             _data.vo_dt = data.dt
@@ -118,7 +129,8 @@ class DataLogger:
             _data.vo_9 = _relative_pose[9]
             _data.vo_10 = _relative_pose[10]
             _data.vo_11 = _relative_pose[11]
-        elif message.sensor_type == SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY:
+        
+        elif message.sensor_type.name == SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY.name:
             data: SensorData = message.data
             _data.lat_vel = data.z[0]
             _data.upward_vel = data.z[1]

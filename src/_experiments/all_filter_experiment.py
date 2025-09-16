@@ -113,7 +113,7 @@ def run_filters_experiment():
     _new_filter_config['motion_model'] = motion_model
     
     _new_report_config = config.report._asdict()
-    _new_report_config['kitti_pose_result_folder'] = f"filter_comparison_final/{filter}/{error_folder_name}/"
+    _new_report_config['pose_result_dir'] = f"filter_comparison_final/{filter}/{error_folder_name}/"
     
     _new_visualization_config = config.visualization._asdict()
     _new_visualization_config['output_filepath'] = os.path.join(
@@ -152,7 +152,7 @@ def run_filters_experiment():
           experimental_setting=experimental_setting
         )
         logger.info(f"[Dataset] {experimental_setting.name} {config.dataset.variant}, {[sensor.name for sensor in config.dataset.sensors]}")
-        logger.info(f"[Report] {config.report.kitti_pose_result_folder}")
+        logger.info(f"[Report] {config.report.pose_result_dir}")
         logger.info(f"[Filter] {config.filter.type}, {config.filter.motion_model}")
         logger.info(f"[Visualization] {config.visualization.output_filepath}")
         logger.info(f"--"*100)

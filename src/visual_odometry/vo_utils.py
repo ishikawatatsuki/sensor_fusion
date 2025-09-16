@@ -6,6 +6,8 @@ from einops import rearrange
 from typing import Tuple
 from enum import Enum
 
+from ..common.constants import EUROC_SEQUENCE_MAPS, VO_POSE_ESTIMATION_MAP, KITTI_SEQUENCE_TO_DATE, KITTI_SEQUENCE_TO_DRIVE
+
 
 class RANSAC_FlagType(Enum):
     SOLVEPNP_ITERATIVE = cv2.SOLVEPNP_ITERATIVE
@@ -251,6 +253,27 @@ def print_reprojection_error(measured_pts, projected_pts):
     print(f"Max error: {np.max(errors)}")
     print(f"Min error: {np.min(errors)}")
 
+def get_saved_vo_pose_dir(root_path: str, variant: str, dataset_type: str, estimation_type: str) -> bool:
+
+    def _kitti_vo_pose_dir() -> str:
+        date = KITTI_SEQUENCE_TO_DATE.get(variant)
+        drive = KITTI_SEQUENCE_TO_DRIVE.get(variant)
+        estimation_dir = VO_POSE_ESTIMATION_MAP.get(estimation_type, "vo_pose_estimates_2d3d")
+        vo_pose_dir = os.path.join(root_path, estimation_dir, date, drive, "data.csv")
+        return vo_pose_dir
+
+    def _euroc_vo_pose_dir() -> str:
+        sequence = EUROC_SEQUENCE_MAPS.get(variant, "mav_01")
+        estimation_dir = VO_POSE_ESTIMATION_MAP.get(estimation_type, "vo_pose_estimates_2d3d")
+        vo_pose_dir = os.path.join(root_path, estimation_dir, sequence, "data.csv")
+        return vo_pose_dir
+    
+    if dataset_type == "kitti":
+        return _kitti_vo_pose_dir()
+    elif dataset_type == "euroc":
+        return _euroc_vo_pose_dir()
+    else:
+        return None
 
 if __name__ == "__main__":
     import cv2

@@ -1,0 +1,30 @@
+[92mINFO[0m:root:Starting pipeline
+[93mWARNING[0m:root:Warning message
+[91mERROR[0m:root:Error message
+[95mCRITICAL[0m:root:Critical error
+[92mINFO[0m:root:Starting Visual Odometry experiment.
+[92mINFO[0m:root:VO Config: VisualOdometryConfig(
+	type=monocular
+	estimator=hybrid
+	feature_detector=sift
+	feature_matcher=bf
+	camera_id=left
+	depth_estimator=zoe_depth
+	use_advanced_detector=True
+	params={'confidence': 0.99, 'ransac_reproj_threshold': 1.0, 'matching_threshold': 0.5, 'max_features': 1000, 'min_depth_threshold': 1, 'max_depth_threshold': 50}
+)
+[92mINFO[0m:root:Dataset Config: DatasetConfig(
+	type=euroc
+	mode=stream
+	root_path=./data/EuRoC
+	variant=01
+	sensors=[]
+	imu_config_path=None
+	sensor_config_path=None
+	)
+[92mINFO[0m:root:Visual Odometry initialized.
+[92mINFO[0m:root:Found 3682 image files.
+[92mINFO[0m:root:Loaded ground truth data with 36382 entries.
+[92mINFO[0m:root:Estimated Positions shape: (3682, 3)
+[92mINFO[0m:root:Estimated Pose shape: (3682, 3)
+[92mINFO[0m:root:Mean Absolute Error (MAE) of the estimated positions: 3.9134m

@@ -97,7 +97,7 @@ dataset:
 report:
   export_error: True
   error_output_root_path: ../outputs/KITTI
-  kitti_pose_result_folder: test/enkf/
+  pose_result_dir: test/enkf/
   location_only: False 
 
 filter:

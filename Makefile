@@ -46,8 +46,11 @@ container_up:
 jupyter_up:
 	docker run --rm --user root -p 8888:8888 -v .:/app -it ${CONTAINER_TAG}:1.0 jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --notebook-dir=/app --allow-root
 
-run:
+run_kitti:
 	python -m src.pipeline --config_file ./configs/kitti_config.yaml --log_output .debugging --log_level INFO
+
+run_euroc:
+	python -m src.pipeline --config_file ./configs/euroc_config.yaml --log_output .debugging --log_level DEBUG
 
 export_vo_estimates:
 	python -m src._experiments.run_visual_odometry \
@@ -61,6 +64,33 @@ run_vo_pose_hybrid_experiment:
 		--output_path ./outputs/vo_estimates/pose_estimation_hybrid \
 		--config_file ./configs/kitti_config.yaml
 
+
+run_vo_pose_euroc_experiment:
+	python -m src._experiments.run_visual_odometry_euroc \
+		--dataset_path ./data/EuRoC \
+		--config_file ./configs/euroc_config.yaml
+
+
+run_vo_pose_euroc_2d3d_experiment:
+	python -m src._experiments.run_visual_odometry_2d3d_euroc \
+		--dataset_path ./data/EuRoC \
+		--config_file ./configs/euroc_config.yaml
+
+run_vo_pose_euroc_hybrid_experiment:
+	python -m src._experiments.run_visual_odometry_hybrid_euroc \
+		--dataset_path ./data/EuRoC \
+		--config_file ./configs/euroc_config.yaml
+
+
+run_all_kitti_experiments:
+	python -m src._kitti.run_all_experiments \
+		--output_path ./outputs/KITTI/results \
+		--log_output ./.debugging/experiments \
+		--config_file ./configs/kitti_config_experiment_base.yaml \
+		--checkpoint_file ./outputs/KITTI/results/checkpoint.txt
+
+run_kitti_adaptive_noise_experiment:
+	echo "Running KITTI adaptive noise experiment..."
 
 help:
 	@echo  'build	- Build the docker image.'

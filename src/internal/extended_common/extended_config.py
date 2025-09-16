@@ -8,7 +8,8 @@ from dataclasses import dataclass
 from typing import List, Union, Tuple
 from scipy.spatial.transform import Rotation
 
-from ...common.constants import KITTI_SEQUENCE_TO_DATE
+from ...utils.geometric_transformer.base_geometric_transformer import BaseGeometryTransformer
+from ...common.constants import KITTI_SEQUENCE_TO_DATE, KITTI_ANGLE_COMPENSATION_CAMERA_TO_INERTIAL
 from ...common.datatypes import SensorConfig, VisualizationDataType, SensorType, DatasetType, Pose
 from ...common.config import FilterConfig, HardwareConfig, ImuConfig, TransformationConfig, VisualOdometryConfig
 
@@ -62,6 +63,8 @@ class DatasetConfig:
     imu_config_path: str
     sensor_config_path: str
 
+    run_visual_odometry: bool
+
     def __init__(self,
                  type: str = 'kitti',
                  mode: str = 'stream',
@@ -79,6 +82,7 @@ class DatasetConfig:
         self.imu_config_path = imu_config_path
         self.sensor_config_path = sensor_config_path
 
+        self.run_visual_odometry = False
 
     def __str__(self):
         return \
@@ -91,6 +95,24 @@ class DatasetConfig:
             f"\timu_config_path={self.imu_config_path}\n" \
             f"\tsensor_config_path={self.sensor_config_path}\n" \
             f"\t)"
+    
+    def to_dict(self):
+        return {
+            "type": self.type,
+            "mode": self.mode,
+            "root_path": self.root_path,
+            "variant": self.variant,
+            "sensors": [sensor.__dict__ for sensor in self.sensors],
+            "imu_config_path": self.imu_config_path,
+            "sensor_config_path": self.sensor_config_path
+        }
+    
+    def set_run_visual_odometry(self, run_vo: bool):
+        self.run_visual_odometry = run_vo
+
+    @property
+    def should_run_visual_odometry(self) -> bool:
+        return self.run_visual_odometry
 
 GeometricLimit = namedtuple('GeometricLimit', ['min', 'max'])
 
@@ -146,19 +168,19 @@ class VisualizationConfig:
 class ReportConfig:
     export_error: bool
     error_output_root_path: str
-    kitti_pose_result_folder: str
+    pose_result_dir: str
     location_only: bool
 
     def __init__(
         self,
         export_error: bool = False,
         error_output_root_path: str = '../outputs/KITTI',
-        kitti_pose_result_folder: str = '',
+        pose_result_dir: str = '',
         location_only: bool = False,
     ):
         self.export_error = export_error
         self.error_output_root_path = error_output_root_path
-        self.kitti_pose_result_folder = kitti_pose_result_folder
+        self.pose_result_dir = pose_result_dir
         self.location_only = location_only
 
     def __str__(self):
@@ -166,7 +188,7 @@ class ReportConfig:
             f"ReportConfig(\n"\
             f"\texport_error={self.export_error}\n" \
             f"\terror_output_root_path={self.error_output_root_path}\n" \
-            f"\tkitti_pose_result_folder={self.kitti_pose_result_folder}\n" \
+            f"\tpose_result_dir={self.pose_result_dir}\n" \
             f"\tlocation_only={self.location_only})"
 
 
@@ -214,15 +236,21 @@ class ExtendedConfig:
         self.general = GeneralConfig(**self.parsed_config["general"])
         self.report = ReportConfig(**self.parsed_config["report"])
         self.dataset = DatasetConfig(**self.parsed_config["dataset"])
-        sensors = [
-            SensorConfig(
-                name=sensor,
-                dropout_ratio=value["dropout_ratio"],
-                window_size=value["window_size"],
-                args=value.get("args", {}),
-            ) for sensor, value in self.dataset.sensors.items()
-            if value.get("selected", False)
-        ]
+        
+        sensors = []
+        for sensor, value in self.dataset.sensors.items():
+            if value.get("selected", False):
+                sensors.append(
+                    SensorConfig(
+                        name=sensor,
+                        dropout_ratio=value["dropout_ratio"],
+                        window_size=value["window_size"],
+                        args=value.get("args", {}),
+                    )
+                )
+            if "vo" in sensor.lower() and value.get("selected", False):
+                self.dataset.set_run_visual_odometry(True)
+
         self.dataset.sensors = sensors
         self.filter = FilterConfig(**self.parsed_config["filter"])
         self.filter.set_sensor_fields(self.dataset.type)
@@ -270,24 +298,67 @@ class ExtendedConfig:
                 T_calib_imu_to_velo = _get_rigid_transformation(os.path.join(root_calibration_path, "calib_imu_to_velo.txt"))
 
                 return T_calib_velo_to_cam, T_calib_imu_to_velo
+            
+            def _get_euroc_transformation_config():
+                def _get_calibration_data(calib_path: str) -> Pose:
+                    with open(calib_path, 'r') as f:
+                        calib = yaml.safe_load(f)
+
+                    data = np.array(calib["T_BS"]["data"]).reshape(4, 4)
+                    return Pose(R=data[:3, :3], t=data[:3, 3])
+
+                variant = f"mav_{self.dataset.variant}"
+                imu_calibration_path = os.path.join(self.dataset.root_path, variant, 'imu0/sensor.yaml')
+                leica_calibration_path = os.path.join(self.dataset.root_path, variant, 'leica0/sensor.yaml')
+                camera_calibration_path = os.path.join(self.dataset.root_path, variant, 'cam0/sensor.yaml')
+                T_calib_imu_to_inertial = _get_calibration_data(imu_calibration_path)
+                T_calib_leica_to_inertial = _get_calibration_data(leica_calibration_path)
+                T_calib_cam_to_inertial = _get_calibration_data(camera_calibration_path)
+
+                # Align the inertial frame such that x is forward, y is left, z is up
+                # R = BaseGeometryTransformer.Ry(np.radians(90)) @ BaseGeometryTransformer.Rx(np.radians(180))
+                # T_calib_imu_to_inertial = Pose(R=R, t=np.zeros(3)) * T_calib_imu_to_inertial
+
+                return T_calib_imu_to_inertial, T_calib_leica_to_inertial, T_calib_cam_to_inertial
 
             dataset_type = DatasetType.get_type_from_str(self.dataset.type)
             if dataset_type == DatasetType.KITTI:
+                angle_compensation = KITTI_ANGLE_COMPENSATION_CAMERA_TO_INERTIAL.get(self.dataset.variant, 0.0)
+                T_angle_compensation = np.vstack(
+                    (np.hstack((BaseGeometryTransformer.Rz(angle_compensation), np.zeros((3, 1)))), 
+                     np.array([0, 0, 0, 1])))
+                T_angle_compensation = np.linalg.inv(T_angle_compensation)
+                
                 T_calib_velo_to_cam, T_calib_imu_to_velo = _get_kitti_transformation_config()
+                T_from_imu_to_cam = T_calib_imu_to_velo @ T_calib_velo_to_cam
 
                 return TransformationConfig.from_kitti_config(
-                    T_calib_velo_to_cam=T_calib_velo_to_cam,
-                    T_calib_imu_to_velo=T_calib_imu_to_velo,
+                    T_from_imu_to_cam=T_from_imu_to_cam,
+                    T_angle_compensation=T_angle_compensation
                 )
             elif dataset_type == DatasetType.EUROC:
-                # TODO: Implement Euroc transformation config
-                raise NotImplementedError("Euroc transformation config is not implemented.")
+                T_calib_imu_to_inertial, T_calib_leica_to_inertial, T_calib_cam_to_inertial = _get_euroc_transformation_config()
+
+                T_from_cam_to_imu = T_calib_cam_to_inertial.matrix()
+                T_from_imu_to_cam = T_calib_cam_to_inertial.inverse().matrix()
+                T_from_imu_to_inertial = T_calib_imu_to_inertial.matrix()
+                T_leica_to_inertial = T_calib_leica_to_inertial.matrix()
+
+                return TransformationConfig.from_euroc_config(
+                    T_from_cam_to_imu=T_from_cam_to_imu,
+                    T_from_imu_to_cam=T_from_imu_to_cam,
+                    T_from_imu_to_inertial=T_from_imu_to_inertial,
+                    T_leica_to_inertial=T_leica_to_inertial
+                )
+            
             else:
                 logging.error(f"Dataset type {self.dataset.type} is not supported for transformation configuration.")
 
         def _get_imu_config() -> ImuConfig:
             
             get_sensor_from_str = SensorType.get_sensor_from_str_func(d=self.dataset.type)
+            for s in self.dataset.sensors:
+                print(s.name)
             imu = [sensor for sensor in self.dataset.sensors if SensorType.is_imu_data(get_sensor_from_str(sensor.name))]
             frequency = imu[0].args.get("frequency", 100) if len(imu) != 0 else 100
             if frequency < 100:

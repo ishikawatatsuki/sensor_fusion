@@ -99,7 +99,7 @@ class EnsembleKalmanFilter(BaseFilter):
         
         a = u[:3]
         w = u[3:]
-        wx, _, wz = w
+        wx, _, wz = w + 1e-17
         a = a.reshape(-1, 1)
         w = w.reshape(-1, 1)
         

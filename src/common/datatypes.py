@@ -119,7 +119,7 @@ class EuRoC_SensorType(IntEnum):
     EuRoC_STEREO = auto()
     EuRoC_LEICA = auto()
 
-    EuRoC_CUSTOM_VO = auto()
+    EuRoC_VO = auto()
     
     @staticmethod
     def get_enum_name_list():
@@ -193,7 +193,7 @@ class SensorType(KITTI_SensorType, EuRoC_SensorType):
     def is_vo_data(t):
         return t.name in [
             SensorType.KITTI_VO.name,
-            SensorType.EuRoC_CUSTOM_VO.name
+            SensorType.EuRoC_VO.name
         ]
     
     @staticmethod
@@ -250,7 +250,8 @@ class CoordinateFrame(Enum):
     GPS = "GPS"
     STEREO_LEFT = "STEREO_LEFT"
     STEREO_RIGHT = "STEREO_RIGHT"
-
+    LEICA = "LEICA"
+    
     INERTIAL = "INERTIAL"  # Inertial world frame
 
 class MotionModel(Enum):
@@ -677,8 +678,10 @@ class ImageData:
 
 @dataclass
 class VisualOdometryData:
+    success: bool
     relative_pose: Pose
-    timestamp: int
+    image_timestamp: int
+    estimate_timestamp: int
     dt: float
 
 @dataclass
@@ -710,6 +713,7 @@ class VisualizationDataType(IntEnum):
     GYROSCOPE = auto()
     VELOCITY = auto()
     ANGLE = auto()
+    LEICA = auto()
 
 
     STATE = auto()
