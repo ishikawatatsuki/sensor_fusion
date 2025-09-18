@@ -189,6 +189,64 @@ class MatcherType(Enum):
                 matcher = cv2.BFMatcher()
             
         return matcher
+    
+def filter_keypoints_by_border(keypoints, descriptors, img_shape, border=10):
+    h, w = img_shape[:2]
+    mask = [
+        (border < kp.pt[0] < w - border) and 
+        (border < kp.pt[1] < h - border)
+        for kp in keypoints
+    ]
+    filtered_kp = [kp for kp, keep in zip(keypoints, mask) if keep]
+    filtered_desc = descriptors[np.array(mask)]
+    return filtered_kp, filtered_desc
+
+def filter_keypoints_by_response(keypoints, descriptors, threshold=0.01):
+    mask = [kp.response > threshold for kp in keypoints]
+    filtered_kp = [kp for kp, keep in zip(keypoints, mask) if keep]
+    filtered_desc = descriptors[np.array(mask)]
+    return filtered_kp, filtered_desc
+
+def filter_keypoints_by_size(keypoints, descriptors, min_size=1, max_size=50, min_keypoints_size=100):
+    if len(keypoints) <= min_keypoints_size:
+        logging.warning("Not enough keypoints to filter by size. Returning original keypoints.")
+        return keypoints, descriptors
+    
+    mask = [min_size < kp.size < max_size for kp in keypoints]
+    filtered_kp = [kp for kp, keep in zip(keypoints, mask) if keep]
+    filtered_desc = descriptors[np.array(mask)]
+    return filtered_kp, filtered_desc
+
+def filter_keypoints_by_depth(keypoints, descriptors, depth_image, min_depth=0.1, max_depth=50.0, min_keypoints_size=100):
+    """
+    keypoints: list of cv2.KeyPoint
+    descriptors: np.ndarray (N x 128 for SIFT)
+    depth_image: np.ndarray (same width/height as input image)
+    min_depth, max_depth: valid depth range (in meters or dataset units)
+    """
+    if len(keypoints) <= min_keypoints_size:
+        logging.warning("Not enough keypoints to filter by depth. Returning original keypoints.")
+        return keypoints, descriptors
+    
+    filtered_kp = []
+    filtered_desc = []
+
+    for kp, desc in zip(keypoints, descriptors):
+        x, y = int(round(kp.pt[0])), int(round(kp.pt[1]))
+        if x < 0 or y < 0 or y >= depth_image.shape[0] or x >= depth_image.shape[1]:
+            continue
+        depth = depth_image[y, x]
+        
+        # skip invalid or too far/close depths
+        if np.isnan(depth) or depth <= 0:
+            continue
+        if depth < min_depth or depth > max_depth:
+            continue
+        
+        filtered_kp.append(kp)
+        filtered_desc.append(desc)
+
+    return filtered_kp, np.array(filtered_desc)
 
 def grid_sample_indices(image_shape: Tuple[int, int], keypoints: list[cv2.KeyPoint], grid_rows=4, grid_cols=4, max_per_cell=10):
     """
@@ -225,6 +283,15 @@ def grid_sample_indices(image_shape: Tuple[int, int], keypoints: list[cv2.KeyPoi
 
     return selected_indices
 
+def sample_keypoints_uniformly(keypoints, descriptors, img_shape, grid_rows=4, grid_cols=4, max_per_cell=10, min_keypoints_size=100):
+    if len(keypoints) <= min_keypoints_size:
+        logging.warning("Not enough keypoints to sample uniformly. Returning original keypoints.")
+        return keypoints, descriptors
+
+    uniformly_distributed_samples_index = grid_sample_indices(img_shape, keypoints, grid_rows, grid_cols, max_per_cell)
+    keypoints = [keypoints[i] for i in uniformly_distributed_samples_index]
+    descriptors = descriptors[uniformly_distributed_samples_index]
+    return keypoints, descriptors
 
 def draw_reprojection(image, measured_pts, projected_pts):
     img_vis = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR) if len(image.shape) == 2 else image.copy()

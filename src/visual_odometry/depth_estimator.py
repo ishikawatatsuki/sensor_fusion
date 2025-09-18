@@ -148,22 +148,29 @@ def visualize_depth_overlay(image, depth_map, stride=20):
 
 if __name__ == "__main__":
     import requests
+    from .vo_utils import (
+        filter_keypoints_by_border,
+        filter_keypoints_by_response,
+        filter_keypoints_by_size,
+        filter_keypoints_by_depth
+    )
 
     device = torch.device("mps" if torch.mps.is_available() else "cpu")
     # url = 'http://images.cocodataset.org/val2017/000000039769.jpg'
     # image = Image.open(requests.get(url, stream=True).raw)
-    base_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/KITTI/2011_09_30/2011_09_30_drive_0020_sync/image_00/data/0000000006.png"
+    base_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/KITTI/2011_10_03/2011_10_03_drive_0042_sync/image_02/data/0000000222.png"
+    # base_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/EuRoC/mav_01/cam0/data/1403636591263555584.png"
     image = cv2.imread(base_dir)
     print(image.shape)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    print(image.shape)
-    image = Image.fromarray(image)
+    rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    print(rgb_image.shape)
+    rgb_image = Image.fromarray(rgb_image)
 
     config = VisualOdometryConfig(
         type='monocular',
         estimator='2d3d',
         camera_id='left',
-        depth_estimator='depth_anything',
+        depth_estimator='dino_v2',
         params={
             'max_features': 1000,
             'ransac_reproj_threshold': 1.0,
@@ -172,20 +179,33 @@ if __name__ == "__main__":
         }
     )
 
+    output_dir = "src/visual_odometry/output_depth_estimation_color"
+    os.makedirs(output_dir, exist_ok=True)
+
     depth_estimator = DepthEstimator(config=config)
-    depth = depth_estimator.estimate_depth(np.array(image))
+    depth = depth_estimator.estimate_depth(np.array(rgb_image))
     depth_np = np.array(depth)
     print(depth_np.shape)
     print(depth_np.max(), depth_np.min())
     print(depth_np)
     depth = Image.fromarray(depth.astype("uint8"))
-    depth.save("depth_estimation_output.png")
+    depth.save(os.path.join(output_dir, "depth_map.png"))
 
     # Visualize the depth map
     plt.imshow(depth, cmap="inferno")
     plt.colorbar()
     plt.title('Depth Estimation Output')
     plt.axis('off')
-    plt.show()
+    plt.savefig(os.path.join(output_dir, "depth_map_visualization.png"))
 
+    detector = cv2.SIFT().create(nfeatures=1000, sigma=1.6)
+    keypoints, descriptors = detector.detectAndCompute(image, mask=None)
+    keypoints, descriptors = filter_keypoints_by_border(keypoints, descriptors, image.shape, border=30)
+    keypoints, descriptors = filter_keypoints_by_response(keypoints, descriptors, threshold=0.01)
+    keypoints, descriptors = filter_keypoints_by_size(keypoints, descriptors, min_size=2.0, max_size=10.0)
+    keypoints, descriptors = filter_keypoints_by_depth(keypoints, descriptors, depth_np, min_depth=1.0, max_depth=20.0)
+
+    if keypoints:
+            image_with_keypoints = cv2.drawKeypoints(image, keypoints, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+            cv2.imwrite(os.path.join(output_dir, "keypoints.png"), image_with_keypoints)
     # visualize_depth_overlay(np.array(image), depth_np)

@@ -47,37 +47,43 @@ jupyter_up:
 	docker run --rm --user root -p 8888:8888 -v .:/app -it ${CONTAINER_TAG}:1.0 jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --notebook-dir=/app --allow-root
 
 run_kitti:
-	python -m src.pipeline --config_file ./configs/kitti_config.yaml --log_output .debugging --log_level INFO
+	python -m src.pipeline --config_file ./configs/kitti_config.yaml --log_output .debugging --log_level DEBUG
 
 run_euroc:
 	python -m src.pipeline --config_file ./configs/euroc_config.yaml --log_output .debugging --log_level DEBUG
 
-export_vo_estimates:
-	python -m src._experiments.run_visual_odometry \
+run_vo_pose_2d2d_experiment:
+	python -m src._kitti.run_visual_odometry \
 		--dataset_path ./data/KITTI \
-		--output_path ./outputs/vo_estimates/pose_estimation \
+		--output_path ./outputs/vo_estimates/pose_estimation_2d2d_improved \
+		--config_file ./configs/kitti_config.yaml
+
+run_vo_pose_2d3d_experiment:
+	python -m src._kitti.run_visual_odometry_2d3d \
+		--dataset_path ./data/KITTI \
+		--output_path ./outputs/vo_estimates/pose_estimation_2d3d_improved \
 		--config_file ./configs/kitti_config.yaml
 
 run_vo_pose_hybrid_experiment:
-	python -m src._experiments.run_visual_odometry_hybrid \
+	python -m src._kitti.run_visual_odometry_hybrid \
 		--dataset_path ./data/KITTI \
-		--output_path ./outputs/vo_estimates/pose_estimation_hybrid \
+		--output_path ./outputs/vo_estimates/pose_estimation_hybrid_improved \
 		--config_file ./configs/kitti_config.yaml
 
 
 run_vo_pose_euroc_experiment:
-	python -m src._experiments.run_visual_odometry_euroc \
+	python -m src._euroc.run_visual_odometry \
 		--dataset_path ./data/EuRoC \
 		--config_file ./configs/euroc_config.yaml
 
 
 run_vo_pose_euroc_2d3d_experiment:
-	python -m src._experiments.run_visual_odometry_2d3d_euroc \
+	python -m src._euroc.run_visual_odometry_2d3d \
 		--dataset_path ./data/EuRoC \
 		--config_file ./configs/euroc_config.yaml
 
 run_vo_pose_euroc_hybrid_experiment:
-	python -m src._experiments.run_visual_odometry_hybrid_euroc \
+	python -m src._euroc.run_visual_odometry_hybrid \
 		--dataset_path ./data/EuRoC \
 		--config_file ./configs/euroc_config.yaml
 
