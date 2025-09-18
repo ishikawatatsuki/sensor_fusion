@@ -14,7 +14,7 @@ from sklearn.metrics import mean_absolute_error
 from ..visual_odometry.visual_odometry import VisualOdometry
 from ..misc import setup_logging
 from ..internal.extended_common import VisualOdometryConfig, DatasetConfig
-from ..common.constants import EUROC_SEQUENCE_MAPS
+from ..common.constants import KITTI_SEQUENCE_TO_DATE, KITTI_SEQUENCE_TO_DRIVE
 from ..common.datatypes import ImageData
 
 
@@ -25,6 +25,12 @@ def parse_args():
         type=str, 
         required=True, 
         help="Path to the dataset directory"
+    )
+    parser.add_argument(
+        "--output_path", 
+        type=str, 
+        required=True, 
+        help="Path to save the output results"
     )
     parser.add_argument(
         "--config_file", 
@@ -44,7 +50,7 @@ def run_vo(
     ):
 
     dataset_config = DatasetConfig(
-        type='euroc',
+        type='kitti',
         mode='stream',
         root_path=rootpath,
         variant=variant,
@@ -58,21 +64,24 @@ def run_vo(
 
     logging.info("Visual Odometry initialized.")
     
-    sequence = EUROC_SEQUENCE_MAPS.get(variant, None)
-    if sequence is None:
+    driving_date = KITTI_SEQUENCE_TO_DATE.get(variant, None)
+    sequence_nr = KITTI_SEQUENCE_TO_DRIVE.get(variant, None)
+    if driving_date is None or sequence_nr is None:
         raise ValueError(f"Unknown driving date or sequence number for variant {variant}")
     
-    image_path = os.path.join(rootpath, f"{sequence}/cam0/data")
+    image_folder = f"{driving_date}/{driving_date}_drive_{sequence_nr}_sync/image_00/data"
+
+    image_path = os.path.join(rootpath, image_folder)
     image_files = sorted([f for f in os.listdir(image_path) if f.endswith('.png')])
 
     logging.info(f"Found {len(image_files)} image files.")
 
-    ground_truth_path = os.path.join(rootpath, f"{sequence}/state_groundtruth_estimate0/data.csv")
-    columns = "#timestamp, p_RS_R_x [m], p_RS_R_y [m], p_RS_R_z [m], q_RS_w [], q_RS_x [], q_RS_y [], q_RS_z [], v_RS_R_x [m s^-1], v_RS_R_y [m s^-1], v_RS_R_z [m s^-1], b_w_RS_S_x [rad s^-1], b_w_RS_S_y [rad s^-1], b_w_RS_S_z [rad s^-1], b_a_RS_S_x [m s^-2], b_a_RS_S_y [m s^-2], b_a_RS_S_z [m s^-2]".split(", ")
-    df = pd.read_csv(ground_truth_path, names=columns, skiprows=1)
-    gt_position = df[["p_RS_R_x [m]", "p_RS_R_y [m]", "p_RS_R_z [m]"]].values
+    ground_truth_path = os.path.join(rootpath, f"ground_truth/{variant}.txt")
+    ground_truth = pd.read_csv(ground_truth_path, sep=' ', header=None, skiprows=1).values
+    ground_truth_mat = ground_truth.reshape(-1, 3, 4)
+    gt_position = ground_truth_mat[:, :3, 3]
 
-    logging.info(f"Loaded ground truth data with {len(gt_position)} entries.")
+    logging.info(f"Loaded ground truth data with {len(ground_truth)} entries.")
 
 
     ground_truth_position = []
@@ -80,6 +89,7 @@ def run_vo(
 
     estimated_pose = []
     current_pose = np.eye(4)
+    current_pose[:3, :3] = ground_truth_mat[0, :3, :3]
     estimated_position.append(current_pose[:3, 3])
     ground_truth_position.append(gt_position[0])
 
@@ -91,8 +101,9 @@ def run_vo(
         idx = i + 1
         frame_path = os.path.join(image_path, image_file)
         frame = cv2.imread(frame_path)
-        pose = vo.compute_pose(ImageData(image=frame, timestamp=time.time()))
-        if pose is not None:
+        vo_output = vo.compute_pose(ImageData(image=frame, timestamp=time.time()))
+        if vo_output.success:
+            pose = vo_output.relative_pose
             current_pose = current_pose @ pose
             estimated_pose.append(current_pose[:3, :].flatten())
 
@@ -126,9 +137,9 @@ def run_vo(
     logging.info(f"Mean Absolute Error (MAE) of the estimated positions: {mae:.4f}m")
 
 
-    abs_output_filename = os.path.join(output_dir, f"absolute_pose/{sequence}/data.csv")
-    relative_output_filename = os.path.join(output_dir, f"relative_pose/{sequence}/data.csv")
-    keypoints_output_filename = os.path.join(output_dir, f"keypoints/{sequence}/data.csv")
+    abs_output_filename = os.path.join(output_dir, f"absolute_pose/{driving_date}/{sequence_nr}/data.csv")
+    relative_output_filename = os.path.join(output_dir, f"relative_pose/{driving_date}/{sequence_nr}/data.csv")
+    keypoints_output_filename = os.path.join(output_dir, f"keypoints/{driving_date}/{sequence_nr}/data.csv")
     output_image_filename = os.path.join(output_dir, f"images/{variant}.png")
 
     abs_csv_dir_name = os.path.dirname(abs_output_filename)
@@ -171,7 +182,7 @@ def run_vo(
 if __name__ == "__main__":
 
     args = parse_args()
-    setup_logging(log_level='INFO', log_output='.debugging/export_vo_estimate_log_hybrid_euroc')
+    setup_logging(log_level='INFO', log_output='.debugging/export_vo_estimate_log_hybrid')
 
     logging.info("Starting Visual Odometry experiment.")
     logging.debug(f"args: {args}")
@@ -188,21 +199,30 @@ if __name__ == "__main__":
         logging.error("Visual Odometry configuration not found in the config file.")
         exit(1)
 
-    output_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/outputs/vo_estimates/pose_estimates_hybrid_euroc"
-    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(args.output_path, exist_ok=True)
 
     variants = [
-        "01",
+        # "01",
+        # "02",
+        "03",
+        "04",
+        # "05",
+        # "06",
+        "07",
+        # "08",
+        "09",
+        # "10"
     ]
 
     for variant in variants:
 
         config = VisualOdometryConfig.from_json(vo_json_config)
+        config.type = "monocular"
         config.estimator = "hybrid"
 
         run_vo(
             rootpath=args.dataset_path,
             variant=variant,
-            output_dir=output_dir,
+            output_dir=args.output_path,
             config=config
         )
