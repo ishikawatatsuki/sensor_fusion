@@ -16,12 +16,14 @@ data
 *.out
 *.stat
 
+.debugging
 _debugging
 outputs/EuRoC/*
 outputs/KITTI/*
 !outputs/KITTI/errors
 outputs/UAV/*
 src/visual_odometry/models
+src/visual_odometry/segformer_model
 outputs/vo_experiments
 outputs/vo_estimates/vo_debug/*
 outputs/experiments/*

@@ -314,6 +314,7 @@ class MonocularVisualOdometry:
     def _estimate_2d2d_pose(self, args: PoseEstimatorArgs) -> np.ndarray:
         prev_pts, next_pts, mask = args.prev_pts, args.next_pts, args.mask
 
+        # This function finds the essential matrix E that satisfies the epipolar constraint
         E, _mask = cv2.findEssentialMat(prev_pts, next_pts, self.K, method=cv2.RANSAC, prob=self.confidence, threshold=self.ransac_reproj_threshold)
         if E is None:
             logging.debug("Essential matrix estimation failed.")

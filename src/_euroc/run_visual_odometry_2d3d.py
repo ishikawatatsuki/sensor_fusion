@@ -178,7 +178,7 @@ if __name__ == "__main__":
         exit(1)
 
 
-    output_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/outputs/vo_estimates/pose_estimates_2d3d_euroc_test"
+    output_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/outputs/vo_estimates/pose_estimates_2d3d_euroc_improved"
     os.makedirs(output_dir, exist_ok=True)
 
     variants = [
@@ -188,6 +188,7 @@ if __name__ == "__main__":
     for variant in variants:
 
         config = VisualOdometryConfig.from_json(vo_json_config)
+        config.type = "monocular"
         config.estimator = "2d3d"
         run_vo(
             rootpath=args.dataset_path,

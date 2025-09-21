@@ -106,9 +106,9 @@ class DatasetConfig:
             "imu_config_path": self.imu_config_path,
             "sensor_config_path": self.sensor_config_path
         }
-    
-    def set_run_visual_odometry(self, run_vo: bool):
-        self.run_visual_odometry = run_vo
+
+    def set_run_visual_odometry(self):
+        self.run_visual_odometry = True
 
     @property
     def should_run_visual_odometry(self) -> bool:
@@ -248,8 +248,8 @@ class ExtendedConfig:
                         args=value.get("args", {}),
                     )
                 )
-            if "vo" in sensor.lower() and value.get("selected", False):
-                self.dataset.set_run_visual_odometry(True)
+                if "vo" in sensor.lower():
+                    self.dataset.set_run_visual_odometry()
 
         self.dataset.sensors = sensors
         self.filter = FilterConfig(**self.parsed_config["filter"])
@@ -407,6 +407,17 @@ class ExtendedConfig:
             transformation=transformation,
         )
 
+def dump_config(filter_config: FilterConfig, dataset_config: DatasetConfig, vo_config: VisualOdometryConfig, output_filepath: str):
+    """ Dump the configuration to a YAML file.
+
+    Args:
+        config (ExtendedConfig): Configuration object.
+        output_filepath (str): Path to the output YAML file.
+    """
+    import yaml
+    with open(output_filepath, 'w') as f:
+        yaml.dump({"filter": filter_config.to_dict(), "dataset": dataset_config.to_dict(), "visual_odometry": vo_config.to_dict()}, f)
+    logging.info(f"Configuration dumped to {output_filepath}")
 
 if __name__ == "__main__":
     config_file = "configs/kitti_config.yaml"

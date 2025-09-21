@@ -109,7 +109,7 @@ def parse_args():
         help='Stop the pipeline after the first iteration')
     
     return parser.parse_args()
-
+    
 if __name__ == "__main__":
     args = parse_args()
     setup_logging(log_level="DEBUG", log_output=args.log_output)

@@ -48,33 +48,10 @@ from ..internal.extended_common import (
 )
 from ..utils.geometric_transformer import TransformationField
 from ..common.constants import KITTI_SEQUENCE_MAPS
+from .mics import SENSOR_MAPS
 
 Result = namedtuple('Field', ['gt_position', 'estimated_position', 'vo_position', 'mae', 'ate', 'rpe_m', 'rpe_deg', 'inference_time_update', 'inference_measurement_update'])
 
-SENSOR_MAPS = {
-    'imu_vo_pos': {
-        'oxts_imu': {'fields': ['linear_acceleration', 'angular_velocity']},
-        'kitti_vo': {'fields': ['position']}
-    },
-    'imu_vo_vel': {
-        'oxts_imu': {'fields': ['linear_acceleration', 'angular_velocity']},
-        'kitti_vo': {'fields': ['linear_velocity']}
-    },
-    'imu_gps': {
-        'oxts_imu': {'fields': ['linear_acceleration', 'angular_velocity']},
-        'oxts_gps': {'fields': ['position']}
-    },
-    'imu_gps_vo_pos': {
-        'oxts_imu': {'fields': ['linear_acceleration', 'angular_velocity']},
-        'oxts_gps': {'fields': ['position']},
-        'kitti_vo': {'fields': ['position']}
-    },
-    'imu_gps_vo_vel': {
-        'oxts_imu': {'fields': ['linear_acceleration', 'angular_velocity']},
-        'oxts_gps': {'fields': ['position']},
-        'kitti_vo': {'fields': ['linear_velocity']}
-    },
-}
 
 class ExperimentalPipeline(SingleThreadedPipeline):
 

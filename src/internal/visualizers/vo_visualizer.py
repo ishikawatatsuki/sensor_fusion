@@ -97,7 +97,12 @@ class VO_Visualizer:
             axs[1][1].imshow(mask)
             axs[1][1].set_title("Mask")
             axs[1][1].axis("off")
-            
+
+            num_keypoints = len(pts_curr) if pts_curr is not None else 0
+            axs[1][0].text(
+                10, 20, f"Keypoints: {num_keypoints}", 
+                color="white", fontsize=10, backgroundcolor="black"
+            )
             axs[1][0].imshow(tracked_rgb)
             axs[1][0].set_title("Tracked Features")
             axs[1][0].axis("off")

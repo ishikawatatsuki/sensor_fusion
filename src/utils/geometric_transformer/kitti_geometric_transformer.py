@@ -81,7 +81,7 @@ class KITTI_GeometricTransformer(BaseGeometryTransformer):
         if data.ndim == 2:
             pose = np.eye(4)
             pose[:3, :] = data.copy()[:3, :]
-            pose_in_camera_coord = self.T_from_imu_to_cam @ pose
+            pose_in_camera_coord = self.T_from_imu_to_cam @ pose @ np.linalg.inv(self.T_from_imu_to_cam)
 
             return pose_in_camera_coord[:3, :]
 

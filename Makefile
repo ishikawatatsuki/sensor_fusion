@@ -88,15 +88,23 @@ run_vo_pose_euroc_hybrid_experiment:
 		--config_file ./configs/euroc_config.yaml
 
 
-run_all_kitti_experiments:
+
+run_all_combination_of_kitti_experiments:
 	python -m src._kitti.run_all_experiments \
-		--output_path ./outputs/KITTI/results \
+		--output_path ./outputs/KITTI/all_combinations/results \
 		--log_output ./.debugging/experiments \
 		--config_file ./configs/kitti_config_experiment_base.yaml \
 		--checkpoint_file ./outputs/KITTI/results/checkpoint.txt
 
-run_kitti_adaptive_noise_experiment:
-	echo "Running KITTI adaptive noise experiment..."
+run_kitti_experiments:
+	python -m src._kitti.run_kitti_experiment \
+		--output_path ./outputs/KITTI/specific_setups/results \
+		--log_output ./.debugging/experiments
+
+run_euroc_experiments:
+	python -m src._euroc.run_euroc_experiment \
+		--output_path ./outputs/EuRoC/specific_setups/results \
+		--log_output ./.debugging/experiments_euroc
 
 help:
 	@echo  'build	- Build the docker image.'

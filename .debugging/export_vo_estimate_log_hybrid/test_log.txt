@@ -10,8 +10,99 @@
 	feature_matcher=bf
 	camera_id=left
 	depth_estimator=zoe_depth
+	object_detector=segformer
 	use_advanced_detector=True
-	params={'confidence': 0.99, 'ransac_reproj_threshold': 1.0, 'matching_threshold': 0.5, 'max_features': 1000, 'min_depth_threshold': 1, 'max_depth_threshold': 50}
+	export_vo_data=True
+	export_vo_data_path=./data/KITTI/
+	params={'confidence': 0.99, 'ransac_reproj_threshold': 1.0, 'matching_threshold': 0.5, 'max_features': 1000, 'min_depth_threshold': 1, 'max_depth_threshold': 50, 'object_detection_confidence': 0.6, 'border_threshold': 30, 'response_threshold': 0.01, 'size_min': 2.0, 'size_max': 10.0, 'depth_min': 1.0, 'depth_max': 20.0}
+	dynamic_objects=['person', 'car', 'bicycle', 'motorbike', 'bus', 'truck', 'sky']
+)
+[92mINFO[0m:root:Dataset Config: DatasetConfig(
+	type=kitti
+	mode=stream
+	root_path=./data/KITTI
+	variant=03
+	sensors=[]
+	imu_config_path=None
+	sensor_config_path=None
+	)
+[92mINFO[0m:root:Visual Odometry initialized.
+[92mINFO[0m:root:Found 108 image files.
+[92mINFO[0m:root:Loaded ground truth data with 800 entries.
+[92mINFO[0m:root:Estimated Positions shape: (108, 3)
+[92mINFO[0m:root:Estimated Pose shape: (108, 3)
+[92mINFO[0m:root:Mean Absolute Error (MAE) of the estimated positions: 16.4865m
+[92mINFO[0m:root:VO Config: VisualOdometryConfig(
+	type=monocular
+	estimator=hybrid
+	feature_detector=sift
+	feature_matcher=bf
+	camera_id=left
+	depth_estimator=zoe_depth
+	object_detector=segformer
+	use_advanced_detector=True
+	export_vo_data=True
+	export_vo_data_path=./data/KITTI/
+	params={'confidence': 0.99, 'ransac_reproj_threshold': 1.0, 'matching_threshold': 0.5, 'max_features': 1000, 'min_depth_threshold': 1, 'max_depth_threshold': 50, 'object_detection_confidence': 0.6, 'border_threshold': 30, 'response_threshold': 0.01, 'size_min': 2.0, 'size_max': 10.0, 'depth_min': 1.0, 'depth_max': 20.0}
+	dynamic_objects=['person', 'car', 'bicycle', 'motorbike', 'bus', 'truck', 'sky']
+)
+[92mINFO[0m:root:Dataset Config: DatasetConfig(
+	type=kitti
+	mode=stream
+	root_path=./data/KITTI
+	variant=04
+	sensors=[]
+	imu_config_path=None
+	sensor_config_path=None
+	)
+[92mINFO[0m:root:Visual Odometry initialized.
+[92mINFO[0m:root:Found 279 image files.
+[92mINFO[0m:root:Loaded ground truth data with 270 entries.
+[92mINFO[0m:root:Estimated Positions shape: (269, 3)
+[92mINFO[0m:root:Estimated Pose shape: (269, 3)
+[92mINFO[0m:root:Mean Absolute Error (MAE) of the estimated positions: 23.9433m
+[92mINFO[0m:root:VO Config: VisualOdometryConfig(
+	type=monocular
+	estimator=hybrid
+	feature_detector=sift
+	feature_matcher=bf
+	camera_id=left
+	depth_estimator=zoe_depth
+	object_detector=segformer
+	use_advanced_detector=True
+	export_vo_data=True
+	export_vo_data_path=./data/KITTI/
+	params={'confidence': 0.99, 'ransac_reproj_threshold': 1.0, 'matching_threshold': 0.5, 'max_features': 1000, 'min_depth_threshold': 1, 'max_depth_threshold': 50, 'object_detection_confidence': 0.6, 'border_threshold': 30, 'response_threshold': 0.01, 'size_min': 2.0, 'size_max': 10.0, 'depth_min': 1.0, 'depth_max': 20.0}
+	dynamic_objects=['person', 'car', 'bicycle', 'motorbike', 'bus', 'truck', 'sky']
+)
+[92mINFO[0m:root:Dataset Config: DatasetConfig(
+	type=kitti
+	mode=stream
+	root_path=./data/KITTI
+	variant=07
+	sensors=[]
+	imu_config_path=None
+	sensor_config_path=None
+	)
+[92mINFO[0m:root:Visual Odometry initialized.
+[92mINFO[0m:root:Found 1106 image files.
+[92mINFO[0m:root:Loaded ground truth data with 1100 entries.
+[92mINFO[0m:root:Estimated Positions shape: (1099, 3)
+[92mINFO[0m:root:Estimated Pose shape: (1099, 3)
+[92mINFO[0m:root:Mean Absolute Error (MAE) of the estimated positions: 134.8135m
+[92mINFO[0m:root:VO Config: VisualOdometryConfig(
+	type=monocular
+	estimator=hybrid
+	feature_detector=sift
+	feature_matcher=bf
+	camera_id=left
+	depth_estimator=zoe_depth
+	object_detector=segformer
+	use_advanced_detector=True
+	export_vo_data=True
+	export_vo_data_path=./data/KITTI/
+	params={'confidence': 0.99, 'ransac_reproj_threshold': 1.0, 'matching_threshold': 0.5, 'max_features': 1000, 'min_depth_threshold': 1, 'max_depth_threshold': 50, 'object_detection_confidence': 0.6, 'border_threshold': 30, 'response_threshold': 0.01, 'size_min': 2.0, 'size_max': 10.0, 'depth_min': 1.0, 'depth_max': 20.0}
+	dynamic_objects=['person', 'car', 'bicycle', 'motorbike', 'bus', 'truck', 'sky']
 )
 [92mINFO[0m:root:Dataset Config: DatasetConfig(
 	type=kitti
@@ -27,29 +118,4 @@
 [92mINFO[0m:root:Loaded ground truth data with 1590 entries.
 [92mINFO[0m:root:Estimated Positions shape: (1589, 3)
 [92mINFO[0m:root:Estimated Pose shape: (1589, 3)
-[92mINFO[0m:root:Mean Absolute Error (MAE) of the estimated positions: 24.6603m
-[92mINFO[0m:root:VO Config: VisualOdometryConfig(
-	type=monocular
-	estimator=hybrid
-	feature_detector=sift
-	feature_matcher=bf
-	camera_id=left
-	depth_estimator=zoe_depth
-	use_advanced_detector=True
-	params={'confidence': 0.99, 'ransac_reproj_threshold': 1.0, 'matching_threshold': 0.5, 'max_features': 1000, 'min_depth_threshold': 1, 'max_depth_threshold': 50}
-)
-[92mINFO[0m:root:Dataset Config: DatasetConfig(
-	type=kitti
-	mode=stream
-	root_path=./data/KITTI
-	variant=10
-	sensors=[]
-	imu_config_path=None
-	sensor_config_path=None
-	)
-[92mINFO[0m:root:Visual Odometry initialized.
-[92mINFO[0m:root:Found 1224 image files.
-[92mINFO[0m:root:Loaded ground truth data with 1200 entries.
-[92mINFO[0m:root:Estimated Positions shape: (1199, 3)
-[92mINFO[0m:root:Estimated Pose shape: (1199, 3)
-[92mINFO[0m:root:Mean Absolute Error (MAE) of the estimated positions: 26.7843m
+[92mINFO[0m:root:Mean Absolute Error (MAE) of the estimated positions: 182.0511m

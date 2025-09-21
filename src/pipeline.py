@@ -62,7 +62,7 @@ class SingleThreadedPipeline(abc.ABC):
         self.visual_odometry = VisualOdometry(
             config=config.visual_odometry,
             dataset_config=config.dataset,
-            debug=self.log_level.lower() == "debug"
+            debug=False
         )
 
         # self.error_reporter = ErrorReporter(

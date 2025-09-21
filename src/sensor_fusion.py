@@ -184,7 +184,9 @@ class SensorFusion:
             response.vo_data = visualizing_data.flatten()[:3]
         elif SensorType.is_gps_data(sensor_data.type):
             response.gps_data = visualizing_data.flatten()[:3]
-            
+        elif SensorType.is_positioning_data(sensor_data.type):
+            response.leica_data = visualizing_data.flatten()[:3]
+
         return response
     
     def _get_vo_measurement_data(self, sensor_data: SensorDataField) -> Tuple[MeasurementUpdateField, FusionResponse]:

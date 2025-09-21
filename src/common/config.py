@@ -308,10 +308,12 @@ class VisualOdometryConfig:
         feature_detector: str = "sift",
         feature_matcher: str = "bf",
         depth_estimator: str = None,
+        object_detector: str = None,
         use_advanced_detector: bool = False,
         export_vo_data: bool = False,
         export_vo_data_path: str = "./data/",
         params: Dict[str, Union[int, float]] = {},
+        dynamic_objects: List[str] = [],
     ):
         self.type = type
         self.estimator = estimator
@@ -319,10 +321,12 @@ class VisualOdometryConfig:
         self.feature_detector = feature_detector
         self.feature_matcher = feature_matcher
         self.depth_estimator = depth_estimator
+        self.object_detector = object_detector
         self.use_advanced_detector = use_advanced_detector
         self.params = params
         self.export_vo_data = export_vo_data
         self.export_vo_data_path = export_vo_data_path
+        self.dynamic_objects = dynamic_objects
 
         logging.debug(f"VisualOdometryConfig initialized with: {self}")
 
@@ -342,10 +346,12 @@ class VisualOdometryConfig:
         feature_detector = json_data.get("feature_detector", "sift")
         feature_matcher = json_data.get("feature_matcher", "bf")
         depth_estimator = json_data.get("depth_estimator", None)
+        object_detector = json_data.get("object_detector", None)
         use_advanced_detector = json_data.get("use_advanced_detector", False)
         export_vo_data = json_data.get("export_vo_data", False)
         export_vo_data_path = json_data.get("export_vo_data_path", "./data/")
         params = json_data.get("params", {})
+        dynamic_objects = json_data.get("dynamic_objects", [])
 
         return cls(
             type=type,
@@ -354,10 +360,12 @@ class VisualOdometryConfig:
             feature_detector=feature_detector,
             feature_matcher=feature_matcher,
             depth_estimator=depth_estimator,
+            object_detector=object_detector,
             use_advanced_detector=use_advanced_detector,
             export_vo_data=export_vo_data,
             export_vo_data_path=export_vo_data_path,
-            params=params
+            params=params,
+            dynamic_objects=dynamic_objects
         )
     def __str__(self):
         return \
@@ -368,11 +376,30 @@ class VisualOdometryConfig:
             f"\tfeature_matcher={self.feature_matcher}\n" \
             f"\tcamera_id={self.camera_id}\n" \
             f"\tdepth_estimator={self.depth_estimator}\n" \
+            f"\tobject_detector={self.object_detector}\n" \
             f"\tuse_advanced_detector={self.use_advanced_detector}\n" \
             f"\texport_vo_data={self.export_vo_data}\n" \
             f"\texport_vo_data_path={self.export_vo_data_path}\n" \
             f"\tparams={self.params}\n" \
+            f"\tdynamic_objects={self.dynamic_objects}\n" \
             f")"
+
+    def to_dict(self):
+        return {
+            "type": self.type,
+            "estimator": self.estimator,
+            "camera_id": self.camera_id,
+            "feature_detector": self.feature_detector,
+            "feature_matcher": self.feature_matcher,
+            "depth_estimator": self.depth_estimator,
+            "object_detector": self.object_detector,
+            "use_advanced_detector": self.use_advanced_detector,
+            "export_vo_data": self.export_vo_data,
+            "export_vo_data_path": self.export_vo_data_path,
+            "params": self.params,
+            "dynamic_objects": self.dynamic_objects
+        }
+
 
 class Config:
 

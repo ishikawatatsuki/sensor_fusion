@@ -26,7 +26,7 @@ visualization:
     estimation: True
     image: True
     gps: False
-    vo: False
+    vo: True
     leica: True
     velocity: True
     angle: True
@@ -114,21 +114,29 @@ filter:
 
 visual_odometry:
   type: static # Select from: monocular or static (saved vo data)
-  estimator: 2d2d # Select from: 2d2d, 2d3d, hybrid
+  estimator: 2d3d # Select from: 2d2d, 2d3d, hybrid
   camera_id: left
-  depth_estimator: zoe_depth # Select from: zoe_depth
-  feature_detector: sift # Select from: sift, orb, akaze, kaze, superpoint
-  feature_matcher: bf # Select from: bf, flann
+  depth_estimator: dino_v2 # Select from: zoe_depth
+  object_detector: segformer # Select from: yolo11 or segformer
+  feature_detector: SIFT # Select from: sift, orb, akaze, kaze, superpoint
+  feature_matcher: BF # Select from: bf, flann
   use_advanced_detector: True
   export_vo_data: True
   export_vo_data_path: ./data/EuRoC/
   params: 
     # 2d2d
-    confidence: 0.99
-    ransac_reproj_threshold: 1.0
-    matching_threshold: 0.5
+    confidence: 0.90
+    ransac_reproj_threshold: 0.999
+    matching_threshold: 0.45
     max_features: 1000
-    # 3d3d
-    min_depth_threshold: 1
-    max_depth_threshold: 50
     # {'detector_matcher': ('SIFT', 'BF'), 'confidence': 0.9400000000000001, 'ransac_reproj_threshold': 1.0, 'matching_threshold': 0.5}
+    object_detection_confidence: 0.7
+    # Keypoints filtering
+    border_threshold: 10
+    response_threshold: 0.01
+    size_min: 2.0
+    size_max: 10.0
+    depth_min: 1.0
+    depth_max: 35.0
+    min_number_of_keypoints: 300
+  dynamic_objects:

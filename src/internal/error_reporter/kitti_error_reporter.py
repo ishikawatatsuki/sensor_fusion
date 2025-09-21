@@ -538,7 +538,7 @@ class KittiEvalOdom():
             file_name = 'data.txt'.format(i)
 
             poses_result = self.load_poses_from_txt(result_dir+"/"+file_name)
-            poses_gt = self.load_poses_from_txt(self.gt_dir + "/" + "09.txt")
+            poses_gt = self.load_poses_from_txt(self.gt_dir + "/" + self.cur_seq + ".txt")
             self.result_file_name = result_dir+file_name
 
             # Pose alignment to first frame
@@ -697,13 +697,12 @@ if __name__ == "__main__":
     import pandas as pd
     import matplotlib.pyplot as plt
 
-    gt_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/KITTI/ground_truth"
-    result_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/KITTI/vo_pose_estimates_stereo/2011_09_30/0033"
+    saved_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/src/internal/error_reporter"
     vo_eval = KittiEvalOdom()
-    vo_eval.eval(gt_dir, result_dir, alignment=None, seqs='09')
+    vo_eval.eval(saved_dir, saved_dir, alignment=None, seqs=['07'])
 
-    gt_pose = pd.read_csv("/Volumes/Data_EXT/data/workspaces/sensor_fusion/gt_pose.txt", header=None, sep=" ").values.reshape(-1, 3, 4)
-    estimated_pose = pd.read_csv("/Volumes/Data_EXT/data/workspaces/sensor_fusion/estimated_pose.txt", header=None, sep=" ").values.reshape(-1, 3, 4)
+    gt_pose = pd.read_csv(os.path.join(saved_dir, "07.txt"), header=None, sep=" ").values.reshape(-1, 3, 4)
+    estimated_pose = pd.read_csv(os.path.join(saved_dir, "data.txt"), header=None, sep=" ").values.reshape(-1, 3, 4)
     print(gt_pose.shape, estimated_pose.shape)
     min_length = min(gt_pose.shape[0], estimated_pose.shape[0])
     gt_pose = gt_pose[:min_length]

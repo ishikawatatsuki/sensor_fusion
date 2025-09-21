@@ -61,7 +61,7 @@ dataset:
       args:
         frequency: 10 # Hz
     oxts_gps: 
-      selected: True
+      selected: False
       dropout_ratio: 0
       window_size: 1
       args:
@@ -79,7 +79,7 @@ dataset:
       args:
         frequency: 10
     kitti_vo:
-      selected: False
+      selected: True
       dropout_ratio: 0
       window_size: 1
       args:
@@ -103,7 +103,7 @@ report:
   location_only: False 
 
 filter:
-  type: ckf # Select from: ekf, ukf, pf, enkf, ckf
+  type: pf # Select from: ekf, ukf, pf, enkf, ckf
   dimension: 2
   motion_model: velocity # kinematics or velocity
   innovation_masking: False
@@ -111,16 +111,16 @@ filter:
   compensate_gravity: True
   use_imu_preprocessing: False
   params:
-    #ukf
+    # ukf
     alpha: 1.0
     beta: 2.0
     kappa: 0.
-    #pf
-    particle_size: 1024
-    resampling_algorithm: stratified # Select from: multinomial, redidual, systematic, stratified
-    scale_for_ess_threshold: .7 # from 0. to 1.
+    # pf
+    particle_size: 2048
+    resampling_algorithm: stratified # Select from: multinomial, residual, systematic, stratified
+    scale_for_ess_threshold: .8 # from 0. to 1.
     distribution: multivariate_normal # Select from multivariate_normal, multivariate_student_t
-    #enkf
+    # enkf
     ensemble_size: 128
   sensors: # Sensor fields to be fused
     oxts_imu:
@@ -157,19 +157,30 @@ visual_odometry:
   type: static # Select from: monocular, static (saved vo data)
   estimator: 2d3d # Select from: 2d2d, 2d3d, hybrid
   camera_id: left
-  depth_estimator: zoe_depth # Select from: zoe_depth
-  feature_detector: sift # Select from: sift, orb, akaze, kaze, superpoint
-  feature_matcher: bf # Select from: bf, flann
+  depth_estimator: dino_v2 # Select from: zoe_depth
+  object_detector: segformer # Select from: yolo11 or segformer
+  feature_detector: SIFT # Select from: sift, orb, akaze, kaze, superpoint
+  feature_matcher: BF # Select from: bf, flann
   use_advanced_detector: True
-  export_vo_data: True
+  export_vo_data: False
   export_vo_data_path: ./data/KITTI/
   params: 
     # 2d2d
-    confidence: 0.99
-    ransac_reproj_threshold: 1.0
-    matching_threshold: 0.5
+    confidence: 0.90
+    ransac_reproj_threshold: 0.999
+    matching_threshold: 0.45
     max_features: 1000
-    # 3d3d
-    min_depth_threshold: 1
-    max_depth_threshold: 50
     # {'detector_matcher': ('SIFT', 'BF'), 'confidence': 0.9400000000000001, 'ransac_reproj_threshold': 1.0, 'matching_threshold': 0.5}
+    object_detection_confidence: 0.7
+    # Keypoints filtering
+    border_threshold: 10
+    response_threshold: 0.01
+    size_min: 2.0
+    size_max: 10.0
+    depth_min: 1.0
+    depth_max: 35.0
+    min_number_of_keypoints: 300
+  dynamic_objects:
+    - truck
+    - bus
+    - sky
