@@ -9,7 +9,7 @@ from typing import List, Union, Tuple
 from scipy.spatial.transform import Rotation
 
 from ...utils.geometric_transformer.base_geometric_transformer import BaseGeometryTransformer
-from ...common.constants import KITTI_SEQUENCE_TO_DATE, KITTI_ANGLE_COMPENSATION_CAMERA_TO_INERTIAL
+from ...common.constants import KITTI_SEQUENCE_TO_DATE, KITTI_ANGLE_COMPENSATION_CAMERA_TO_INERTIAL, EUROC_SEQUENCE_MAPS
 from ...common.datatypes import SensorConfig, VisualizationDataType, SensorType, DatasetType, Pose
 from ...common.config import FilterConfig, HardwareConfig, ImuConfig, TransformationConfig, VisualOdometryConfig
 
@@ -307,7 +307,7 @@ class ExtendedConfig:
                     data = np.array(calib["T_BS"]["data"]).reshape(4, 4)
                     return Pose(R=data[:3, :3], t=data[:3, 3])
 
-                variant = f"mav_{self.dataset.variant}"
+                variant = EUROC_SEQUENCE_MAPS.get(self.dataset.variant, "MH_01_easy")
                 imu_calibration_path = os.path.join(self.dataset.root_path, variant, 'imu0/sensor.yaml')
                 leica_calibration_path = os.path.join(self.dataset.root_path, variant, 'leica0/sensor.yaml')
                 camera_calibration_path = os.path.join(self.dataset.root_path, variant, 'cam0/sensor.yaml')

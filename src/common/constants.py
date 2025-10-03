@@ -69,9 +69,9 @@ KITTI_ANGLE_COMPENSATION_CAMERA_TO_INERTIAL = {
 }
 
 EUROC_SEQUENCE_MAPS = {
-    "01": "mav_01",
-    "02": "mav_02",
-    "03": "mav_03"
+    "01": "MH_01_easy",
+    "02": "MH_02_easy",
+    "03": "MH_03_medium"
 }
 
 VO_POSE_ESTIMATION_MAP = {

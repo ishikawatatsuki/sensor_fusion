@@ -159,7 +159,7 @@ if __name__ == "__main__":
     # url = 'http://images.cocodataset.org/val2017/000000039769.jpg'
     # image = Image.open(requests.get(url, stream=True).raw)
     base_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/KITTI/2011_10_03/2011_10_03_drive_0042_sync/image_02/data/0000000222.png"
-    # base_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/EuRoC/mav_01/cam0/data/1403636591263555584.png"
+    # base_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/EuRoC/MH_01_easy/cam0/data/1403636591263555584.png"
     image = cv2.imread(base_dir)
     print(image.shape)
     rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)

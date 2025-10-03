@@ -107,7 +107,7 @@ class StaticVisualOdometry:
 
     def _get_euroc_vo_poses(self, vo_pose_dir: str):
         
-        sequence = EUROC_SEQUENCE_MAPS.get(self.dataset_config.variant, "mav_01")
+        sequence = EUROC_SEQUENCE_MAPS.get(self.dataset_config.variant, "MH_01_easy")
         vo_estimates = pd.read_csv(
             vo_pose_dir,
             names=[str(i) for i in range(16)]
@@ -242,7 +242,7 @@ class MonocularVisualOdometry:
             distortion_coeffs = np.zeros(4)
             return K, distortion_coeffs
         elif self.dataset_config.type == "euroc":
-            sequence = EUROC_SEQUENCE_MAPS.get(self.dataset_config.variant, "mav_01")
+            sequence = EUROC_SEQUENCE_MAPS.get(self.dataset_config.variant, "MH_01_easy")
             calibration_file = os.path.join(self.dataset_config.root_path, sequence, "cam0", "sensor.yaml")
             with open(calibration_file, 'r') as f:
                 calib_params = yaml.safe_load(f)
@@ -627,7 +627,7 @@ if __name__ == "__main__":
     else:
         rootpath = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/EuRoC"
         variant = "01"
-        sequence = EUROC_SEQUENCE_MAPS.get(variant, "mav_01")
+        sequence = EUROC_SEQUENCE_MAPS.get(variant, "MH_01_easy")
         dataset_config = DatasetConfig(
             type='euroc',
             mode='stream',

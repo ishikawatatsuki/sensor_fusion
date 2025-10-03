@@ -12,7 +12,7 @@ from typing import Dict
 import multiprocessing as mp
 
 from .misc import setup_logging, parse_args
-from .fusion_system import FusionSystem
+from .pipeline import SingleThreadedPipeline
 from .common import SensorType, VisualizationDataType, VisualizationData
 from .common.datatypes import FusionResponse
 
@@ -175,7 +175,7 @@ def run_kalman_filter(args: argparse.Namespace):
     dataset = Dataset(config=config.dataset)
 
     # Initialize Fusion System
-    fusion_system = FusionSystem(
+    fusion_system = SingleThreadedPipeline(
         filter_config=config.filter,
         hardware_config=config.hardware,
     )

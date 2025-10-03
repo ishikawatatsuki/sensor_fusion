@@ -46,6 +46,7 @@ from ..extended_common import (
     InitialState,
     
     IMU_FREQUENCY_MAP,
+    EUROC_SEQUENCE_MAPS,
     KITTI_SEQUENCE_TO_DATE,
     KITTI_SEQUENCE_TO_DRIVE,
     MAX_CONSECUTIVE_DROPOUT_RATIO
@@ -394,21 +395,9 @@ class EuRoCDataset(BaseDataset):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         
-        self.variant = f"mav_{self.config.variant}"
+        self.variant = EUROC_SEQUENCE_MAPS.get(self.config.variant)
         self.root_path = os.path.join(self.config.root_path, self.variant)
 
-        imu_config_path = self.config.imu_config_path
-        if imu_config_path is None:
-            imu_config_path = os.path.join(self.config.root_path, "configs/imu_config.yaml")
-        
-        imu_configs = None
-        with open(imu_config_path, "r") as f:
-            imu_configs = yaml.safe_load(f)
-            f.close()
-
-        assert imu_configs is not None, "Please provide proper imu config file."
-
-        self.imu_config = namedtuple('IMU_Configs', ["adis_16448"])(**imu_configs)
         self._populate_sensor_to_thread()
 
     def _populate_sensor_to_thread(self) -> List[Sensor]:
@@ -419,8 +408,6 @@ class EuRoCDataset(BaseDataset):
             }
             match (sensor.sensor_type):
                 case EuRoC_SensorType.EuRoC_IMU:
-                    # kwargs["gyro_spec"] = GyroSpecification(**self.imu_config.adis_16448["gyroscope"])
-                    # kwargs["acc_spec"] = AccelSpecification(**self.imu_config.adis_16448["accelerometer"])
                     kwargs["window_size"] = sensor.window_size
                     return EuRoC_IMUDataReader(**kwargs)
 

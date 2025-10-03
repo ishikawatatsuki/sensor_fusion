@@ -330,7 +330,7 @@ def get_saved_vo_pose_dir(root_path: str, variant: str, dataset_type: str, estim
         return vo_pose_dir
 
     def _euroc_vo_pose_dir() -> str:
-        sequence = EUROC_SEQUENCE_MAPS.get(variant, "mav_01")
+        sequence = EUROC_SEQUENCE_MAPS.get(variant, "MH_01_easy")
         estimation_dir = VO_POSE_ESTIMATION_MAP.get(estimation_type, "vo_pose_estimates_2d3d")
         vo_pose_dir = os.path.join(root_path, estimation_dir, sequence, "data.csv")
         return vo_pose_dir

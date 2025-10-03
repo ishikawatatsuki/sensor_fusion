@@ -9,7 +9,7 @@ general:
 
 visualization:
   realtime: True
-  output_filepath: ./outputs/experiments/KITTI/visualization
+  output_filepath: ./outputs/EuRoC/visualization
   save_frames: False # Save frames for later video generation
   save_trajectory: True
   show_vo_trajectory: True

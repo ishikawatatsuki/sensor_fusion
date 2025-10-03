@@ -87,15 +87,6 @@ run_vo_pose_euroc_hybrid_experiment:
 		--dataset_path ./data/EuRoC \
 		--config_file ./configs/euroc_config.yaml
 
-
-
-run_all_combination_of_kitti_experiments:
-	python -m src._kitti.run_all_experiments \
-		--output_path ./outputs/KITTI/all_combinations/results \
-		--log_output ./.debugging/experiments \
-		--config_file ./configs/kitti_config_experiment_base.yaml \
-		--checkpoint_file ./outputs/KITTI/results/checkpoint.txt
-
 run_kitti_experiments:
 	python -m src._kitti.run_kitti_experiment \
 		--output_path ./outputs/KITTI/specific_setups/results \

@@ -240,7 +240,7 @@ if __name__ == "__main__":
     import yaml
     imu_configs = None
     base_dir = "../../../data/EuRoC"
-    data_root_path = os.path.join(base_dir, "mav_01")
+    data_root_path = os.path.join(base_dir, "MH_01_easy")
     imu_config_path = os.path.join(base_dir, "configs/imu_config.yaml")
     with open(imu_config_path, "r") as f:
         imu_configs = yaml.safe_load(f)

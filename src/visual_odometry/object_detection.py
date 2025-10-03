@@ -163,7 +163,7 @@ if __name__ == "__main__":
     # image = np.array(image)
 
     # base_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/KITTI/2011_10_03/2011_10_03_drive_0042_sync/image_00/data/0000000222.png"
-    base_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/EuRoC/mav_01/cam0/data/1403636588313555456.png"
+    base_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/EuRoC/MH_01_easy/cam0/data/1403636588313555456.png"
     image = cv2.imread(base_dir)
     print(f"Image shape: {image.shape}")
     start = time.time()
