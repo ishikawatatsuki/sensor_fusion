@@ -10,6 +10,8 @@ files=(
   log0003.zip
 )
 
+BASE_URL="https://uav-buckect.s3.eu-north-1.amazonaws.com"
+
 for i in ${files[@]}; do
   shortname=$LOCATION_DIR'/'$i
   fullname=$i
@@ -18,3 +20,15 @@ for i in ${files[@]}; do
   unzip -o $shortname -d $LOCATION_DIR
   rm $shortname
 done
+
+# Downloading configs
+filename=$LOCATION_DIR'/configs.zip'
+wget $BASE_URL'/configs.zip' -P $LOCATION_DIR
+unzip -o $filename -d $LOCATION_DIR
+rm $filename
+
+# Downloading models
+filename=$LOCATION_DIR'/models.zip'
+wget $BASE_URL'/models.zip' -P $LOCATION_DIR
+unzip -o $filename -d $LOCATION_DIR
+rm $filename
