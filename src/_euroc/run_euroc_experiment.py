@@ -53,16 +53,17 @@ def save_trajectory_plots(
     """
     fig, ax = plt.subplots(figsize=(10, 8))
     ax.plot(gt_positions[:, 0], gt_positions[:, 1], label='Ground Truth trajectory', color='black', linestyle='--')
-    ax.plot(estimated_positions[:, 0], estimated_positions[:, 1], label='Fusion estimate', color='blue')
+    ax.plot(estimated_positions[:, 0], estimated_positions[:, 1], label='Fusion estimate(IMU+VO velocity+Leica)', color='blue')
 
-    if vo_positions is not None:
-        ax.plot(vo_positions[:, 0], vo_positions[:, 1], label='Visual Odometry estimate', color='red', alpha=0.5)
+    # if vo_positions is not None:
+    #     ax.plot(vo_positions[:, 0], vo_positions[:, 1], label='Visual Odometry estimate', color='red', alpha=0.5)
 
-    ax.set_title(title)
-    ax.set_xlabel('X [m]')
-    ax.set_ylabel('Y [m]')
-    ax.legend()
+    ax.set_title(title, size=16)
+    ax.set_xlabel('X [m]', fontsize=16)
+    ax.set_ylabel('Y [m]', fontsize=16)
+    ax.legend(prop={'size': 14})
     ax.grid()
+    plt.tick_params(axis='both', which='major', labelsize=14)
     plt.axis('equal')
     plt.savefig(f"{output_dir}/{title}_trajectory.png")
     plt.close(fig)
@@ -266,7 +267,7 @@ if __name__ == "__main__":
         gt_positions=result.gt_position,
         estimated_positions=result.estimated_position,
         vo_positions=result.vo_position,
-        title=f"CKF Fusion Result on EuRoC MAV Seq. MH_01 with IMU+VO(velocity)+Leica",
+        title=f"CKF Fusion Result on EuRoC MAV Seq. MH_01",
         output_dir=output_dir
     )
 
