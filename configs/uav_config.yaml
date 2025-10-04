@@ -1,0 +1,263 @@
+general:
+  log_level: debug
+  log_sensor_data: True
+  save_sensor_data: True
+  save_estimation: True
+  save_output_debug_frames: True
+  sensor_data_output_filepath: ./.debugging/sensor_out.txt
+  sensor_data_save_path: ./outputs/sensor_data
+
+visualization:
+  realtime: True
+  output_filepath: ./outputs/experiments/UAV/visualization
+  save_frames: False # Save frames for later video generation
+  save_trajectory: True
+  show_vo_trajectory: True
+  show_angle_estimation: False
+  show_end_result: True
+  show_vio_frame: True
+  show_particles: False
+  show_innovation_history: True 
+  set_lim_in_plot: False
+  limits:
+  fields:
+    accelerometer: True
+    gyroscope: True
+    estimation: True
+    image: True
+    gps: True
+    vo: True
+    velocity: True
+    angle: True
+    state: False
+    ground_truth: True
+
+dataset:
+  type: uav
+  mode: stream # NOTE: choose from (stream, live), and live is not implemented yet.
+  root_path: ./data/UAV
+  variant: "01" #NOTE: variant for uav. Select from 01, 02, and 03
+  sensors:
+    voxl_imu0: # 1000Hz icm_42688_p
+      selected: True
+      dropout_ratio: 0.
+      window_size: 10
+      args:
+        frequency: 1000
+        gyroscope_noise_density: 4.9e-05
+        accelerometer_noise_density: 8.71e-04
+        gyroscope_random_walk: 4.9e-05
+        accelerometer_random_walk: 6.9e-04
+    voxl_imu1: # 1000Hz icm_20948
+      selected: False
+      dropout_ratio: 0.
+      window_size: 1
+      args:
+        frequency: 1000
+        gyroscope_noise_density: 0.0002618
+        accelerometer_noise_density: 0.0022555295
+        gyroscope_random_walk: 0.0002618
+        accelerometer_random_walk: 0.0022555295
+    voxl_qvio_overlay: # NOTE: for visualization purpose only
+      selected: False
+      dropout_ratio: 0.
+      window_size: 1
+      args:
+    voxl_stereo:
+      selected: False
+      dropout_ratio: 0.
+      window_size: 1
+      args:
+        frequency: 8
+    voxl_tracking_camera:
+      selected: True
+      dropout_ratio: 0.
+      window_size: 1
+      args:
+        frequency: 10
+    px4_imu0: # 100Hz icm_20602
+      selected: False
+      dropout_ratio: 0.
+      window_size: 10
+      args:
+        frequency: 100
+        gyroscope_noise_density: 6.98e-05
+        accelerometer_noise_density: 9.81e-04
+        gyroscope_random_walk: 6.98e-05
+        accelerometer_random_walk: 9.81e-04
+    px4_imu1: # 100Hz icm_42688
+      selected: False
+      dropout_ratio: 0.
+      window_size: 1
+      args:
+        frequency: 100
+        gyroscope_noise_density: 4.9e-05
+        accelerometer_noise_density: 8.71e-04
+        gyroscope_random_walk: 4.9e-05
+        accelerometer_random_walk: 6.9e-04
+    px4_gps: 
+      selected: False
+      dropout_ratio: 0.
+      window_size: 1
+      args:
+        frequency: 8
+    px4_mag: 
+      selected: False
+      dropout_ratio: 0
+      window_size: 1
+      args:
+        frequency: 48
+    px4_vo: 
+      selected: False
+      dropout_ratio: 0.5
+      window_size: 1
+      args:
+    px4_actuator_motors: # in range 0-1
+      selected: False # For thrust based motion model
+      dropout_ratio: 0.
+      window_size: 1
+      args:
+    px4_actuator_outputs: # in range 0-1400
+      selected: False
+      dropout_ratio: 0.
+      window_size: 10
+      args:
+    uav_vo:
+      selected: True
+      dropout_ratio: 0.
+      window_size: 1
+      args:
+    px4_custom_imu: # 9-axis IMU (acc+gyro+mag). Used for angle correction.
+      selected: True
+      dropout_ratio: 0.
+      window_size: 1
+      args:
+        frequency: 48
+
+report:
+  export_error: False
+  error_output_root_path: ../outputs/UAV
+  pose_result_dir: ""
+  location_only: False 
+
+
+filter:
+  type: ckf # Select from: ekf, ukf, pf, enkf, ckf
+  dimension: 2
+  motion_model: kinematics # kinematics or velocity
+  innovation_masking: False
+  is_imu_preintegrated: False
+  compensate_gravity: True
+  use_imu_preprocessing: False
+  params:
+    #ukf
+    alpha: 1.0
+    beta: 2.0
+    kappa: 0.0
+    #pf
+    particle_size: 1024
+    resampling_algorithm: stratified # Select from: multinomial, redidual, systematic, stratified
+    scale_for_ess_threshold: 0.5 # from 0. to 1.
+    distribution: multivariate_normal # Select from multivariate_normal, multivariate_student_t
+    #enkf
+    ensemble_size: 256
+  sensors: # Sensor fields to be fused
+    voxl_imu0:
+      fields: 
+        - linear_acceleration
+        - angular_velocity
+    voxl_imu1:
+      fields: 
+        - linear_acceleration
+        - angular_velocity
+    px4_imu0:
+      fields: 
+        - linear_acceleration
+        - angular_velocity
+    px4_imu1:
+      fields: 
+        - linear_acceleration
+        - angular_velocity
+    px4_actuator_motors:
+      fields:
+        - motor1
+        - motor2
+        - motor3
+        - motor4
+    px4_actuator_outputs:
+      fields:
+        - motor1
+        - motor2
+        - motor3
+        - motor4
+    px4_gps: 
+      fields: 
+        - position
+        # - heading_angle
+    px4_mag: 
+      fields: 
+        - heading
+    px4_vo:
+      fields: 
+        - position
+        # - linear_velocity
+        # - orientation
+    uav_vo:
+      fields: 
+        - position
+        # - linear_velocity
+        # - orientation
+    px4_custom_imu:
+      fields: 
+        - orientation
+  noise:
+    type: default # default, adaptive
+    params:
+      alpha: 0.3 # 0 < alpha <= 1
+
+visual_odometry:
+  type: static # Select from: monocular, static (saved vo data)
+  estimator: 2d2d # Select from: 2d2d, 2d3d, hybrid
+  camera_id: left
+  depth_estimator: dino_v2 # Select from: zoe_depth
+  object_detector: segformer # Select from: yolo11 or segformer
+  feature_detector: SIFT # Select from: sift, orb, akaze, kaze, superpoint
+  feature_matcher: BF # Select from: bf, flann
+  use_advanced_detector: True
+  export_vo_data: False
+  export_vo_data_path: ./data/UAV/
+  params: 
+    # 2d2d
+    confidence: 0.90
+    ransac_reproj_threshold: 0.999
+    matching_threshold: 0.45
+    max_features: 1000
+    # {'detector_matcher': ('SIFT', 'BF'), 'confidence': 0.9400000000000001, 'ransac_reproj_threshold': 1.0, 'matching_threshold': 0.5}
+    object_detection_confidence: 0.7
+    # Keypoints filtering
+    border_threshold: 10
+    response_threshold: 0.01
+    size_min: 2.0
+    size_max: 10.0
+    depth_min: 1.0
+    depth_max: 35.0
+    min_number_of_keypoints: 300
+  dynamic_objects:
+    - truck
+    - bus
+    - sky
+
+drone_config:
+  moment_of_inertia_x: 7.5e-3 # kg.m2
+  moment_of_inertia_y: 7.5e-3 # kg.m2
+  moment_of_inertia_z: 1.3e-2 # kg.m2
+  # moment_of_inertia_x: 0.0757 # kg.m2
+  # moment_of_inertia_y: 0.0841 # kg.m2
+  # moment_of_inertia_z: 0.1264 # kg.m2
+  arm_length: 0.25 # in meter
+  inertia_of_rotor: 6.0e-5 # kg.m2
+  thrust_coefficient: 3.90153837e-8 # Ns2
+  moment_coefficient: 7.5e-9 # Nms2
+  mass_of_drone: 1.075 # kg
+  aerodynamic_thrust_drag_coefficient: 0.1 # Ns/m
+  aerodynamic_moment_drag_coefficient: 0.1 # Nm.s

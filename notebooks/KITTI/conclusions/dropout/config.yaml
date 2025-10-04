@@ -25,44 +25,6 @@ dataset:
   root_path: /app/data/KITTI
   variant: "0098"
   sensors:
-    # uav
-    voxl_imu0:
-      selected: False
-      dropout_ratio: 0
-      window_size: 1
-    voxl_imu1:
-      selected: False
-      dropout_ratio: 0
-      window_size: 1
-    voxl_qvio_overlay: 
-      selected: False
-      dropout_ratio: 0
-      window_size: 1
-    px4_imu0: 
-      selected: False
-      dropout_ratio: 0
-      window_size: 1
-    px4_imu1: 
-      selected: False
-      dropout_ratio: 0
-      window_size: 1
-    px4_gps: 
-      selected: False
-      dropout_ratio: 0
-      window_size: 1
-    px4_mag: 
-      selected: False
-      dropout_ratio: 0
-      window_size: 1
-    px4_vo: 
-      selected: False
-      dropout_ratio: 0
-      window_size: 1
-    uav_custom_vo:
-      selected: False
-      dropout_ratio: 0
-      window_size: 1
-
     # kitti
     oxts_imu:
       selected: True # select when motion_model is kinematics

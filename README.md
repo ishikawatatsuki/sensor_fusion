@@ -25,41 +25,69 @@ Firstly pull the github repository in your local environment with the command:
 git clone https://github.com/ishikawatatsuki/sensor_fusion.git
 ```
 
-## To create Docker container
+## Create a python environment
+To create a Python environment, follow these steps:
 
-Given docker installed on your host machine, run the following command to create Docker container on your machine:
+1. Create a virtual environment:
+    ```
+    python -m venv venv
+    ```
 
-```
-make build
-```
+2. Activate the virtual environment:
+    - On Linux/Mac:
+      ```
+      source venv/bin/activate
+      ```
+    - On Windows:
+      ```
+      venv\Scripts\activate
+      ```
 
-The command creates a docker container, in which required python libraries are installed.
+3. Install the required dependencies:
+    ```
+    pip install -r requirements.txt
+    ```
+
+This sets up a clean Python environment with all necessary dependencies installed.
 
 
-## To download Kitti datasets
 
-To download Kitti dataset, executing the shell script namely`kitti_data_downloader.sh` creates a directory called `data` and download the Kitti raw dataset under the directory. The command is as follows:
+
+## Download Kitti datasets
+
+To download Kitti dataset, executing the shell script namely`download_kitti_dataset.sh` creates a directory called `data` and download the Kitti raw dataset under the directory. The command is as follows:
 
 ```
 # Run the shell script
-./kitti_data_downloader.sh
+./download_kitti_dataset.sh
 ```
-If permission error is shown, make shell script executable by following command: `chmod +x kitti_data_downloader.sh`.
+If permission error is shown, make shell script executable by following command: `chmod +x download_kitti_dataset.sh`.
 
 You can select which sequence of Kitti dataset to download by editing the script directly.
 
-## To download UAV (Unmanned Aerial Vehicle) data corrected at Taltech
-Besides Kitti dataset, we also prepared UAV data corrected at Taltech. To download the dataset, likewise Kitti data, run the following commands:
+## Download EuRoC datasets
+To download EuRoC dataset, run the following commands:
 ```
 # Run the shell script
-./uav_data_downloader.sh
+./download_euroc_dataset.sh
 ```
-If permission error is shown, make shell script executable by following command: `chmod +x uav_data_downloader.sh`.
+If permission error is shown, make shell script executable by following command: `chmod +x download_euroc_dataset.sh`.
+The commands create a directory called `EuRoC` under the `data` directory and download 3 UAV datasets.
 
-The commands create a directory called `UAV` under the `data` directory and download 5 UAV datasets.
+
+## Download UAV (Unmanned Aerial Vehicle) data corrected at Taltech
+To download a custom UAV dataset, run the following commands:
+```
+# Run the shell script
+./download_uav_dataset.sh
+```
+If permission error is shown, make shell script executable by following command: `chmod +x download_uav_dataset.sh`.
+
+The commands create a directory called `UAV` under the `data` directory and download 2 UAV datasets.
 
 
-## To test jupyter notebook
+
+## Test jupyter notebook
 
 To run jupyter notebooks stored under the notebooks directory, run the following command:
 ```
@@ -101,7 +129,7 @@ docker run --rm --user root -p 8889:8888 -v .:/app -it sensor_fusion:1.0 jupyter
 Copy the URL starting with `http://127.0.0.1:8888/lab?token=` and access the URL on your browser. It navigates to the jupyter lab environment.
 
 
-## To test python script individually
+## Test python script individually
 
 To test python script individually, run the following commands in root directory:
 ```
@@ -111,3 +139,15 @@ pip install -r requirements.txt # Install all the dependencies
 ```
 The aforementioned commands setup an environment to enable you to run the script.
 To run python scripts under the src directory, simply type `python3 {filename}.py`.
+
+## Test pipeline
+
+To test the pipeline, we prepared a Makefile to run the pipeline with specified dataset such that:
+```
+make run_kitti # Run the pipeline using KITTI dataset
+
+make run_euroc # with EuRoC dataset
+
+make run_uav # with our custom UAV dataset
+```
+To select sensors used in the pipeline, modify the corresponding configuration file.

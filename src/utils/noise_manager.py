@@ -1,211 +1,363 @@
 import os
 import sys
+import abc
 import logging
 import numpy as np
+from sqlalchemy import case
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../interfaces'))
+from ..common import (
+    FusionData,
+    FilterConfig,
+    HardwareConfig,
+    MotionModel,
+    NoiseType,
+    SensorType,
+    SensorDataField,
+    FilterType
+)
 
-from custom_types import FilterType, SensorType, NoiseType, MotionModel
-from config import FilterConfig
 
-logger = logging.getLogger(__name__)
+class BaseNoise(abc.ABC):
+    
+    def __init__(
+        self,
+        filter_config: FilterConfig,
+        hardware_config: HardwareConfig
+    ):
+    
+        self.Q = dict()
+        self.R = dict()
+        self.filter_config = filter_config
+        self.motion_model = MotionModel.get_motion_model(filter_config.motion_model)
 
-if __name__ == "__main__":
-    logging.basicConfig(format='%(asctime)s > %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.DEBUG)
-    logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR)
+        self.imu_hardware_config = hardware_config.imu_config
+
+
+        self.Rs, self.alpha = self._initialize_R()
+        self.Qs = self._initialize_Q()
+
+    def register_process_noise(self, sensor_type: SensorType):
+        pass
+        # if SensorType.is_time_update(sensor_type):
+        #   if self.Q.get(sensor_type) is None:
+        #     self.Q[sensor_type] = np.hstack([np.tile(dataset.acc_noise, 3), np.tile(dataset.gyro_noise, 3)])
+
+    def _initialize_R(self):
+        def _get_initial_measurement_noise(sensor_type: SensorType):
+            fusion_fields = self.filter_config.sensors.get(sensor_type, [])
+
+            match (sensor_type.name):
+                case SensorType.OXTS_GPS.name | SensorType.OXTS_GPS_UNSYNCED.name:
+                    noise_vector = np.array([1.0, 1.0, 1.0])
+                    return np.eye(noise_vector.shape[0]) * noise_vector**2
+                
+                case SensorType.KITTI_VO.name:
+                    # Velocity noise
+                    if len(fusion_fields) == 0:
+                        logging.warning(f"Fusion field is not set for sensor: {sensor_type.name}")
+                    noise_vector = np.empty(0)
+                    if FusionData.POSITION in fusion_fields:
+                        position_noise = np.array([3., 3., 10])
+                        noise_vector = np.append(noise_vector, position_noise)
+                    if FusionData.LINEAR_VELOCITY in fusion_fields:
+                        velocity_noise = np.array([.5, .5, .5])
+                        noise_vector = np.append(noise_vector, velocity_noise)
+                    if FusionData.ORIENTATION in fusion_fields:
+                        orientation_noise = np.array([0.01, 0.01, 0.01, 0.01])
+                        noise_vector = np.append(noise_vector, orientation_noise)
+                    return np.eye(noise_vector.shape[0]) * noise_vector**2
+                
+                case SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY.name:
+                    return np.eye(2) * np.array([.5, .5])**2
+                
+
+                case SensorType.PX4_GPS.name:
+                    noise_vector = np.array([1.0, 1.0, 1.0])
+                    return np.eye(noise_vector.shape[0]) * noise_vector**2
+                
+                case SensorType.PX4_VO.name:
+                    if len(fusion_fields) == 0:
+                        logging.warning(f"Fusion field is not set for sensor: {sensor_type.name}")
+                    
+                    noise_vector = np.empty(0)
+                    if FusionData.POSITION in fusion_fields:
+                        position_noise = np.array([2.5, 2.5, 5])
+                        noise_vector = np.append(noise_vector, position_noise)
+                    if FusionData.LINEAR_VELOCITY in fusion_fields:
+                        velocity_noise = np.array([.5, .5, .5])
+                        noise_vector = np.append(noise_vector, velocity_noise)
+                    if FusionData.ORIENTATION in fusion_fields:
+                        orientation_noise = np.array([0.01, 0.01, 0.01, 0.01])
+                        noise_vector = np.append(noise_vector, orientation_noise)
+                    return np.eye(noise_vector.shape[0]) * noise_vector**2
+
+                case SensorType.UAV_VO.name:
+                    if len(fusion_fields) == 0:
+                        logging.warning(f"Fusion field is not set for sensor: {sensor_type.name}")
+                    
+                    noise_vector = np.empty(0)
+                    if FusionData.POSITION in fusion_fields:
+                        position_noise = np.array([2.5, 2.5, 5])
+                        noise_vector = np.append(noise_vector, position_noise)
+                    if FusionData.LINEAR_VELOCITY in fusion_fields:
+                        velocity_noise = np.array([.5, .5, .5])
+                        noise_vector = np.append(noise_vector, velocity_noise)
+                    if FusionData.ORIENTATION in fusion_fields:
+                        orientation_noise = np.array([0.01, 0.01, 0.01, 0.01])
+                        noise_vector = np.append(noise_vector, orientation_noise)
+                    return np.eye(noise_vector.shape[0]) * noise_vector**2
+                
+                case SensorType.PX4_MAG.name:
+                    noise_vector = np.array([0.1]) # angle in z-axis
+                    return np.eye(noise_vector.shape[0]) * noise_vector**2
+                
+                case SensorType.PX4_CUSTOM_IMU.name:
+                    orientation_noise = np.array([0.01, 0.01, 0.01, 0.01])
+                    return np.eye(orientation_noise.shape[0]) * orientation_noise**2
+
+
+                case SensorType.EuRoC_LEICA.name:
+                    noise_vector = np.array([1., 1.0, 1.0])
+                    return np.eye(noise_vector.shape[0]) * noise_vector**2
+                
+                case SensorType.EuRoC_VO.name:
+                    # Velocity noise
+                    if len(fusion_fields) == 0:
+                        logging.warning(f"Fusion field is not set for sensor: {sensor_type.name}")
+                    
+                    noise_vector = np.empty(0)
+                    if FusionData.POSITION in fusion_fields:
+                        position_noise = np.array([3., 3., 3])
+                        noise_vector = np.append(noise_vector, position_noise)
+                    if FusionData.LINEAR_VELOCITY in fusion_fields:
+                        velocity_noise = np.array([.5, .5, .5])
+                        noise_vector = np.append(noise_vector, velocity_noise)
+                    if FusionData.ORIENTATION in fusion_fields:
+                        orientation_noise = np.array([0.01, 0.01, 0.01, 0.01])
+                        noise_vector = np.append(noise_vector, orientation_noise)
+                    
+                    return np.eye(noise_vector.shape[0]) * noise_vector**2
+                
+                case _:
+                    logging.warning(
+                        f"Not registered sensor type appeared {sensor_type.name}")
+                    return np.eye(0)
+        logging.debug("Initializing measurement covariance matrix R")
+        
+        Rs = dict()
+        alphas = dict()
+        for sensor_type in SensorType.get_all_sensors():
+            if SensorType.is_measurement_update(sensor_type):
+                Rs[sensor_type] = _get_initial_measurement_noise(sensor_type=sensor_type)
+                alphas[sensor_type] = 0.3
+        
+        return Rs, alphas
     
+    def _initialize_Q(self):
+        """Initialize process noise covariance matrix Q for each sensor type."""
+        q_noise = np.repeat(0.01, 4)
+        b_w_noise = np.repeat(self.imu_hardware_config.gyroscope_random_walk, 3)
+        b_a_noise = np.repeat(self.imu_hardware_config.accelerometer_random_walk, 3)
     
-class BaseNoise:
-  
-  def __init__(
-    self,
-    motion_model: MotionModel,
-  ):
+        def _get_initial_process_noise(sensor_type: SensorType):
+            """Returns process noise covariance matrix Q for the given sensor type."""
+            # Register process noise for position vector
+            match (sensor_type.name):
+                case SensorType.OXTS_IMU.name | SensorType.OXTS_IMU_UNSYNCED.name:
+                    p_noise = np.repeat(1.5, 3)
+                    v_noise = np.repeat(0.5, 3)
+                case SensorType.EuRoC_IMU.name:
+                    p_noise = np.repeat(1.75, 3)
+                    v_noise = np.repeat(0.6, 3)
+                case SensorType.PX4_IMU0.name | SensorType.PX4_IMU1.name |\
+                        SensorType.VOXL_IMU0.name | SensorType.VOXL_IMU1.name:
+                    p_noise = np.repeat(2.5, 3)
+                    v_noise = np.repeat(0.7, 3)
+                case SensorType.PX4_ACTUATOR_MOTORS.name | SensorType.PX4_ACTUATOR_OUTPUTS.name:
+                    p_noise = np.repeat(2., 3)
+                    v_noise = np.repeat(0.7, 3)
+                case _:
+                    p_noise = np.repeat(3., 3)
+                    v_noise = np.repeat(1., 3)
+            
+            if self.filter_config.type == "ekf":
+                # q = np.hstack([b_w_noise, b_a_noise])
+                q = np.hstack([p_noise, v_noise, q_noise, b_w_noise, b_a_noise])
+            else:
+                q = np.hstack([p_noise, v_noise, q_noise, b_w_noise, b_a_noise])
+
+            if self.motion_model is MotionModel.DRONE_KINEMATICS:
+                q = np.hstack([q, np.repeat(0.01, 3)])
+
+            return np.eye(q.shape[0]) * q ** 2
+
+
+        Qs = dict()
+        for sensor_type in SensorType.get_all_sensors():
+            if SensorType.is_time_update(sensor_type):
+                Qs[sensor_type] = _get_initial_process_noise(sensor_type=sensor_type)
+        
+        return Qs
+
+    @abc.abstractmethod
+    def get_process_noise(self, sensor_data: SensorDataField):
+        """Returns process noise covariance matrix Q for the given sensor type.
+
+        Args:
+            sensor_type (SensorType): Sensor type used for time update step.
+
+        Returns:
+            _type_: _description_
+        """
+        pass
+      
+    @abc.abstractmethod
+    def get_measurement_noise(self, sensor_data: SensorDataField):
+        """Returns measurement noise covariance matrix R for the given sensor type.
+
+        Args:
+            sensor_type (SensorType): Sensor type used for measurement update step.
+
+        Returns:
+            _type_: _description_
+        """
+        pass
+
+class AdaptiveNoise(BaseNoise):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        filter_config: FilterConfig = kwargs.get("filter_config", None)
+
+        assert filter_config is not None, "Filter config must be provided"
+
+        self.process_data_type = None
+        self.alpha = filter_config.noise.params.get("alpha", 0.9)
     
-    self.Q = dict()
-    self.R = dict()
-    self.motion_model = motion_model
-    
-    
-  def register_process_noise(self, sensor_type: SensorType, dataset):
-    
-    if SensorType.is_time_update(sensor_type):
-      if self.Q.get(sensor_type) is None:
-        self.Q[sensor_type] = np.hstack([np.tile(dataset.acc_noise, 3), np.tile(dataset.gyro_noise, 3)])
+    def get_process_noise(self, sensor_data: SensorDataField):
+        self.process_data_type = sensor_data.type
+        return self.Qs.get(sensor_data.type, None)
+
+    def get_measurement_noise(self, sensor_data: SensorDataField):
+        if not SensorType.is_measurement_update(sensor_data.type):
+            return None
+        
+        return self.Rs.get(sensor_data.type, None)
+        
+    def update_noise_matrix(
+            self,
+            sensor_data: SensorDataField,
+            innovation: np.ndarray,
+            residual: np.ndarray,
+            P: np.ndarray,
+            H: np.ndarray,
+            K: np.ndarray
+        ):
+        if not SensorType.is_measurement_update(sensor_data.type):
+            return None
+        
+        R = self.Rs.get(sensor_data.type, None)
+        Q = self.Qs.get(self.process_data_type, None)
+        if R is None or Q is None:
+            return None
+
+        logging.debug(f"Updating noise matrix for sensor: {sensor_data.type.name}")
+        logging.debug(f"[Shape] residual: {residual.shape}, innovation: {innovation.shape}, P: {P.shape}, H: {H.shape}, K: {K.shape}")
+        # Update R using the residual
+        # alpha is called forgetting factor
+        """
+        The paper introduces a forgetting factor (alpha), which takes a value between 0 and 1 to adaptively estimate Rk. A higher alpha puts more weights on previous estimates and therefore incurs less fluctuation of Rk, and longer time delay to catch up with changes. The paper set alpha to 0.3.
+        """
+        self.Rs[sensor_data.type] = self.alpha * R + (1 - self.alpha) * (residual @ residual.T + H @ P @ H.T)
+        self.Qs[self.process_data_type] = self.alpha * Q + (1 - self.alpha) * (K @ innovation @ innovation.T @ K.T)[:Q.shape[0], :Q.shape[0]]
+
 
 class DynamicNoise(BaseNoise):
-  
-  def __init__(self, *args, **kwargs):
-    super().__init__(*args, **kwargs)
-  
-  def get_process_noise(self, sensor_type: SensorType):
-    ...
-  def get_measurement_noise(self, sensor_type: SensorType):
-    ...
+    # This is supposed to be machine learning based noise management
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
     
-  def get_vo_measurement_noise(self, vo_estimation, z_dim: int) -> np.ndarray:
-    # TODO: 1. find relation between estimated delta translation and delta rotation with those in ground truth. calculate the translation error and rotation error at each time t (frame by frame estimation error).
-    # TODO: 2. find relation between those errors and n_keypoints and good_matches. visualize each combinations: n_keypoints vs translation_error, n_keypoints vs rotation_error, good_matches vs translation_error, good_matches vs rotation_error, n_keypoints vs good_matches vs translation_error, and rotation_error, n_keypoints vs good_matches vs rotation_error.
-    # TODO: 3. find regression params: a and b in y = ax + b.
+    def get_process_noise(self, sensor_data: SensorDataField):
+        ...
+    def get_measurement_noise(self, sensor_data: SensorDataField):
+        ...
+        
+    def get_vo_measurement_noise(self, vo_estimation, z_dim: int) -> np.ndarray:
+        ...
     
-    alpha = 2
-    
-    h = 0. / 1000
-    y = h if h < 1. else 1.
-    scale_factor = 10 ** (alpha * y)
-    
-    if z_dim == 6:
-      return np.eye(6) * np.array([1., 1., 1., .1, .1, .1]) * scale_factor # in range [1; 1000) when alpha=2
-    return np.eye(3) * np.array([.1, .1, .1]) * scale_factor # in range [0.1; 100) when alpha=2
-    
-class DefaultNoise(BaseNoise):
-  
-  def __init__(self, *args, **kwargs):
-    super().__init__(*args, **kwargs)
-  
-  def get_process_noise(self, sensor_type: SensorType):
-    # Q = self.Q.get(sensor_type)
-    # if Q is None:
-    #   return None
-    
-    return np.eye(10) * np.array([2., 2., 2., .5, .5, .5, 0.01, 0.01, 0.01, 0.01]) ** 2
-    
-  def get_measurement_noise(self, sensor_type: SensorType):
-    
-    if not SensorType.is_measurement_update(sensor_type):
-      return None
-    
-    R = self.R.get(sensor_type)
-    if R is not None:
-      return R
-    
-    match (sensor_type.name):
-      case SensorType.PX4_VO.name:
-        R = np.eye(6) * np.array([3.0, 3.0, 3.0, .5, .5, .5]) ** 2
-      case SensorType.UAV_CUSTOM_VO.name:
-        R = np.eye(3) * np.array([3.0, 3.0, 3.0]) ** 2
-      case SensorType.PX4_MAG.name:
-        R = np.array([[0.001]]) ** 2
-      case SensorType.PX4_GPS.name:
-        R = np.eye(3) * np.array([1.0, 1.0, 1.0]) ** 2
-      case SensorType.UWB.name:
-        R = np.eye(3) * np.array([0.2, 0.2, 0.2]) ** 2
-      case SensorType.OXTS_GPS.name:
-        R = np.eye(3) * np.array([1., 1., 2.]) ** 2
-      case SensorType.KITTI_CUSTOM_VO.name:
-        R = np.eye(6) * np.array([3., 3., 10., .15, .15, .15]) ** 2
-      case SensorType.KITTI_CUSTOM_VO_VELOCITY_ONLY.name:
-        R = np.eye(3) * np.array([1.5, 1.5, 1.5]) ** 2
-      case SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY.name | SensorType.VIZTRACK_UPWARD_LEFTWARD_VELOCITY.name:
-        R = np.eye(2) * np.array([0.1, 0.1]) ** 2
-      case _:
-        logger.warning(f"Not registered sensor type appeared {sensor_type}")
-    
-    self.R[sensor_type] = R
-    return self.R[sensor_type]
-  
 class OptimalNoise(BaseNoise):
-  
-  def __init__(self, *args, **kwargs):
-    super().__init__(*args, **kwargs)
+    # This is supposed to be optimization based noise management
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
     
-  def get_process_noise(self, sensor_type: SensorType):
-    # Q = self.Q.get(sensor_type)
-    # if Q is None:
-    #   return None
+    def get_process_noise(self, sensor_data: SensorDataField):
+        ...
     
-    if self.motion_model is MotionModel.KINEMATICS:    
-      match (self.filter_type):
-        case FilterType.EKF:
-          return np.eye(10) * np.array([0.01, 67.41922287280015, 0.7494152064351436, 1000.0, 1000.0, 714.0250583141932, 1e-05, 1e-05, 0.0022092728926040926, 0.00011590354305331916])
-        case FilterType.UKF:
-          return np.eye(10) * np.array([1000.0, 1000.0, 1000.0, 1.301367123522085, 1000.0, 1000.0, 1.0, 1.0, 1.0, 0.00017544970595799445])
-        case FilterType.PF:
-          return np.eye(10) * np.array([249.21237219227166, 12.20399908738481, 0.03588744104725751, 1.5586037141903673, 1.1038565658724064, 1.594112300226227, 0.28418988590663163, 0.007908521415237886, 0.0003909634307197494, 0.0059353348767415695])
-        case FilterType.EnKF:
-          return np.eye(10) * np.array([1000.0, 1000.0, 0.10317833736637362, 0.6439568019875933, 1000.0, 1000.0, 0.0006217822248112819, 1.0, 1.0, 0.008578923104614692])
-        case FilterType.CKF:
-          return np.eye(10) * np.array([1000.0, 1000.0, 0.01, 0.043934344271553, 0.01, 0.11738175104229587, 1.0, 1e-05, 0.00025238068108866514, 1.0])
-        case _:
-          return np.eye(10) * np.ones((10, ))
-    else:
-      match (self.filter_type):
-        case FilterType.EKF:
-          return np.eye(10) * np.array([0.3888959891501419, 1000.0, 1000.0, 0.01, 0.3198469561118217, 3.6432061727018694, 1.0, 1e-05, 1.0, 1.0])
-        case FilterType.UKF:
-          return np.eye(10) * np.array([1000.0, 1000.0, 1000.0, 0.01, 0.3274837690187921, 116.41851222130477, 1.0, 0.032318702269830316, 1.0, 1e-05])
-        case FilterType.PF:
-          return np.eye(10) * np.array([10.653489422380202, 184.78967451984616, 0.04932205932140033, 2.5572037508247285, 0.2582531190873234, 0.6955689270455638, 0.00024734525835096166, 0.004926351709833528, 1e-05, 0.029480469530866072])
-        case FilterType.EnKF:
-          return np.eye(10) * np.array([1.5092861316509083, 94.57508790908766, 1000.0, 0.01, 0.013653713642398915, 1000.0, 1e-05, 1e-05, 1.0, 0.8075225140378695])
-        case FilterType.CKF:
-          return np.eye(10) * np.array([1000.0, 0.09333978491852399, 322.1905268661857, 522.2906967100026, 3.9780547358029654, 9.589890855632401, 0.06131895160471703, 0.0011148945211455002, 0.0007544812203883254, 0.013600363065037927])
-        case _:
-          return np.eye(10) * np.ones((10, ))
+    def get_measurement_noise(self, sensor_data: SensorDataField):
+        ...
+        
+    def get_vo_measurement_noise(self, vo_estimation, z_dim: int) -> np.ndarray:
+        ...
 
-  def get_measurement_noise(self, sensor_type: SensorType):
-    if not SensorType.is_measurement_update(sensor_type):
-      return None
+
+class DefaultNoise(BaseNoise):
     
-    R = self.R.get(sensor_type)
-    if R is not None:
-      return R
-    match (sensor_type.name):
-      case SensorType.PX4_VO.name:
-        R = np.eye(6) * np.array([10.0, 10.0, 10.0, .5, .5, .5]) ** 2
-      case SensorType.UAV_CUSTOM_VO.name:
-        R = np.eye(6) * np.array([10.0, 10.0, 10.0, .5, .5, .5]) ** 2
-      case SensorType.PX4_MAG.name:
-        R = np.array([[0.001]]) ** 2
-      case SensorType.PX4_GPS.name:
-        R = np.eye(3) * np.array([1.0, 1.0, 1.0]) ** 2
-      case SensorType.UWB.name:
-        R = np.eye(3) * np.array([0.2, 0.2, 0.2]) ** 2
-      case SensorType.OXTS_GPS.name:
-        R = np.eye(3) * np.array([1., 1., 2.]) ** 2
-      case SensorType.KITTI_CUSTOM_VO.name:
-        R = np.eye(6) * np.array([3., 3., 10., .15, .15, .15]) ** 2
-      case SensorType.KITTI_CUSTOM_VO_VELOCITY_ONLY.name:
-        R = np.eye(3) * np.array([1., 1., 1.]) ** 2
-      case SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY.name | SensorType.VIZTRACK_UPWARD_LEFTWARD_VELOCITY.name:
-        R = np.eye(2) * np.array([0.1, 0.1]) ** 2
-      case _:
-        logger.warning(f"Not registered sensor type appeared {sensor_type}")
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
     
-    self.R[sensor_type] = R
-    return self.R[sensor_type]
+    def get_process_noise(self, sensor_data: SensorDataField):
+
+        return self.Qs.get(sensor_data.type, None)
+
+    def get_measurement_noise(self, sensor_data: SensorDataField):
+        if not SensorType.is_measurement_update(sensor_data.type):
+            return None
+        
+        return self.Rs.get(sensor_data.type, None)
     
 
 class NoiseManager:
-  # TODO: If variants of dataset or motion model increases, save the noise parameters to numpy file and load them when noise manager is initialized.
-  
-  def __init__(
-    self,
-    filter_config: FilterConfig
-  ):
-    self.filter_type = FilterType.get_filter_type_from_str(filter_type=filter_config.type)
-    self.motion_model = MotionModel.get_motion_model(filter_config.motion_model)
-    self.noise_type = NoiseType.get_noise_type_from_str(filter_config.noise_type)
+    def __init__(
+        self,
+        filter_config: FilterConfig,
+        hardware_config: HardwareConfig
+    ):
+        self.filter_type = FilterType.get_filter_type_from_str(filter_type=filter_config.type)
+        self.motion_model = MotionModel.get_motion_model(filter_config.motion_model)
+        self.noise_type = NoiseType.get_noise_type_from_str(filter_config.noise.type)
+        self.hardware_config = hardware_config
+        self.filter_config = filter_config
+
+        self._provider = self._get_noise_provider()
+
+    def _get_noise_provider(self):
+        
+        kwargs = {
+            "filter_config": self.filter_config,
+            "hardware_config": self.hardware_config
+        }
+        match (self.noise_type):
+            case NoiseType.DEFAULT:
+                logging.info("Using Default Noise Provider")
+                return DefaultNoise(**kwargs)
+            case NoiseType.DYNAMIC:
+                logging.info("Using Dynamic Noise Provider")
+                return DynamicNoise(**kwargs)
+            case NoiseType.ADAPTIVE:
+                logging.info("Using Adaptive Noise Provider")
+                return AdaptiveNoise(**kwargs)
+            case _:
+                return DefaultNoise(**kwargs)
+
+    def get_process_noise(self, **kwargs) -> np.ndarray:
+        return self._provider.get_process_noise(**kwargs)
     
-    self._provider = self._get_noise_provider()
+    def get_measurement_noise(self, **kwargs) -> np.ndarray:
+        return self._provider.get_measurement_noise(**kwargs)
     
-  def _get_noise_provider(self):
-    
-    kwargs = {
-      "motion_model": self.motion_model
-    }
-    match (self.noise_type):
-      case NoiseType.DEFAULT:
-        return DefaultNoise(**kwargs)
-      case NoiseType.OPTIMAL:
-        return OptimalNoise(**kwargs)
-      case NoiseType.DYNAMIC:
-        return DynamicNoise(**kwargs)
-      case _:
-        return DefaultNoise(**kwargs)
-      
-  def get_process_noise(self, **kwargs):
-    return self._provider.get_process_noise(**kwargs)
-  
-  def get_measurement_noise(self, **kwargs):
-    return self._provider.get_measurement_noise(**kwargs)
+    def update_noise_matrix(self, **kwargs):
+        if self.noise_type != NoiseType.ADAPTIVE:
+            return None
+        
+        self._provider.update_noise_matrix(**kwargs)

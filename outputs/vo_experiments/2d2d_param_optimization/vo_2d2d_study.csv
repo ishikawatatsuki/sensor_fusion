@@ -1,0 +1,2 @@
+number,value,datetime_start,datetime_complete,duration,params_detector_matcher,params_essential_matrix_prob,params_essential_matrix_threshold,params_matching_threshold,state
+0,9.18005629357868,2025-08-08 12:22:32.034424,2025-08-08 12:27:10.458490,0 days 00:04:38.424066,"('SIFT', 'FLANN')",0.9700000000000001,2.0,0.5,COMPLETE

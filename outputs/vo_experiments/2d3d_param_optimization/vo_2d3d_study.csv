@@ -1,0 +1,2 @@
+number,value,datetime_start,datetime_complete,duration,params_confidence,params_detector_matcher,params_flags,params_iterations_count,params_max_depth_threshold,params_min_depth_threshold,params_reprojection_error,state
+0,inf,2025-08-05 18:34:54.283196,2025-08-05 18:35:01.240742,0 days 00:00:06.957546,0.951,"('ORB', 'BF')",SOLVEPNP_P3P,400,50.0,2.0,6,COMPLETE

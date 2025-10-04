@@ -1,0 +1,29 @@
+[92mINFO[0m:root:Starting pipeline
+[93mWARNING[0m:root:Warning message
+[91mERROR[0m:root:Error message
+[95mCRITICAL[0m:root:Critical error
+[92mINFO[0m:root:Starting Visual Odometry experiment.
+[92mINFO[0m:root:Visual Odometry initialized.
+[92mINFO[0m:root:Found 108 image files.
+[92mINFO[0m:root:Loaded ground truth data with 800 entries.
+[92mINFO[0m:root:Estimated Positions shape: (108, 3)
+[92mINFO[0m:root:Estimated Pose shape: (108, 3)
+[92mINFO[0m:root:Mean Absolute Error (MAE) of the estimated positions: 6.4839m
+[92mINFO[0m:root:Visual Odometry initialized.
+[92mINFO[0m:root:Found 279 image files.
+[92mINFO[0m:root:Loaded ground truth data with 270 entries.
+[92mINFO[0m:root:Estimated Positions shape: (269, 3)
+[92mINFO[0m:root:Estimated Pose shape: (269, 3)
+[92mINFO[0m:root:Mean Absolute Error (MAE) of the estimated positions: 19.7270m
+[92mINFO[0m:root:Visual Odometry initialized.
+[92mINFO[0m:root:Found 1106 image files.
+[92mINFO[0m:root:Loaded ground truth data with 1100 entries.
+[92mINFO[0m:root:Estimated Positions shape: (1099, 3)
+[92mINFO[0m:root:Estimated Pose shape: (1099, 3)
+[92mINFO[0m:root:Mean Absolute Error (MAE) of the estimated positions: 66.6210m
+[92mINFO[0m:root:Visual Odometry initialized.
+[92mINFO[0m:root:Found 1594 image files.
+[92mINFO[0m:root:Loaded ground truth data with 1590 entries.
+[92mINFO[0m:root:Estimated Positions shape: (1589, 3)
+[92mINFO[0m:root:Estimated Pose shape: (1589, 3)
+[92mINFO[0m:root:Mean Absolute Error (MAE) of the estimated positions: 14.6362m

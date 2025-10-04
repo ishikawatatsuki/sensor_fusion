@@ -11,10 +11,21 @@ _playgrounds
 src/_test
 .tmp
 *.log
+data
+.DS_Store
+*.out
+*.stat
 
+.debugging
 _debugging
 outputs/EuRoC/*
 outputs/KITTI/*
 !outputs/KITTI/errors
 outputs/UAV/*
-visual_odometry
+src/visual_odometry/models
+src/visual_odometry/segformer_model
+outputs/vo_experiments
+outputs/vo_estimates/vo_debug/*
+outputs/experiments/*
+outputs/sensor_data/*
+outputs/vo_estimates
