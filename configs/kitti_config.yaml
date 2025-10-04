@@ -184,3 +184,5 @@ visual_odometry:
     - truck
     - bus
     - sky
+
+drone_config:

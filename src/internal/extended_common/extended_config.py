@@ -1,17 +1,20 @@
 import os
+import re
 import yaml
+import json
 import logging
 import numpy as np
 import pandas as pd
+from pathlib import Path
 from collections import namedtuple
 from dataclasses import dataclass
-from typing import List, Union, Tuple
+from typing import List, Union, Tuple, Dict
 from scipy.spatial.transform import Rotation
 
 from ...utils.geometric_transformer.base_geometric_transformer import BaseGeometryTransformer
-from ...common.constants import KITTI_SEQUENCE_TO_DATE, KITTI_ANGLE_COMPENSATION_CAMERA_TO_INERTIAL, EUROC_SEQUENCE_MAPS
+from ...common.constants import KITTI_SEQUENCE_TO_DATE, KITTI_ANGLE_COMPENSATION_CAMERA_TO_INERTIAL, EUROC_SEQUENCE_MAPS, UAV_SEQUENCE_MAPS
 from ...common.datatypes import SensorConfig, VisualizationDataType, SensorType, DatasetType, Pose
-from ...common.config import FilterConfig, HardwareConfig, ImuConfig, TransformationConfig, VisualOdometryConfig
+from ...common.config import FilterConfig, HardwareConfig, ImuConfig, TransformationConfig, DroneHardwareConfig, VisualOdometryConfig
 
 @dataclass
 class GeneralConfig:
@@ -298,7 +301,91 @@ class ExtendedConfig:
                 T_calib_imu_to_velo = _get_rigid_transformation(os.path.join(root_calibration_path, "calib_imu_to_velo.txt"))
 
                 return T_calib_velo_to_cam, T_calib_imu_to_velo
-            
+
+            def _get_uav_transformation_config():
+
+                def load_voxl_extrinsics(conf_path):
+                    text = Path(conf_path).read_text()
+                    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+                    data = json.loads(text)
+                    extrinsics = []
+                    for entry in data["extrinsics"]:
+                        rpy_deg = entry["RPY_parent_to_child"]
+                        r = Rotation.from_euler('xyz', rpy_deg, degrees=True).as_matrix()
+                        extrinsics.append({
+                            "parent": entry["parent"],
+                            "child": entry["child"],
+                            "translation": entry["T_child_wrt_parent"],
+                            "rpy_degrees": rpy_deg,
+                            "rotation_matrix": r
+                        })
+                    return extrinsics
+
+                def _get_imu_transformations(imu_calib: dict) -> Dict[SensorType, np.ndarray]:
+                    
+                    # voxl_imu0 = imu_calib.get("voxl_imu0", {})
+                    voxl_imu1 = imu_calib.get("voxl_imu1", {})
+                    px4_imu0 = imu_calib.get("px4_imu0", {})
+                    px4_imu1 = imu_calib.get("px4_imu1", {})
+
+                    voxl_imu0_to_imu0 = Pose(
+                        R=np.eye(3),
+                        t=np.array([0, 0, 0])
+                    )
+                    voxl_imu1_to_imu0 = Pose(
+                        R=np.array(voxl_imu1.get("R", np.eye(3))),
+                        t=np.array(voxl_imu1.get("t", [0, 0, 0]))
+                    )
+                    px4_imu0_to_imu0 = Pose(
+                        R=np.array(px4_imu0.get("R", np.eye(3))),
+                        t=np.array(px4_imu0.get("t", [0, 0, 0]))
+                    )
+                    px4_imu1_to_imu0 = px4_imu0_to_imu0 * Pose(
+                        R=np.array(px4_imu1.get("R", np.eye(3))),
+                        t=np.array(px4_imu1.get("t", [0, 0, 0]))
+                    )
+                    
+                    
+                    return {
+                        SensorType.VOXL_IMU0: voxl_imu0_to_imu0.matrix(),
+                        SensorType.VOXL_IMU1: voxl_imu1_to_imu0.matrix(),
+                        SensorType.PX4_IMU0: px4_imu0_to_imu0.matrix(),
+                        SensorType.PX4_IMU1: px4_imu1_to_imu0.matrix(),
+                    }
+
+                sequence = UAV_SEQUENCE_MAPS.get(self.dataset.variant, "log0001")
+                
+                imu_calib_file = os.path.join(self.dataset.root_path, f'configs', 'imu_extrinsic.yaml')
+                extrinsic_file = os.path.join(self.dataset.root_path, sequence, 'etc/modalai/extrinsics.conf')
+                imu_calib = None
+
+                with open(imu_calib_file, 'r') as f:
+                    imu_calib = yaml.safe_load(f)
+                
+                system_calib = load_voxl_extrinsics(extrinsic_file)
+
+                body_to_stereo_left = [e for e in system_calib if e["parent"] == "body" and e["child"] == "stereo_l"]
+                body_to_imu0 = [e for e in system_calib if e["parent"] == "body" and e["child"] == "stereo_l"]
+                if len(body_to_stereo_left) == 0 or len(body_to_imu0) == 0:
+                    raise ValueError("No stereo left camera found in the UAV calibration file.")
+                
+                body_to_stereo_left = body_to_stereo_left[0]
+                body_to_imu0 = body_to_imu0[0]
+                R = np.array(body_to_stereo_left["rotation_matrix"])
+                t = np.array(body_to_stereo_left["translation"])
+                R_imu = np.array(body_to_imu0["rotation_matrix"])
+                t_imu = np.array(body_to_imu0["translation"])
+
+                T_stereo_wrt_body = Pose(R=R, t=t)
+                T_body_to_stereo_left = T_stereo_wrt_body.inverse()
+                T_imu_to_body = Pose(R=R_imu, t=t_imu)
+                T_body_to_imu0 = T_imu_to_body.inverse()
+                T_from_cam_to_imu = T_body_to_imu0 * T_body_to_stereo_left
+                
+                T_imu_to_virtual_imu = _get_imu_transformations(imu_calib)
+
+                return T_from_cam_to_imu, T_imu_to_body, T_imu_to_virtual_imu
+
             def _get_euroc_transformation_config():
                 def _get_calibration_data(calib_path: str) -> Pose:
                     with open(calib_path, 'r') as f:
@@ -335,6 +422,15 @@ class ExtendedConfig:
                 return TransformationConfig.from_kitti_config(
                     T_from_imu_to_cam=T_from_imu_to_cam,
                     T_angle_compensation=T_angle_compensation
+                )
+            elif dataset_type == DatasetType.UAV:
+                T_from_cam_to_imu, T_imu_to_body, T_imu_to_virtual_imu = _get_uav_transformation_config()
+                
+                return TransformationConfig(
+                    T_from_cam_to_imu=T_from_cam_to_imu.matrix(),
+                    T_from_imu_to_cam=T_from_cam_to_imu.inverse().matrix(),
+                    T_imu_body_to_inertial=T_imu_to_body.matrix(),
+                    T_imu_to_virtual_imu=T_imu_to_virtual_imu
                 )
             elif dataset_type == DatasetType.EUROC:
                 T_calib_imu_to_inertial, T_calib_leica_to_inertial, T_calib_cam_to_inertial = _get_euroc_transformation_config()
@@ -377,8 +473,7 @@ class ExtendedConfig:
                 gyroscope_random_walk = imu[0].args.get("gyroscope_random_walk", default_value)
                 accelerometer_random_walk = imu[0].args.get("accelerometer_random_walk", default_value)
 
-            if self.dataset.type == DatasetType.KITTI.name:
-                return ImuConfig(
+            return ImuConfig(
                     frequency=frequency,
                     target_frequency=frequency,
                     gyroscope_noise_density=gyroscope_noise_density,
@@ -386,25 +481,25 @@ class ExtendedConfig:
                     gyroscope_random_walk=gyroscope_random_walk,
                     accelerometer_random_walk=accelerometer_random_walk,
                 )
-            elif self.dataset.type == DatasetType.EUROC.name:
-                return ImuConfig(
-                    frequency=frequency,
-                    target_frequency=frequency,
-                    gyroscope_noise_density=gyroscope_noise_density,
-                    accelerometer_noise_density=accelerometer_noise_density,
-                    gyroscope_random_walk=gyroscope_random_walk,
-                    accelerometer_random_walk=accelerometer_random_walk,
-                )
-            else:
-                return ImuConfig(frequency=frequency)
         
+        def _get_drone_config() -> DroneHardwareConfig:
+            if self.filter.motion_model == "drone_kinematics":
+                try:
+                    return DroneHardwareConfig(**self.parsed_config["drone_config"])
+                except:
+                    logging.error(f"Error in loading drone hardware configuration.")
+                    return None
+            return None
+
 
         imu_config = _get_imu_config()
         transformation = _get_transformation_config()
+        drone_config = _get_drone_config()
         return HardwareConfig(
             type=self.dataset.type,
             imu_config=imu_config,
             transformation=transformation,
+            drone_hardware_config=drone_config
         )
 
 def dump_config(filter_config: FilterConfig, dataset_config: DatasetConfig, vo_config: VisualOdometryConfig, output_filepath: str):

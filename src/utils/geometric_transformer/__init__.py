@@ -3,6 +3,7 @@ import numpy as np
 from .base_geometric_transformer import TransformationField
 from .kitti_geometric_transformer import KITTI_GeometricTransformer
 from .euroc_geometric_transformer import EuRoC_GeometricTransformer
+from .uav_geometric_transformer import UAV_GeometricTransformer
 from ...common import HardwareConfig, DatasetType, SensorDataField
 
 
@@ -25,6 +26,9 @@ class GeometryTransformer:
             case DatasetType.EUROC:
                 logging.info(f"Setting EuRoC geometric transformer.")
                 return EuRoC_GeometricTransformer(**kwargs)
+            case DatasetType.UAV:
+                logging.info(f"Setting UAV geometric transformer.")
+                return UAV_GeometricTransformer(**kwargs)
             case _:
                 logging.error(f"Unsupported dataset type: {dataset_type}. Using KITTI transformer as default.")
                 return KITTI_GeometricTransformer(**kwargs)

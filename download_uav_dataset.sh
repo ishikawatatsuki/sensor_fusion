@@ -7,7 +7,6 @@ mkdir -p $LOCATION_DIR
 files=(
   log0001.zip
   log0002.zip
-  log0003.zip
 )
 
 BASE_URL="https://uav-buckect.s3.eu-north-1.amazonaws.com"

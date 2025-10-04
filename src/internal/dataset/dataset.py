@@ -14,9 +14,21 @@ from .kitti import (
     OXTS_GPSDataReader,
     OXTS_IMUDataReader,
     KITTI_StereoFrameReader,
-    KITTI_VisualOdometry,
     KITTI_GroundTruthDataReader,
     KITTI_UpwardLeftwardVelocityDataReader
+)
+from .uav import (
+    PX4_IMUDataReader,
+    PX4_GPSDataReader,
+    PX4_VisualOdometryDataReader,
+    PX4_MagnetometerDataReader,
+    PX4_ActuatorMotorDataReader,
+    PX4_ActuatorOutputDataReader,
+    PX4_CustomIMUDataReader,
+    VOXL_TrackingCameraDataReader,
+    VOXL_IMUDataReader,
+    VOXL_StereoFrameReader,
+    VOXL_QVIOOverlayDataReader
 )
 from .euroc import (
     EuRoC_IMUDataReader,
@@ -33,6 +45,7 @@ from ..extended_common import (
     AccelSpecification,
     SensorType, 
     KITTI_SensorType,
+    UAV_SensorType,
     EuRoC_SensorType,
     State, Pose,
     CoordinateFrame,
@@ -47,6 +60,7 @@ from ..extended_common import (
     
     IMU_FREQUENCY_MAP,
     EUROC_SEQUENCE_MAPS,
+    UAV_SEQUENCE_MAPS,
     KITTI_SEQUENCE_TO_DATE,
     KITTI_SEQUENCE_TO_DRIVE,
     MAX_CONSECUTIVE_DROPOUT_RATIO
@@ -388,6 +402,316 @@ class KITTIDataset(BaseDataset):
                         data=SensorData(z=np.zeros(3)),
                         coordinate_frame=CoordinateFrame.INERTIAL)
 
+class UAVDataset(BaseDataset):
+
+    sensor_threads: List[Sensor] = []
+    imu_noise_vector = None
+    
+    def __init__(
+        self, 
+        **kwargs,
+        ):
+        
+        super().__init__(**kwargs)
+
+        sequence = UAV_SEQUENCE_MAPS.get(self.config.variant, "log0001")
+
+        self.root_path = os.path.join(self.config.root_path, sequence)
+
+        imu_config_path = self.config.imu_config_path
+        if imu_config_path is None:
+            imu_config_path = os.path.join(self.config.root_path, "configs/imu_config.yaml")
+        
+        sensor_config_path = self.config.sensor_config_path
+        if sensor_config_path is None:
+            sensor_config_path = os.path.join(self.config.root_path, "configs/sensor_path.yaml")
+
+        filepath = None
+        with open(sensor_config_path, "r") as f:
+            filepath = yaml.safe_load(f)
+            f.close()
+            
+        self.uav_sensor = namedtuple('uav_sensor', ['type', 'px4', 'voxl'])(**filepath[sequence])
+        
+        self.px4_path = namedtuple('px4', [
+            'imu0_gyro', 'imu0_acc', 'imu1_gyro', 'imu1_acc',
+            'gps', 'visual_odometry', 'actuator_motors', 'actuator_outputs', 'mag'
+            ])(**self.uav_sensor.px4)
+        
+        self.voxl_path = namedtuple('voxl', [
+            'imu0', 'imu1', 'stereo', 'qvio_overlay', 'tracking_camera'
+            ])(**self.uav_sensor.voxl)
+        
+        self._populate_sensor_to_thread()
+
+    def _populate_sensor_to_thread(self) -> List[Sensor]:
+        
+        px4_path = os.path.join(self.root_path, "px4")
+        voxl_path = os.path.join(self.root_path, "run/mpa")
+        
+        def _get_dataset(sensor: ExtendedSensorConfig):
+            match (sensor.sensor_type):
+                case UAV_SensorType.VOXL_IMU0:
+                    data_reader = VOXL_IMUDataReader(
+                        path=os.path.join(voxl_path, self.voxl_path.imu0),
+                        window_size=sensor.window_size,
+                        )
+                    return data_reader
+                case UAV_SensorType.VOXL_IMU1:
+                    data_reader = VOXL_IMUDataReader(
+                        path=os.path.join(voxl_path, self.voxl_path.imu1),
+                        window_size=sensor.window_size
+                        )
+                    return data_reader
+                case UAV_SensorType.VOXL_STEREO:
+                    return VOXL_StereoFrameReader(
+                        path=os.path.join(voxl_path, self.voxl_path.stereo),
+                        image_root_path=os.path.join(voxl_path, self.voxl_path.stereo.split("/")[0])
+                    )
+                case UAV_SensorType.VOXL_QVIO_OVERLAY:
+                    return VOXL_QVIOOverlayDataReader(
+                        path=os.path.join(voxl_path, self.voxl_path.qvio_overlay)
+                    )
+                case UAV_SensorType.VOXL_TRACKING_CAMERA:
+                    return VOXL_TrackingCameraDataReader(
+                        path=os.path.join(voxl_path, self.voxl_path.tracking_camera)
+                    )
+                case UAV_SensorType.PX4_IMU0:
+                    data_reader = PX4_IMUDataReader(
+                        gyro_path=os.path.join(px4_path, self.px4_path.imu0_gyro),
+                        acc_path=os.path.join(px4_path, self.px4_path.imu0_acc),
+                        window_size=sensor.window_size,
+                        )
+                    return data_reader
+                case UAV_SensorType.PX4_IMU1:
+                    data_reader = PX4_IMUDataReader(
+                        gyro_path=os.path.join(px4_path, self.px4_path.imu1_gyro),
+                        acc_path=os.path.join(px4_path, self.px4_path.imu1_acc),
+                        window_size=sensor.window_size
+                        )
+                    return data_reader
+                case UAV_SensorType.PX4_GPS:
+                    return PX4_GPSDataReader(
+                        path=os.path.join(px4_path, self.px4_path.gps),
+                        )
+                case UAV_SensorType.PX4_VO:
+                    simulate_delay = sensor.args.get("simulate_delay", False)
+                    min_confidence = sensor.args.get("min_confidence", 0.8)
+                    max_confidence = sensor.args.get("max_confidence", 1.0)
+                    avg_delay = sensor.args.get("avg_delay", 0.5)
+                    return PX4_VisualOdometryDataReader(
+                        path=os.path.join(px4_path, self.px4_path.visual_odometry),
+                        simulate_delay=simulate_delay,
+                        min_confidence=min_confidence,
+                        max_confidence=max_confidence,
+                        avg_delay=avg_delay
+                    )
+                case UAV_SensorType.PX4_MAG:
+                    return PX4_MagnetometerDataReader(
+                        path=os.path.join(px4_path, self.px4_path.mag),
+                    )
+                case SensorType.GROUND_TRUTH:
+                    # NOTE: Currently, GPS data is set as a ground truth in UAV dataset
+                    return PX4_GPSDataReader(
+                        path=os.path.join(px4_path, self.px4_path.gps),
+                    )
+                case UAV_SensorType.UAV_VO:
+                    return None
+                    # return UAVCustomVisualOdometryDataReader(
+                    #     path=os.path.join(px4_path, self.px4_path.visual_odometry),
+                    # )
+                case UAV_SensorType.PX4_ACTUATOR_MOTORS:
+                    return PX4_ActuatorMotorDataReader(
+                        path=os.path.join(px4_path, self.px4_path.actuator_motors),
+                        model_path=os.path.join(self.config.root_path, "models/poly_model_rpm.npy"),
+                        window_size=sensor.window_size,
+                        starttime=603445530648,
+                    )
+                case UAV_SensorType.PX4_ACTUATOR_OUTPUTS:
+                    return PX4_ActuatorOutputDataReader(
+                        path=os.path.join(px4_path, self.px4_path.actuator_outputs),
+                        window_size=sensor.window_size,
+                        # starttime=604311034000,
+                    )
+                case UAV_SensorType.PX4_CUSTOM_IMU:
+                    return PX4_CustomIMUDataReader(
+                        path=px4_path,
+                    )
+                case _:
+                    return None
+
+        sensor_threads = []
+        
+        for sensor in self.sensor_list:
+            dataset = _get_dataset(sensor)
+            if dataset is not None:
+                s = Sensor(
+                    type=sensor.sensor_type, 
+                    dataset=dataset, 
+                    output_queue=self.output_queue, 
+                    dropout_ratio=sensor.dropout_ratio
+                )
+                sensor_threads.append(s)
+            
+        
+        # ADD ground truth
+        self.ground_truth_dataset = _get_dataset(self.ground_truth_sensor_config)
+        s = Sensor(type=SensorType.GROUND_TRUTH, dataset=self.ground_truth_dataset, output_queue=self.output_queue)
+        sensor_threads.append(s)
+        
+        self.sensor_threads = sensor_threads
+    
+    def start(self):
+        now = time.time()
+        
+        for sensor_thread in self.sensor_threads:
+            sensor_thread.start(starttime=now)
+        
+        time.sleep(0.5)
+        last_timestamp, _ = self.output_queue.get()
+        self.last_timestamp = last_timestamp
+        
+    def stop(self):
+        for sensor_thread in self.sensor_threads:
+            sensor_thread.stop()
+
+    def get_sensor_data(self) -> SensorDataField:
+        
+        timestamp, sensor_data = self.output_queue.get()
+
+        if SensorType.is_time_update(sensor_data.type):
+            last_timestamp = self.last_timestamp
+            self.last_timestamp = timestamp
+            dt = (timestamp - last_timestamp) / 1e9
+        
+        match(sensor_data.type):
+            case UAV_SensorType.VOXL_IMU0 | UAV_SensorType.VOXL_IMU1\
+                | UAV_SensorType.PX4_IMU0 | UAV_SensorType.PX4_IMU1:
+
+                u = np.hstack([sensor_data.data.a, sensor_data.data.w])
+                return SensorDataField(
+                    type=sensor_data.type, 
+                    timestamp=timestamp, 
+                    data=ControlInput(u=u, dt=dt),
+                    coordinate_frame=CoordinateFrame.IMU)
+            
+            case UAV_SensorType.PX4_VO:
+                data = VisualOdometryData(
+                    image_timestamp=timestamp,
+                    estimate_timestamp=timestamp,
+                    relative_pose=sensor_data.data.relative_pose,
+                    dt=sensor_data.data.dt
+                )
+                return SensorDataField(
+                    type=sensor_data.type, 
+                    timestamp=timestamp, 
+                    data=data,
+                    coordinate_frame=CoordinateFrame.STEREO_LEFT)
+            
+            case UAV_SensorType.UAV_VO:
+                data = VisualOdometryData(
+                    image_timestamp=timestamp,
+                    estimate_timestamp=timestamp,
+                    relative_pose=sensor_data.data.relative_pose,
+                    dt=sensor_data.data.dt
+                )
+                return SensorDataField(
+                    type=sensor_data.type, 
+                    timestamp=timestamp, 
+                    data=data,
+                    coordinate_frame=CoordinateFrame.STEREO_LEFT)
+            
+            case UAV_SensorType.PX4_GPS:
+                z = np.array([sensor_data.data.lon, sensor_data.data.lat, sensor_data.data.alt])
+                return SensorDataField(
+                    type=sensor_data.type, 
+                    timestamp=timestamp, 
+                    data=SensorData(z=z),
+                    coordinate_frame=CoordinateFrame.GPS)
+                
+            case UAV_SensorType.PX4_MAG:
+                z = np.array([sensor_data.data.x, sensor_data.data.y, sensor_data.data.z])
+                return SensorDataField(
+                    type=sensor_data.type, 
+                    timestamp=timestamp, 
+                    data=SensorData(z=z),
+                    coordinate_frame=CoordinateFrame.MAGNETOMETER)
+                
+            case UAV_SensorType.VOXL_STEREO:
+                return SensorDataField(
+                    type=sensor_data.type, 
+                    timestamp=timestamp, 
+                    data=StereoField(
+                        left_frame_id=sensor_data.data.left_frame_id,
+                        right_frame_id=sensor_data.data.right_frame_id,
+                    ),
+                    coordinate_frame=CoordinateFrame.STEREO_LEFT)
+
+            case SensorType.GROUND_TRUTH:
+                z = np.array([sensor_data.data.lon, sensor_data.data.lat, sensor_data.data.alt])
+                return SensorDataField(
+                    type=sensor_data.type, 
+                    timestamp=timestamp, 
+                    data=SensorData(z=z),
+                    coordinate_frame=CoordinateFrame.GPS)
+                
+            case UAV_SensorType.VOXL_QVIO_OVERLAY:
+                return SensorDataField(
+                    type=sensor_data.type, 
+                    timestamp=timestamp, 
+                    data=StereoField(
+                        left_frame_id=sensor_data.data.image_path, 
+                        right_frame_id=sensor_data.data.image_path),
+                    coordinate_frame=CoordinateFrame.STEREO_LEFT)
+
+            case UAV_SensorType.VOXL_TRACKING_CAMERA:
+                return SensorDataField(
+                    type=sensor_data.type, 
+                    timestamp=timestamp, 
+                    data=StereoField(
+                        left_frame_id=sensor_data.data.image_path, 
+                        right_frame_id=sensor_data.data.image_path),
+                    coordinate_frame=CoordinateFrame.STEREO_LEFT)
+            
+            case UAV_SensorType.PX4_ACTUATOR_MOTORS:
+                u = np.array([
+                    sensor_data.data.c0, 
+                    sensor_data.data.c1, 
+                    sensor_data.data.c2, 
+                    sensor_data.data.c3
+                    ])
+                return SensorDataField(
+                    type=sensor_data.type,
+                    timestamp=timestamp,
+                    data=ControlInput(u=u, dt=dt),
+                    coordinate_frame=CoordinateFrame.INERTIAL)
+            case UAV_SensorType.PX4_ACTUATOR_OUTPUTS:
+                u = np.array([
+                    sensor_data.data.c0, 
+                    sensor_data.data.c1, 
+                    sensor_data.data.c2, 
+                    sensor_data.data.c3
+                    ])
+                return SensorDataField(
+                    type=sensor_data.type,
+                    timestamp=timestamp,
+                    data=ControlInput(u=u, dt=dt),
+                    coordinate_frame=CoordinateFrame.INERTIAL)
+            case UAV_SensorType.PX4_CUSTOM_IMU:
+                z = np.hstack([sensor_data.data.a, sensor_data.data.w, sensor_data.data.m])
+                return SensorDataField(
+                    type=sensor_data.type, 
+                    timestamp=timestamp, 
+                    data=SensorData(z=z),
+                    coordinate_frame=CoordinateFrame.IMU)
+            case _:
+                return SensorDataField(
+                    type=sensor_data.type, 
+                    timestamp=timestamp, 
+                    data=SensorData(z=np.zeros(3)),
+                    coordinate_frame=CoordinateFrame.INERTIAL)
+
+
 class EuRoCDataset(BaseDataset):
 
     sensor_threads = None
@@ -520,6 +844,11 @@ class Dataset:
         if dataset_type == DatasetType.KITTI:
             logging.info("Loading KITTI dataset...")
             self.dataset = KITTIDataset(config=config)
+        elif dataset_type == DatasetType.UAV:
+            logging.info("Loading UAV dataset...")
+            self.dataset = UAVDataset(
+                config=config,
+            )
         elif dataset_type == DatasetType.EUROC:
             logging.info("Loading EuRoC dataset...")
             self.dataset = EuRoCDataset(

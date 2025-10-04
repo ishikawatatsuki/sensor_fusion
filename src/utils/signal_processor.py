@@ -1,4 +1,5 @@
 import pywt
+import logging
 import numpy as np
 from enum import Enum
 from dataclasses import dataclass
@@ -132,7 +133,47 @@ class SignalProcessor:
         https://ieeexplore.ieee.org/document/8713728
         """
         return savgol_filter(data, self.sg_window_size, self.polyorder)
+
+    def _detect_anomaly(self, data: np.ndarray, buffer: list, threshold: float = 3.0) -> bool:
+        """Detects anomalies in the data using z-score method
+
+        Args:
+            data (np.ndarray): Input data
+            threshold (float, optional): Z-score threshold. Defaults to 3.0.
+
+        Returns:
+            bool: True if anomaly is detected, False otherwise
+        """
+        if len(buffer) < self.moving_avg_window_size:
+            return False
         
+        mean = np.mean(buffer, axis=0)
+        std = np.std(buffer, axis=0)
+        z_scores = np.abs((data - mean) / std)
+        
+        return np.any(z_scores > threshold)
+    
+    def _apply_actuator_preprocessing(self, sensor_data: SensorDataField) -> np.ndarray:
+
+        assert self.hardware_config.drone_hardware_config is not None, "Hardware config is not set"
+
+        motor_speed = sensor_data.data.u.flatten()
+        self.uav_buffer.append(motor_speed)
+        
+        if self._detect_anomaly(data=motor_speed, buffer=self.uav_buffer, threshold=3.0):
+            logging.warning("Anomaly detected in motor speed data")
+            return None
+            
+        if len(self.uav_buffer) > self.moving_avg_window_size:
+            motor_speed = np.mean(self.uav_buffer, axis=0)
+            self.uav_buffer = self.uav_buffer[-self.moving_avg_window_size:]
+        
+        rpm_to_rad = (2*np.pi)/60
+        omega1, omega2, omega3, omega4 = motor_speed * rpm_to_rad  # Convert RPM to rad/s
+        omega_r = -omega1 + omega2 - omega3 + omega4 # Compute relative rotor speed
+
+        return np.array([omega1, omega2, omega3, omega4, omega_r])
+    
     def _apply_imu_preprocessing(self, sensor_data: SensorDataField) -> np.ndarray:
         """Returns preprocessed IMU data
 
@@ -145,6 +186,11 @@ class SignalProcessor:
         # TODO: Make the filter process configurable.
         imu = sensor_data.data.u
         a, w = imu[:3], imu[3:]
+        
+        if self._detect_anomaly(data=a, buffer=self.buffer[SignalType.ACC], threshold=3.0) or \
+            self._detect_anomaly(data=w, buffer=self.buffer[SignalType.GYRO], threshold=3.0):
+            logging.warning("Anomaly detected in IMU data")
+            return None
         
         if self.filter_config.use_imu_preprocessing:
             # NOTE: Apply lowpass filter
@@ -165,7 +211,33 @@ class SignalProcessor:
         Returns:
             np.ndarray: control input vector u
         """
-        return self._apply_imu_preprocessing(sensor_data=sensor_data)
+        if SensorType.is_motor_data(sensor_data.type):
+            return self._apply_actuator_preprocessing(sensor_data=sensor_data)
+        else:
+            return self._apply_imu_preprocessing(sensor_data=sensor_data)
+
+    def get_angle_for_correction(self, sensor_data: SensorDataField) -> np.ndarray:
+        """Returns the angle for correction based on sensor data
+
+        Args:
+            sensor_data (SensorDataField): IMU sensor data
+
+        Returns:
+            np.ndarray: Angle for correction
+        """
+        if not SensorType.is_imu_data_for_correction(sensor_data.type):
+            return np.array([1., 0., 0., 0.]).reshape(-1, 1)
+        
+        imu = sensor_data.data.z.flatten()
+        acc, gyro = imu[:3], imu[3:6]
+        if imu.shape[0] > 6:
+            mag = imu[6:9]
+            mag = np.array([mag[2], mag[0], mag[1]])  # Adjust magnetometer axes
+            q = self.ekf.update(self.q, gyr=gyro, acc=acc, mag=mag) 
+        else:
+            q = self.ekf.update(self.q, gyr=gyro, acc=acc)
+        self.q = q
+        return q.reshape(-1, 1)
 
     def set_initial_angle(self, q: np.ndarray):
         """Sets the initial angle for the EKF

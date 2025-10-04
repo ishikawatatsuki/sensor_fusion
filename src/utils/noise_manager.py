@@ -3,6 +3,7 @@ import sys
 import abc
 import logging
 import numpy as np
+from sqlalchemy import case
 
 from ..common import (
     FusionData,
@@ -49,12 +50,11 @@ class BaseNoise(abc.ABC):
                 case SensorType.OXTS_GPS.name | SensorType.OXTS_GPS_UNSYNCED.name:
                     noise_vector = np.array([1.0, 1.0, 1.0])
                     return np.eye(noise_vector.shape[0]) * noise_vector**2
-
+                
                 case SensorType.KITTI_VO.name:
                     # Velocity noise
                     if len(fusion_fields) == 0:
                         logging.warning(f"Fusion field is not set for sensor: {sensor_type.name}")
-                    
                     noise_vector = np.empty(0)
                     if FusionData.POSITION in fusion_fields:
                         position_noise = np.array([3., 3., 10])
@@ -65,12 +65,61 @@ class BaseNoise(abc.ABC):
                     if FusionData.ORIENTATION in fusion_fields:
                         orientation_noise = np.array([0.01, 0.01, 0.01, 0.01])
                         noise_vector = np.append(noise_vector, orientation_noise)
-                    
                     return np.eye(noise_vector.shape[0]) * noise_vector**2
                 
                 case SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY.name:
                     return np.eye(2) * np.array([.5, .5])**2
+                
 
+                case SensorType.PX4_GPS.name:
+                    noise_vector = np.array([1.0, 1.0, 1.0])
+                    return np.eye(noise_vector.shape[0]) * noise_vector**2
+                
+                case SensorType.PX4_VO.name:
+                    if len(fusion_fields) == 0:
+                        logging.warning(f"Fusion field is not set for sensor: {sensor_type.name}")
+                    
+                    noise_vector = np.empty(0)
+                    if FusionData.POSITION in fusion_fields:
+                        position_noise = np.array([2.5, 2.5, 5])
+                        noise_vector = np.append(noise_vector, position_noise)
+                    if FusionData.LINEAR_VELOCITY in fusion_fields:
+                        velocity_noise = np.array([.5, .5, .5])
+                        noise_vector = np.append(noise_vector, velocity_noise)
+                    if FusionData.ORIENTATION in fusion_fields:
+                        orientation_noise = np.array([0.01, 0.01, 0.01, 0.01])
+                        noise_vector = np.append(noise_vector, orientation_noise)
+                    return np.eye(noise_vector.shape[0]) * noise_vector**2
+
+                case SensorType.UAV_VO.name:
+                    if len(fusion_fields) == 0:
+                        logging.warning(f"Fusion field is not set for sensor: {sensor_type.name}")
+                    
+                    noise_vector = np.empty(0)
+                    if FusionData.POSITION in fusion_fields:
+                        position_noise = np.array([2.5, 2.5, 5])
+                        noise_vector = np.append(noise_vector, position_noise)
+                    if FusionData.LINEAR_VELOCITY in fusion_fields:
+                        velocity_noise = np.array([.5, .5, .5])
+                        noise_vector = np.append(noise_vector, velocity_noise)
+                    if FusionData.ORIENTATION in fusion_fields:
+                        orientation_noise = np.array([0.01, 0.01, 0.01, 0.01])
+                        noise_vector = np.append(noise_vector, orientation_noise)
+                    return np.eye(noise_vector.shape[0]) * noise_vector**2
+                
+                case SensorType.PX4_MAG.name:
+                    noise_vector = np.array([0.1]) # angle in z-axis
+                    return np.eye(noise_vector.shape[0]) * noise_vector**2
+                
+                case SensorType.PX4_CUSTOM_IMU.name:
+                    orientation_noise = np.array([0.01, 0.01, 0.01, 0.01])
+                    return np.eye(orientation_noise.shape[0]) * orientation_noise**2
+
+
+                case SensorType.EuRoC_LEICA.name:
+                    noise_vector = np.array([1., 1.0, 1.0])
+                    return np.eye(noise_vector.shape[0]) * noise_vector**2
+                
                 case SensorType.EuRoC_VO.name:
                     # Velocity noise
                     if len(fusion_fields) == 0:
@@ -87,10 +136,6 @@ class BaseNoise(abc.ABC):
                         orientation_noise = np.array([0.01, 0.01, 0.01, 0.01])
                         noise_vector = np.append(noise_vector, orientation_noise)
                     
-                    return np.eye(noise_vector.shape[0]) * noise_vector**2
-                
-                case SensorType.EuRoC_LEICA.name:
-                    noise_vector = np.array([1., 1.0, 1.0])
                     return np.eye(noise_vector.shape[0]) * noise_vector**2
                 
                 case _:
@@ -110,24 +155,48 @@ class BaseNoise(abc.ABC):
     
     def _initialize_Q(self):
         """Initialize process noise covariance matrix Q for each sensor type."""
-        p_noise = np.repeat(2.0, 3)
-        v_noise = np.repeat(0.5, 3)
         q_noise = np.repeat(0.01, 4)
         b_w_noise = np.repeat(self.imu_hardware_config.gyroscope_random_walk, 3)
         b_a_noise = np.repeat(self.imu_hardware_config.accelerometer_random_walk, 3)
+    
+        def _get_initial_process_noise(sensor_type: SensorType):
+            """Returns process noise covariance matrix Q for the given sensor type."""
+            # Register process noise for position vector
+            match (sensor_type.name):
+                case SensorType.OXTS_IMU.name | SensorType.OXTS_IMU_UNSYNCED.name:
+                    p_noise = np.repeat(1.5, 3)
+                    v_noise = np.repeat(0.5, 3)
+                case SensorType.EuRoC_IMU.name:
+                    p_noise = np.repeat(1.75, 3)
+                    v_noise = np.repeat(0.6, 3)
+                case SensorType.PX4_IMU0.name | SensorType.PX4_IMU1.name |\
+                        SensorType.VOXL_IMU0.name | SensorType.VOXL_IMU1.name:
+                    p_noise = np.repeat(2.5, 3)
+                    v_noise = np.repeat(0.7, 3)
+                case SensorType.PX4_ACTUATOR_MOTORS.name | SensorType.PX4_ACTUATOR_OUTPUTS.name:
+                    p_noise = np.repeat(2., 3)
+                    v_noise = np.repeat(0.7, 3)
+                case _:
+                    p_noise = np.repeat(3., 3)
+                    v_noise = np.repeat(1., 3)
+            
+            if self.filter_config.type == "ekf":
+                # q = np.hstack([b_w_noise, b_a_noise])
+                q = np.hstack([p_noise, v_noise, q_noise, b_w_noise, b_a_noise])
+            else:
+                q = np.hstack([p_noise, v_noise, q_noise, b_w_noise, b_a_noise])
 
-        if self.filter_config.type == "ekf":
-            # q = np.hstack([b_w_noise, b_a_noise])
-            q = np.hstack([p_noise, v_noise, q_noise, b_w_noise, b_a_noise])
-        else:
-            q = np.hstack([p_noise, v_noise, q_noise, b_w_noise, b_a_noise])
+            if self.motion_model is MotionModel.DRONE_KINEMATICS:
+                q = np.hstack([q, np.repeat(0.01, 3)])
 
-        Q = np.eye(q.shape[0]) * q ** 2
+            return np.eye(q.shape[0]) * q ** 2
 
-        Qs = {
-            SensorType.OXTS_IMU: Q,
-            SensorType.OXTS_IMU_UNSYNCED: Q,
-        }
+
+        Qs = dict()
+        for sensor_type in SensorType.get_all_sensors():
+            if SensorType.is_time_update(sensor_type):
+                Qs[sensor_type] = _get_initial_process_noise(sensor_type=sensor_type)
+        
         return Qs
 
     @abc.abstractmethod

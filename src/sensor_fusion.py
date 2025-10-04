@@ -201,6 +201,7 @@ class SensorFusion:
             value=relative_pose_in_camera_coord,
             coord_from=sensor_data.coordinate_frame,
             coord_to=CoordinateFrame.INERTIAL))
+        print(relative_pose_inertial)
         relative_pose = Pose(R=relative_pose_inertial[:3, :3], t=relative_pose_inertial[:3, 3])
         self.vo_relative_pose_inertial = relative_pose
         self.independent_vo_pose = self.independent_vo_pose * relative_pose  # update vo pose estimation in inertial frame
@@ -254,6 +255,26 @@ class SensorFusion:
 
             _logging_data = SensorData(z=z.flatten())
         
+        elif SensorType.is_magnetometer_data(sensor_data.type):
+            # NOTE: Magnetometer data is used to estimate the yaw angle
+            z = self.geo_transformer.transform(fields=TransformationField(
+                state=self.kalman_filter.x,
+                value=sensor_data.data.z,
+                coord_from=sensor_data.coordinate_frame,
+                coord_to=CoordinateFrame.INERTIAL))
+            _logging_data = SensorData(z=z.flatten())
+            
+        elif SensorType.is_imu_data_for_correction(sensor_data.type):
+            # NOTE: IMU data is used to estimate the position and orientation
+            q = self.preprocessor.get_angle_for_correction(sensor_data=sensor_data)
+            z = self.geo_transformer.transform(fields=TransformationField(
+                state=self.kalman_filter.x,
+                value=q,
+                coord_from=CoordinateFrame.IMU,
+                coord_to=CoordinateFrame.INERTIAL))
+            visualizing_data = State.get_euler_angle_from_quaternion_vector(z).flatten()
+            _logging_data = SensorData(z=z.flatten())
+
         else: # Add more data handling
             z = self.geo_transformer.transform(fields=TransformationField(
                 state=self.kalman_filter.x,

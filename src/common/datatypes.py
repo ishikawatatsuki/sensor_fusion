@@ -58,8 +58,8 @@ class DatasetType(Enum):
     
     KITTI = "KITTI"
     EUROC = "EUROC"
+    UAV = "UAV"
 
-    # UAV = "UAV"
     # KAGARU = "KAGARU"
     # BLACKBIRD = "BLACKBIRD"
 
@@ -81,6 +81,8 @@ class DatasetType(Enum):
         match(d):
             case DatasetType.KITTI:
                 return CoordinateSystem.ENU
+            case DatasetType.UAV:
+                return CoordinateSystem.NED
             case DatasetType.EUROC:
                 return CoordinateSystem.NED
             case _:
@@ -114,6 +116,43 @@ class KITTI_SensorType(IntEnum):
             return None
 
 @inheritable_enum
+class UAV_SensorType(IntEnum):
+    VOXL_IMU0 = auto()
+    VOXL_IMU1 = auto()
+    VOXL_QVIO = auto() # fused qvio pose data
+    VOXL_STEREO = auto() # image data
+    VOXL_TRACKING_CAMERA = auto() # tracking camera image data
+    VOXL_QVIO_OVERLAY = auto()
+    
+    PX4_IMU0 = auto()
+    PX4_IMU1 = auto()
+    PX4_GPS = auto()
+    PX4_IMU0_BIAS = auto()
+    PX4_IMU1_BIAS = auto()
+    PX4_MAG = auto()
+    PX4_VO = auto() # PX4 visual odometry
+    PX4_VEHICLE_ODOM = auto() # PX4 EKF2
+    PX4_ACTUATOR_MOTORS = auto() # PX4 actuator motors [-1, 1]
+    PX4_ACTUATOR_OUTPUTS = auto() # PX4 actuator outputs [0, 1]
+
+    UAV_VO = auto() # own custom monocular visual odometry
+    PX4_CUSTOM_IMU = auto() # IMU synchronized with magnetometer. Used for orientation correction.
+    
+    @staticmethod
+    def get_enum_name_list():
+        return [s.lower() for s in list(UAV_SensorType.__members__.keys())]
+    
+    @classmethod
+    def get_uav_sensor_from_str(cls, sensor_str: str):
+        s = sensor_str.lower()
+        try: 
+            index = UAV_SensorType.get_enum_name_list().index(s)
+            return cls(index + 1)
+        except:
+            return None
+        
+        
+@inheritable_enum
 class EuRoC_SensorType(IntEnum):
     EuRoC_IMU = auto()
     EuRoC_STEREO = auto()
@@ -136,8 +175,8 @@ class EuRoC_SensorType(IntEnum):
         
 
 
-# @copy_enum_members(KITTI_SensorType, UAV_SensorType)
-class SensorType(KITTI_SensorType, EuRoC_SensorType):
+# @copy_enum_members(KITTI_SensorType, UAV_SensorType, EuRoC_SensorType)
+class SensorType(KITTI_SensorType, UAV_SensorType, EuRoC_SensorType):
     
     GROUND_TRUTH = 100
 
@@ -145,6 +184,7 @@ class SensorType(KITTI_SensorType, EuRoC_SensorType):
     def get_all_sensors():
         all_members = []
         all_members += KITTI_SensorType.__members__.values()
+        all_members += UAV_SensorType.__members__.values()
         all_members += EuRoC_SensorType.__members__.values()
         all_members += [SensorType.GROUND_TRUTH]
         return all_members
@@ -154,12 +194,27 @@ class SensorType(KITTI_SensorType, EuRoC_SensorType):
         return t.name in [
             SensorType.OXTS_IMU.name,
             SensorType.OXTS_IMU_UNSYNCED.name,
+            SensorType.VOXL_IMU0.name, 
+            SensorType.VOXL_IMU1.name, 
+            SensorType.PX4_IMU0.name, 
+            SensorType.PX4_IMU1.name,
             SensorType.EuRoC_IMU.name,
         ]
     
     @staticmethod
+    def is_motor_data(t):
+        return t.name in [
+            SensorType.PX4_ACTUATOR_MOTORS.name,
+        ]
+
+
+    @staticmethod
+    def is_imu_data_for_correction(t):
+        return t.name == SensorType.PX4_CUSTOM_IMU.name
+
+    @staticmethod
     def is_time_update(t):
-        return SensorType.is_imu_data(t)
+        return SensorType.is_imu_data(t) or SensorType.is_motor_data(t)
     
     @staticmethod
     def is_leica_data(t):
@@ -169,7 +224,8 @@ class SensorType(KITTI_SensorType, EuRoC_SensorType):
     def is_gps_data(t):
         return t.name in [
             SensorType.OXTS_GPS.name,
-            SensorType.OXTS_GPS_UNSYNCED.name
+            SensorType.OXTS_GPS_UNSYNCED.name,
+            SensorType.PX4_GPS.name,
         ]
     
     @staticmethod
@@ -180,21 +236,40 @@ class SensorType(KITTI_SensorType, EuRoC_SensorType):
     def is_stereo_image_data(t):
         return t.name in [
             SensorType.KITTI_STEREO.name,
+            SensorType.VOXL_STEREO.name,
             SensorType.EuRoC_STEREO.name,
         ]
     
     @staticmethod
+    def is_camera_image_data(t):
+        return SensorType.is_stereo_image_data(t) or t.name == SensorType.VOXL_TRACKING_CAMERA.name
+
+    @staticmethod
     def is_visualization_data(t):
         return t.name in [
             SensorType.KITTI_COLOR_IMAGE.name,
+            SensorType.VOXL_QVIO_OVERLAY.name,
         ]
     
     @staticmethod
     def is_vo_data(t):
         return t.name in [
             SensorType.KITTI_VO.name,
+            SensorType.PX4_VO.name,
+            SensorType.UAV_VO.name,
             SensorType.EuRoC_VO.name
         ]
+    
+    @staticmethod
+    def is_motor_output(t):
+        return t.name in [
+            SensorType.PX4_ACTUATOR_MOTORS.name,
+            SensorType.PX4_ACTUATOR_OUTPUTS.name
+        ]
+    
+    @staticmethod
+    def is_magnetometer_data(t):
+        return t.name == SensorType.PX4_MAG.name
     
     @staticmethod
     def is_constraint_data(t):
@@ -207,24 +282,27 @@ class SensorType(KITTI_SensorType, EuRoC_SensorType):
     @staticmethod
     def is_measurement_update(t):
         return not SensorType.is_time_update(t) and\
-            not SensorType.is_stereo_image_data(t) and\
+            not SensorType.is_camera_image_data(t) and\
                 not SensorType.is_reference_data(t) and\
-                    not SensorType.is_visualization_data(t)
+                    not SensorType.is_visualization_data(t) and\
+                        not SensorType.is_motor_output(t)
 
     @staticmethod
-    def get_sensor_from_str_func(d: str) -> Callable[[str], Union[KITTI_SensorType, None]]:
+    def get_sensor_from_str_func(d: str) -> Callable[[str], Union[KITTI_SensorType, UAV_SensorType, EuRoC_SensorType, None]]:
         """return function pointer based on passed dataset type
 
         Args:
             d (str): dataset type, either kitti or uav
 
         Returns:
-            Callable[[str], Union[KITTI_SensorType, UAV_SensorType, None]]: pointer to a function
+            Callable[[str], Union[KITTI_SensorType, UAV_SensorType, EuRoC_SensorType, None]]: pointer to a function
         """
         dataset = DatasetType.get_type_from_str(d)
         match(dataset):
             case DatasetType.KITTI:
                 return KITTI_SensorType.get_kitti_sensor_from_str
+            case DatasetType.UAV:
+                return UAV_SensorType.get_uav_sensor_from_str
             case DatasetType.EUROC:
                 return EuRoC_SensorType.get_euroc_sensor_from_str
             case _:
@@ -239,6 +317,8 @@ class SensorType(KITTI_SensorType, EuRoC_SensorType):
         match(dataset):
             case DatasetType.KITTI:
                 return KITTI_SensorType(sensor_id).name
+            case DatasetType.UAV:
+                return UAV_SensorType(sensor_id).name
             case DatasetType.EUROC:
                 return EuRoC_SensorType(sensor_id).name
             case _:
@@ -251,12 +331,14 @@ class CoordinateFrame(Enum):
     STEREO_LEFT = "STEREO_LEFT"
     STEREO_RIGHT = "STEREO_RIGHT"
     LEICA = "LEICA"
+    MAGNETOMETER = "MAGNETOMETER"
     
     INERTIAL = "INERTIAL"  # Inertial world frame
 
 class MotionModel(Enum):
     KINEMATICS = "KINEMATICS"
     VELOCITY = "VELOCITY"
+    DRONE_KINEMATICS = "DRONE_KINEMATICS"
     
     @classmethod
     def get_motion_model(cls, s: str):

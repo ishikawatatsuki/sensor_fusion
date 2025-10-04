@@ -33,7 +33,7 @@ from .vo_utils import (
 from ..common.config import VisualOdometryConfig
 from ..internal.extended_common.extended_config import DatasetConfig
 from ..common.datatypes import ImageData, VisualOdometryData, SensorType
-from ..common.constants import EUROC_SEQUENCE_MAPS, VO_POSE_ESTIMATION_MAP, KITTI_SEQUENCE_TO_DATE, KITTI_SEQUENCE_TO_DRIVE
+from ..common.constants import EUROC_SEQUENCE_MAPS, VO_POSE_ESTIMATION_MAP, KITTI_SEQUENCE_TO_DATE, KITTI_SEQUENCE_TO_DRIVE, UAV_SEQUENCE_MAPS
 
 class EstimatorType(Enum):
     EpipolarGeometryBased = '2d2d'
@@ -257,6 +257,15 @@ class MonocularVisualOdometry:
                 distortion_coeffs = np.array([k1, k2, p1, p2])
 
             return K, distortion_coeffs
+        elif self.dataset_config.type == "uav":
+            sequence = UAV_SEQUENCE_MAPS.get(self.dataset_config.variant, "log0001")
+            calibration_file = os.path.join(self.dataset_config.root_path, sequence, "data/modalai/opencv_tracking_intrinsics.yml")
+            
+            fs = cv2.FileStorage(calibration_file, cv2.FILE_STORAGE_READ)
+            K = fs.getNode("M").mat()  # Intrinsic camera matrix
+            D = fs.getNode("D").mat()  # Distortion coefficients
+            fs.release()
+            return K, D
         else:
             raise ValueError("Unsupported dataset type")
 
@@ -582,6 +591,8 @@ class VisualOdometry:
             return SensorType.KITTI_VO
         elif self._vo_provider.dataset_config.type == "euroc":
             return SensorType.EuRoC_VO
+        elif self._vo_provider.dataset_config.type == "uav":
+            return SensorType.UAV_VO
         return None
 
 if __name__ == "__main__":
@@ -597,6 +608,7 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.INFO)
     logging.getLogger('matplotlib.font_manager').disabled = True
+
     use_kitti = True
 
     if use_kitti:
@@ -624,6 +636,7 @@ if __name__ == "__main__":
         ground_truth = pd.read_csv(ground_truth_path, sep=' ', header=None, skiprows=1).values
         ground_truth = ground_truth.reshape(-1, 3, 4)
         gt_pos = ground_truth[start:, :3, 3]
+
     else:
         rootpath = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/EuRoC"
         variant = "01"

@@ -49,6 +49,9 @@ jupyter_up:
 run_kitti:
 	python -m src.pipeline --config_file ./configs/kitti_config.yaml --log_output .debugging --log_level DEBUG
 
+run_uav:
+	python -m src.pipeline --config_file configs/uav_config.yaml --log_output .debugging --log_level DEBUG
+
 run_euroc:
 	python -m src.pipeline --config_file ./configs/euroc_config.yaml --log_output .debugging --log_level DEBUG
 

@@ -58,7 +58,7 @@ dataset:
       selected: False
       dropout_ratio: 0
       window_size: 1
-    uav_custom_vo:
+    uav_vo:
       selected: False
       dropout_ratio: 0
       window_size: 1

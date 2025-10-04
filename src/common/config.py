@@ -268,22 +268,99 @@ class TransformationConfig:
             f"\tT_imu_body_to_inertial={self.T_imu_body_to_inertial}\n" \
             f")"
 
+@dataclass
+class DroneHardwareConfig:
+    moment_of_inertia: float  # kg.m2
+    arm_length: float  # in meter
+    inertia_of_rotor: float  # kg.m2
+    thrust_coefficient: np.ndarray  # Ns2
+    moment_coefficient: np.ndarray  # Nms2
+    mass_of_drone: float  # kg
+    aerodynamic_thrust_drag_coefficient: float  # Ns/m
+    aerodynamic_moment_drag_coefficient: float  # Nm.s
+
+    M: np.ndarray
+
+    def __init__(self,
+                 moment_of_inertia_x: float = 7.5e-3,
+                 moment_of_inertia_y: float = 7.5e-3,
+                 moment_of_inertia_z: float = 1.3e-2,
+                 arm_length: float = 0.25,
+                 inertia_of_rotor: float = 6e-5,
+                 thrust_coefficient: float = 3.90153837e-6,
+                 moment_coefficient: float = 7.5e-7,
+                 mass_of_drone: float = 1.075,
+                 aerodynamic_thrust_drag_coefficient: float = 0.1,
+                 aerodynamic_moment_drag_coefficient: float = 0.1):
+        self.Ix = moment_of_inertia_x
+        self.Iy = moment_of_inertia_y
+        self.Iz = moment_of_inertia_z
+        self.moment_of_inertia = np.eye(3) * np.array(
+            [moment_of_inertia_x, moment_of_inertia_y, moment_of_inertia_z])
+        self.arm_length = arm_length
+        self.inertia_of_rotor = inertia_of_rotor
+
+        rpm_to_rad = (60 / (2 * np.pi)) ** 2
+        if False:
+            self.thrust_coefficient = np.repeat(thrust_coefficient, 4) * rpm_to_rad # to rad/s
+            self.moment_coefficient = np.array([-1, 1, -1, 1]) * np.repeat(moment_coefficient, 4) * rpm_to_rad # to rad/s
+        else:
+            self.thrust_coefficient = np.array([2.6890e-7, 2.8190e-7, 2.7263e-7, 2.7741e-7]) * rpm_to_rad # to rad/s
+            self.moment_coefficient = np.array([-5.6343e-9, 4.7180e-9, -5.7012e-9, 4.8260e-9]) * rpm_to_rad # to rad/s
+            # self.moment_coefficient = np.array([-4.7180e-9, 5.6343e-9, -4.8260e-9, 5.7012e-9]) * rpm_to_rad # to rad/s
+
+        self.mass_of_drone = mass_of_drone
+        self.aerodynamic_thrust_drag_coefficient = np.eye(3) * np.repeat(
+            aerodynamic_thrust_drag_coefficient, 3)
+        self.aerodynamic_moment_drag_coefficient = np.eye(3) * np.repeat(
+            aerodynamic_moment_drag_coefficient, 3)
+
+        M = np.array([
+            [1., 1., 1., 1.],
+            [-1., 1., 1., -1.],
+            [1., -1., 1., -1.],
+            [1., 1., -1., -1.]
+        ])
+        M[0] *= self.thrust_coefficient
+        # M[0] = self.thrust_coefficient
+        M[1] *= self.thrust_coefficient*np.repeat(arm_length, 4)
+        M[2] *= self.thrust_coefficient*np.repeat(arm_length, 4)
+        M[3] *= self.moment_coefficient
+        self.M = M # Control allocation matrix
+        self.Jr = np.array([-9.8316e-6, 8.5648e-6, -9.7166e-6, 9.8131e-6]) # Rotor's moment of inertia
+
+
+    def __str__(self):
+        return \
+            f"Arm length of drone: {self.arm_length}m\n" \
+            f"The weight of drone: {self.mass_of_drone}kg\n" \
+            f"Rotor's inertia of drone: {self.inertia_of_rotor}\n" \
+            f"Thrust coefficient of drone: {self.thrust_coefficient}\n" \
+            f"Moment coefficient of drone: {self.moment_coefficient}\n" \
+            f"Moment of inertia of drone: {self.moment_of_inertia}\n" \
+            f"Aerodynamic thrust drag coefficient of drone: {self.aerodynamic_thrust_drag_coefficient}\n" \
+            f"Aerodynamic moment drag coefficient  of drone: {self.aerodynamic_moment_drag_coefficient}\n" \
+            f"Control allocation matrix M: {self.M}\n"
+
 
 @dataclass
 class HardwareConfig:
     type: str
     imu_config: ImuConfig
     transformation: TransformationConfig
+    drone_hardware_config: DroneHardwareConfig
     
     def __init__(
             self,
             type: str,
             imu_config: ImuConfig,
             transformation: TransformationConfig,
+            drone_hardware_config: DroneHardwareConfig = None
     ):
         self.type = type
         self.imu_config = imu_config
         self.transformation = transformation
+        self.drone_hardware_config = drone_hardware_config
 
     def __str__(self):
         return \
@@ -291,6 +368,7 @@ class HardwareConfig:
             f"\ttype={self.type}\n" \
             f"\timu_config={self.imu_config}\n" \
             f"\ttransformation={self.transformation}\n" \
+            f"\tdrone_hardware_config={self.drone_hardware_config}\n" \
             f")"
 
 GyroSpecification = namedtuple("GyroSpecification", ['noise', 'offset'])

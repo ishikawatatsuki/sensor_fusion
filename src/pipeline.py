@@ -224,7 +224,7 @@ class SingleThreadedPipeline(abc.ABC):
                     if is_debugging:
                         measurement_update_step_durations.append(duration)
 
-                elif SensorType.is_stereo_image_data(sensor_data.type):
+                elif SensorType.is_camera_image_data(sensor_data.type):
                     # Visualize the left image
                     self._visualize_data(
                         message=VisualizationMessage(
@@ -307,9 +307,9 @@ class SingleThreadedPipeline(abc.ABC):
                 if config.general.log_sensor_data:
                     f.write(f"[{self.dataset.get_queue_size():05}] Sensor: {sensor_data.type.name} at {sensor_data.timestamp}\n")
 
-        except Exception as e:
-            logging.error(e)
-            logging.error(f"Data remaining in queue: {self.dataset.get_queue_size()}")
+        # except Exception as e:
+        #     logging.error(e)
+        #     logging.error(f"Data remaining in queue: {self.dataset.get_queue_size()}")
         finally:
             f.close()
             self.dataset.stop()

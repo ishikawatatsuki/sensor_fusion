@@ -74,6 +74,11 @@ EUROC_SEQUENCE_MAPS = {
     "03": "MH_03_medium"
 }
 
+UAV_SEQUENCE_MAPS = {
+    "01": "log0001",
+    "02": "log0002"
+}
+
 VO_POSE_ESTIMATION_MAP = {
     "epipolar": "vo_pose_estimates",
     "pnp": "vo_pose_estimates_2d3d",

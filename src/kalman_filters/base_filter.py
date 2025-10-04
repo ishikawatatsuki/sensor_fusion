@@ -342,7 +342,8 @@ class BaseFilter(abc.ABC):
         """
         fusion_fields = self.config.sensors.get(sensor_type, [])
         match(sensor_type.name):
-            case SensorType.KITTI_VO.name | SensorType.EuRoC_VO.name:
+            case SensorType.KITTI_VO.name | SensorType.EuRoC_VO.name |\
+                    SensorType.UAV_VO.name | SensorType.PX4_VO.name:
                 H = np.empty((0, self.P.shape[0])) # 3 x 16
                 if FusionData.POSITION in fusion_fields:
                     H = np.vstack((H, self._get_position_update_H())) # [I_3x3, 0_3x3, 0_3x4, 0_3x3, 0_3x3]
@@ -351,7 +352,10 @@ class BaseFilter(abc.ABC):
                 if FusionData.ORIENTATION in fusion_fields:
                     H = np.vstack((H, self._get_quaternion_update_H())) # [0_4x3, 0_4x3, 0_4x4, 0_4x3, 0_4x3]
                 return H
-            
+            case SensorType.PX4_MAG.name:
+                return self._get_magnetometer_update_yaw_H()
+            case SensorType.PX4_CUSTOM_IMU.name:
+                return self._get_angle_update_H()
             case SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY.name:
                 return self._get_upward_leftward_update_H()
             case _:
@@ -365,12 +369,17 @@ class BaseFilter(abc.ABC):
         x_dim = self.P.shape[0]
         mask = None
         match(sensor_type.name):
-            case SensorType.KITTI_VO.name | SensorType.EuRoC_VO.name:
+            case SensorType.KITTI_VO.name | SensorType.EuRoC_VO.name |\
+                    SensorType.UAV_VO.name | SensorType.PX4_VO.name:
                 if z_dim == 3:
                     mask = np.array([0., 0., 0., 1., 1., 1., 0., 0., 0., 0.])
                 mask = np.array([1., 1., 1., 1., 1., 1., 0., 0., 0., 0.])
             case SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY.name:
                 mask = np.array([0., 0., 0., 0., 1., 1., 0., 0., 0., 0.])
+            case SensorType.PX4_MAG.name:
+                mask = np.array([0., 0., 0., 0., 0., 0., 1., 1., 1., 1.])
+            case SensorType.PX4_CUSTOM_IMU.name:
+                mask = np.array([0., 0., 0., 0., 0., 0., 1., 1., 1., 1.])
             case _:
                 # NOTE: all transition matrix for GPS, UWB, any position update is handled by this.
                 mask = np.array([1., 1., 1., 0., 0., 0., 0., 0., 0., 0.])

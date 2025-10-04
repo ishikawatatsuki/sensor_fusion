@@ -135,3 +135,6 @@ visual_odometry:
     # 3d3d
     min_depth_threshold: 1
     max_depth_threshold: 50
+
+
+drone_config:

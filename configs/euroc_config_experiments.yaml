@@ -140,3 +140,5 @@ visual_odometry:
     depth_max: 35.0
     min_number_of_keypoints: 300
   dynamic_objects:
+
+drone_config:
