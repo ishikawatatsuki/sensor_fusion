@@ -5,7 +5,7 @@ USER_ID := $(shell id -u)
 GROUP_ID := $(shell id -g)
 DISPLAY_IP := $(shell ifconfig | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p' | sed -n '1p'):0.0
 
-CONTAINER_TAG := sensor_fusion
+CONTAINER_TAG := 0taki0/sensor_fusion
 CONTAINER_KITTI_EVAL_TAG := sensor_fusion_kitti_eval
 
 # Adjust for Windows
@@ -33,13 +33,15 @@ container_up:
 	--mount type=bind,source=./src,target=/app/src \
 	--mount type=bind,source=./outputs,target=/app/outputs \
 	--mount type=bind,source=./data,target=/app/data \
+	--mount type=bind,source=./configs,target=/app/configs \
+	--mount type=bind,source=./Makefile,target=/app/Makefile \
 	--volume="/etc/group:/etc/group:ro" \
 	--volume="/etc/passwd:/etc/passwd:ro" \
 	--volume="/etc/shadow:/etc/shadow:ro" \
 	--volume="/etc/sudoers.d:/etc/sudoers.d:ro" \
 	--volume="/tmp/.X11-unix:/tmp/.X11-unix" \
 	--env="DISPLAY=$(DISPLAY)" \
-	--workdir /app/src \
+	--workdir /app \
 	--name kalman_filter \
 	-it ${CONTAINER_TAG}:1.0 bash 
 
