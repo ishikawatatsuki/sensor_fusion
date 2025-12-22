@@ -220,7 +220,6 @@ class BaseGeometryTransformer(abc.ABC):
 
         return theta_rad
 
-    @abc.abstractmethod
     def transform_data(self, fields: TransformationField) -> np.ndarray:
         """By default, given data is transformed into the inertial frame coordinate.
 
@@ -235,7 +234,6 @@ class BaseGeometryTransformer(abc.ABC):
         """
         pass
         
-    @abc.abstractmethod
     def _transform_virtual_imu_data(self, data: SensorDataField) -> np.ndarray:
         """Transform IMU data into virtual IMU coordinate frame."""
         pass
