@@ -154,7 +154,7 @@ filter:
       alpha: 0.3 # 0 < alpha <= 1
 
 visual_odometry:
-  type: static # Select from: monocular, static (saved vo data)
+  type: monocular # Select from: monocular, static (saved vo data)
   estimator: 2d3d # Select from: 2d2d, 2d3d, hybrid
   camera_id: left
   depth_estimator: dino_v2 # Select from: zoe_depth

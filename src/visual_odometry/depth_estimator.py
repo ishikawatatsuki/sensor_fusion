@@ -13,13 +13,12 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.common.config import VisualOdometryConfig
+from src.visual_odometry.models.da_v2.depth_anything_v2.dpt import DepthAnythingV2
 
 class DepthEstimatorType(Enum):
     ZoeMap = "zoe_depth"
     DinoV2 = "dino_v2"
-
     DepthAnything = 'depth_anything'
-    Midas = "dpt_midas"
 
     @classmethod
     def from_string(cls, value: str):
@@ -27,8 +26,6 @@ class DepthEstimatorType(Enum):
             return cls.DepthAnything
         elif value.lower() == 'zoe_depth':
             return cls.ZoeMap
-        elif value.lower() == 'dpt_midas':
-            return cls.Midas
         elif value.lower() == 'dino_v2':
             return cls.DinoV2
         else:
@@ -56,11 +53,10 @@ class DepthEstimator:
 
     def _get_image_processor(self):
         if self.depth_estimator == DepthEstimatorType.DepthAnything:
-            return AutoImageProcessor.from_pretrained("depth-anything/Depth-Anything-V2-Small-hf")
+            # DepthAnythingV2 uses custom preprocessing, not transformers processor
+            return None
         elif self.depth_estimator == DepthEstimatorType.ZoeMap:
             return AutoImageProcessor.from_pretrained("Intel/zoedepth-nyu-kitti")
-        elif self.depth_estimator == DepthEstimatorType.Midas:
-            return DPTImageProcessor.from_pretrained("Intel/dpt-hybrid-midas")
         elif self.depth_estimator == DepthEstimatorType.DinoV2:
             return AutoImageProcessor.from_pretrained("facebook/dpt-dinov2-base-kitti")
         else:
@@ -68,23 +64,51 @@ class DepthEstimator:
 
     def _get_model(self):
         if self.depth_estimator == DepthEstimatorType.DepthAnything:
-            return AutoModelForDepthEstimation.from_pretrained("depth-anything/Depth-Anything-V2-Small-hf")
+            # Load local DepthAnythingV2 metric model
+            model_configs = {
+                'vits': {'encoder': 'vits', 'features': 64, 'out_channels': [48, 96, 192, 384]},
+                'vitb': {'encoder': 'vitb', 'features': 128, 'out_channels': [96, 192, 384, 768]},
+                'vitl': {'encoder': 'vitl', 'features': 256, 'out_channels': [256, 512, 1024, 1024]}
+            }
+            encoder = 'vitb'  # Using vitb for indoor scenes (hypersim)
+            model = DepthAnythingV2(**model_configs[encoder])
+            
+            weights_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                'depth_anything_weights',
+                'depth_anything_v2_metric_hypersim_vitb.pth'
+            )
+            model.load_state_dict(torch.load(weights_path, map_location=self.device))
+            return model
         elif self.depth_estimator == DepthEstimatorType.ZoeMap:
             return AutoModelForDepthEstimation.from_pretrained("Intel/zoedepth-nyu-kitti")
-        elif self.depth_estimator == DepthEstimatorType.Midas:
-            return DPTForDepthEstimation.from_pretrained("Intel/dpt-hybrid-midas", low_cpu_mem_usage=True)
         elif self.depth_estimator == DepthEstimatorType.DinoV2:
             return AutoModelForDepthEstimation.from_pretrained("facebook/dpt-dinov2-base-kitti")
         else:
             raise ValueError(f"Unknown depth estimator type: {self.depth_estimator}")
 
     def estimate_depth(self, frame: np.ndarray) -> np.ndarray:
-        image = Image.fromarray(frame).convert("L")
-        rgb = Image.merge("RGB", (image, image, image))  # Convert to RGB
-
         logging.debug("Estimating depth...")
         logging.debug(f"Image shape: {frame.shape}")
+        
+        # Special handling for DepthAnythingV2 metric model
+        if self.depth_estimator == DepthEstimatorType.DepthAnything:
+            # frame should be in RGB format (H, W, 3)
+            # Convert RGB to BGR for DepthAnythingV2 (expects BGR from cv2.imread)
+            if frame.shape[-1] == 3:
+                bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            else:
+                bgr_frame = frame
             
+            # infer_image returns metric depth in meters
+            depth = self.model.infer_image(bgr_frame)
+            
+            return depth.astype("float32")
+        
+        # Standard processing for other models
+        image = Image.fromarray(frame).convert("L")
+        rgb = Image.merge("RGB", (image, image, image))  # Convert to RGB
+        
         inputs = self.image_processor(images=rgb,
                                       return_tensors="pt").to(self.device)
 
@@ -99,16 +123,6 @@ class DepthEstimator:
             )
             depth = post_processed_output[0]["predicted_depth"]
             depth = depth.detach().cpu().numpy().astype("float32")
-        elif self.depth_estimator == DepthEstimatorType.Midas:
-            predicted_depth = outputs.predicted_depth
-            prediction = torch.nn.functional.interpolate(
-                predicted_depth.unsqueeze(1),
-                size=image.size[::-1],
-                mode="bicubic",
-                align_corners=False,
-            )
-            outputs = prediction.squeeze().cpu().numpy()
-            depth = ((np.max(outputs) - outputs) * 255 / np.max(outputs)).astype("float32")
         elif self.depth_estimator == DepthEstimatorType.DinoV2:
             predicted_depth = outputs.predicted_depth
             prediction = torch.nn.functional.interpolate(
@@ -166,46 +180,58 @@ if __name__ == "__main__":
     print(rgb_image.shape)
     rgb_image = Image.fromarray(rgb_image)
 
-    config = VisualOdometryConfig(
-        type='monocular',
-        estimator='2d3d',
-        camera_id='left',
-        depth_estimator='dino_v2',
-        params={
-            'max_features': 1000,
-            'ransac_reproj_threshold': 1.0,
-            'confidence': 0.999,
-            'min_inliers': 50
-        }
-    )
+    depth_algorithm = [n.value for n in DepthEstimatorType.__members__.values()]
+    for name in depth_algorithm:
+        print(f"Estimating depth using {name}...")
+        config = VisualOdometryConfig(
+            type='monocular',
+            estimator='2d3d',
+            camera_id='left',
+            depth_estimator=name,
+            params={
+                'max_features': 1000,
+                'ransac_reproj_threshold': 1.0,
+                'confidence': 0.999,
+                'min_inliers': 50
+            }
+        )
+        output_base_dir = "src/visual_odometry/output_depth_estimation_color"
+        output_dir = os.path.join(output_base_dir, name)
+        os.makedirs(output_dir, exist_ok=True)
 
-    output_dir = "src/visual_odometry/output_depth_estimation_color"
-    os.makedirs(output_dir, exist_ok=True)
+        depth_estimator = DepthEstimator(config=config)
+        depth = depth_estimator.estimate_depth(np.array(rgb_image))
+        depth_np = np.array(depth)
+        print(f"Depth shape: {depth_np.shape}")
+        print(f"Depth range: min={depth_np.min():.4f}, max={depth_np.max():.4f}, mean={depth_np.mean():.4f}")
+        
+        # Normalize depth to 0-255 range for visualization
+        depth_normalized = (depth_np - depth_np.min()) / (depth_np.max() - depth_np.min() + 1e-8)
+        depth_vis = (depth_normalized * 255).astype("uint8")
+        
+        # Save normalized depth map
+        depth_image = Image.fromarray(depth_vis)
+        depth_image.save(os.path.join(output_dir, "depth_map.png"))
+        
+        # Also save a colored version for better visualization
+        depth_colored = cv2.applyColorMap(depth_vis, cv2.COLORMAP_INFERNO)
+        cv2.imwrite(os.path.join(output_dir, "depth_map_colored.png"), depth_colored)
 
-    depth_estimator = DepthEstimator(config=config)
-    depth = depth_estimator.estimate_depth(np.array(rgb_image))
-    depth_np = np.array(depth)
-    print(depth_np.shape)
-    print(depth_np.max(), depth_np.min())
-    print(depth_np)
-    depth = Image.fromarray(depth.astype("uint8"))
-    depth.save(os.path.join(output_dir, "depth_map.png"))
+        # Visualize the depth map
+        plt.imshow(depth, cmap="inferno")
+        plt.colorbar()
+        plt.title('Depth Estimation Output')
+        plt.axis('off')
+        plt.savefig(os.path.join(output_dir, "depth_map_visualization.png"))
 
-    # Visualize the depth map
-    plt.imshow(depth, cmap="inferno")
-    plt.colorbar()
-    plt.title('Depth Estimation Output')
-    plt.axis('off')
-    plt.savefig(os.path.join(output_dir, "depth_map_visualization.png"))
+        detector = cv2.SIFT().create(nfeatures=1000, sigma=1.6)
+        keypoints, descriptors = detector.detectAndCompute(image, mask=None)
+        keypoints, descriptors = filter_keypoints_by_border(keypoints, descriptors, image.shape, border=30)
+        keypoints, descriptors = filter_keypoints_by_response(keypoints, descriptors, threshold=0.01)
+        keypoints, descriptors = filter_keypoints_by_size(keypoints, descriptors, min_size=2.0, max_size=10.0)
+        keypoints, descriptors = filter_keypoints_by_depth(keypoints, descriptors, depth_np, min_depth=1.0, max_depth=20.0)
 
-    detector = cv2.SIFT().create(nfeatures=1000, sigma=1.6)
-    keypoints, descriptors = detector.detectAndCompute(image, mask=None)
-    keypoints, descriptors = filter_keypoints_by_border(keypoints, descriptors, image.shape, border=30)
-    keypoints, descriptors = filter_keypoints_by_response(keypoints, descriptors, threshold=0.01)
-    keypoints, descriptors = filter_keypoints_by_size(keypoints, descriptors, min_size=2.0, max_size=10.0)
-    keypoints, descriptors = filter_keypoints_by_depth(keypoints, descriptors, depth_np, min_depth=1.0, max_depth=20.0)
-
-    if keypoints:
-            image_with_keypoints = cv2.drawKeypoints(image, keypoints, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-            cv2.imwrite(os.path.join(output_dir, "keypoints.png"), image_with_keypoints)
-    # visualize_depth_overlay(np.array(image), depth_np)
+        if keypoints:
+                image_with_keypoints = cv2.drawKeypoints(image, keypoints, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+                cv2.imwrite(os.path.join(output_dir, "keypoints.png"), image_with_keypoints)
+        # visualize_depth_overlay(np.array(image), depth_np)

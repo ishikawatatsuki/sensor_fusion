@@ -52,8 +52,7 @@ class DynamicObjectDetector:
             ):
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        if torch.mps.is_available():
-            device = "mps"
+        device = torch.device("mps" if device == "cpu" and torch.mps.is_available() else "cpu")
         
         self.tye = type
         self.device = torch.device(device)
@@ -62,10 +61,19 @@ class DynamicObjectDetector:
             self.model = YOLO(model_path).to(self.device)
             self.runner = self._run_yolo
         else:
-            self.model = pipeline("image-segmentation", model_path, use_fast=True, device=device)
-            if not os.path.exists("src/visual_odometry/segformer_model"):
-                model_path = "src/visual_odometry/segformer_model"
-                self.model.model.save_pretrained(model_path)
+            # For SEGFORMER, ensure we use the correct model path format
+            # Use local model if it exists, otherwise use HuggingFace Hub
+            if os.path.exists("src/visual_odometry/segformer_model"):
+                segformer_path = "src/visual_odometry/segformer_model"
+            else:
+                segformer_path = "nvidia/segformer-b1-finetuned-cityscapes-1024-1024"
+            
+            self.model = pipeline("image-segmentation", segformer_path, use_fast=True, device=device)
+            
+            # Save model locally if loaded from HuggingFace Hub
+            if not os.path.exists("src/visual_odometry/segformer_model") and segformer_path.startswith("nvidia/"):
+                os.makedirs("src/visual_odometry", exist_ok=True)
+                self.model.model.save_pretrained("src/visual_odometry/segformer_model")
             self.runner = self._run_segformer
 
         self.conf = conf

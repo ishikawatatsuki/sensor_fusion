@@ -10,7 +10,7 @@ general:
 visualization:
   realtime: True
   output_filepath: ./outputs/EuRoC/visualization
-  save_frames: False # Save frames for later video generation
+  save_frames: True # Save frames for later video generation
   save_trajectory: True
   show_vo_trajectory: True
   show_angle_estimation: False
@@ -42,7 +42,7 @@ dataset:
     euroc_imu: # ADIS16448
       selected: True
       dropout_ratio: 0
-      window_size: 20
+      window_size: 1
       args:
         frequency: 200
         gyroscope_noise_density: 0.00023561944901923448 # [rad/s/√Hz] 0.0135 deg/s/√Hz
@@ -113,22 +113,22 @@ filter:
       alpha: 0.3 # 0 < alpha <= 1
 
 visual_odometry:
-  type: static # Select from: monocular or static (saved vo data)
+  type: monocular # Select from: monocular or static (saved vo data)
   estimator: 2d3d # Select from: 2d2d, 2d3d, hybrid
   camera_id: left
-  depth_estimator: dino_v2 # Select from: zoe_depth
-  object_detector: segformer # Select from: yolo11 or segformer
+  depth_estimator: depth_anything # Select from: zoe_depth, dino_v2, depth_anything
+  object_detector: segformer # Select from: yolo or segformer
   feature_detector: SIFT # Select from: sift, orb, akaze, kaze, superpoint
   feature_matcher: BF # Select from: bf, flann
   use_advanced_detector: True
-  export_vo_data: True
+  export_vo_data: False
   export_vo_data_path: ./data/EuRoC/
   params: 
     # 2d2d
     confidence: 0.90
-    ransac_reproj_threshold: 0.999
+    ransac_reproj_threshold: 1.5
     matching_threshold: 0.45
-    max_features: 1000
+    max_features: 1500
     # {'detector_matcher': ('SIFT', 'BF'), 'confidence': 0.9400000000000001, 'ransac_reproj_threshold': 1.0, 'matching_threshold': 0.5}
     object_detection_confidence: 0.7
     # Keypoints filtering
@@ -136,9 +136,10 @@ visual_odometry:
     response_threshold: 0.01
     size_min: 2.0
     size_max: 10.0
-    depth_min: 1.0
-    depth_max: 35.0
-    min_number_of_keypoints: 300
+    depth_min: 0.5
+    depth_max: 20.0
+    min_number_of_keypoints: 500
   dynamic_objects:
+    - person
 
 drone_config:
