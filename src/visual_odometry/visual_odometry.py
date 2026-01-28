@@ -182,7 +182,7 @@ class MonocularVisualOdometry:
         self.matching_threshold = config.params.get('matching_threshold', 0.3)
         self.ransac_reproj_threshold = config.params.get('ransac_reproj_threshold', 1.0)
 
-        self.reprojection_error = config.params.get('reprojection_error', 4.0)
+        self.reprojection_error = config.params.get('reprojection_error', 5.0)
         self.itterations_count = config.params.get('itterations_count', 100)
 
         self.keypoint_border_threshold = config.params.get('border_threshold', 30.0)
@@ -280,15 +280,33 @@ class MonocularVisualOdometry:
             raise ValueError(f"Unknown estimator type: {self.motion_estimator}")
 
     def _backproject_to_3d(self, pts2d, depth_map):
-        fx, fy = self.K[0, 0], self.K[1, 1]
-        cx, cy = self.K[0, 2], self.K[1, 2]
-
+        """Backproject 2D points to 3D using depth map.
+        
+        For distorted cameras (EuRoC), undistort points first to get correct 3D coordinates.
+        For rectified cameras (KITTI), use pinhole model directly.
+        """
+        # Get depth values at pixel locations
         u = pts2d[:, 0]
         v = pts2d[:, 1]
         z = depth_map[v.astype(int), u.astype(int)]
-
-        x = (u - cx) * z / fx
-        y = (v - cy) * z / fy
+        
+        # For cameras with distortion, undistort to normalized coordinates
+        if np.any(self.distortion_coeffs != 0):
+            # Undistort to normalized coordinates
+            pts2d_reshaped = np.expand_dims(pts2d, axis=1).astype(np.float32)
+            pts_normalized = cv2.undistortPoints(pts2d_reshaped, self.K, self.distortion_coeffs)
+            pts_normalized = pts_normalized.reshape(-1, 2)
+            
+            # Scale by depth to get 3D points
+            x = pts_normalized[:, 0] * z
+            y = pts_normalized[:, 1] * z
+        else:
+            # No distortion - use pinhole model directly
+            fx, fy = self.K[0, 0], self.K[1, 1]
+            cx, cy = self.K[0, 2], self.K[1, 2]
+            
+            x = (u - cx) * z / fx
+            y = (v - cy) * z / fy
 
         return np.stack((x, y, z), axis=1)  # shape: (N, 3)
     
@@ -315,7 +333,8 @@ class MonocularVisualOdometry:
         )
 
     def _inlier_reprojection(self, pts3d, rvec, tvec):
-        reprojected_points, _ = cv2.projectPoints(pts3d, rvec, tvec, self.K, None)
+        # Project 3D points back to 2D with distortion for accurate reprojection error
+        reprojected_points, _ = cv2.projectPoints(pts3d, rvec, tvec, self.K, self.distortion_coeffs)
         if reprojected_points.ndim == 3:
             reprojected_points = rearrange(reprojected_points, 'n 1 s -> n s')
         return reprojected_points
@@ -323,28 +342,69 @@ class MonocularVisualOdometry:
     def _estimate_2d2d_pose(self, args: PoseEstimatorArgs) -> np.ndarray:
         prev_pts, next_pts, mask = args.prev_pts, args.next_pts, args.mask
 
-        # This function finds the essential matrix E that satisfies the epipolar constraint
-        E, _mask = cv2.findEssentialMat(prev_pts, next_pts, self.K, method=cv2.RANSAC, prob=self.confidence, threshold=self.ransac_reproj_threshold)
-        if E is None:
-            logging.debug("Essential matrix estimation failed.")
-            return None
-        next_pts = next_pts[_mask.ravel() == 1]
-        prev_pts = prev_pts[_mask.ravel() == 1]
-
-        if next_pts.ndim == 2:
-            next_pts = rearrange(next_pts, 'n s -> n 1 s')
-        if prev_pts.ndim == 2:
-            prev_pts = rearrange(prev_pts, 'n s -> n 1 s')
-
-        if self.is_debugging:
-            self.debugging_data = DebuggingData(
-                prev_pts=rearrange(prev_pts, 'n 1 s -> n s'),
-                next_pts=rearrange(next_pts, 'n 1 s -> n s'),
-                mask=mask
+        # For EuRoC and datasets with lens distortion, we need to undistort points manually
+        # since findEssentialMat doesn't accept distCoeffs parameter in OpenCV 4.x
+        if np.any(self.distortion_coeffs != 0):
+            # Undistort to normalized coordinates, then use with Identity matrix
+            prev_pts_norm = cv2.undistortPoints(
+                np.expand_dims(prev_pts, axis=1), 
+                self.K, 
+                self.distortion_coeffs
             )
-        
-
-        _, R, t, _ = cv2.recoverPose(E, prev_pts, next_pts, self.K)
+            next_pts_norm = cv2.undistortPoints(
+                np.expand_dims(next_pts, axis=1), 
+                self.K, 
+                self.distortion_coeffs
+            )
+            
+            # Find essential matrix in normalized space (use Identity as K)
+            E, _mask = cv2.findEssentialMat(
+                prev_pts_norm, next_pts_norm, np.eye(3), 
+                method=cv2.RANSAC, 
+                prob=self.confidence, 
+                threshold=self.ransac_reproj_threshold / self.K[0, 0]  # Scale threshold to normalized space
+            )
+            
+            if E is None:
+                logging.debug("Essential matrix estimation failed.")
+                return None
+                
+            # Filter points based on inliers
+            next_pts_norm = next_pts_norm[_mask.ravel() == 1]
+            prev_pts_norm = prev_pts_norm[_mask.ravel() == 1]
+            
+            # Recover pose using normalized coordinates with Identity matrix
+            _, R, t, _ = cv2.recoverPose(E, prev_pts_norm, next_pts_norm, np.eye(3))
+        else:
+            # No distortion (KITTI case) - use original implementation
+            E, _mask = cv2.findEssentialMat(
+                prev_pts, next_pts, self.K, 
+                method=cv2.RANSAC, 
+                prob=self.confidence, 
+                threshold=self.ransac_reproj_threshold
+            )
+            
+            if E is None:
+                logging.debug("Essential matrix estimation failed.")
+                return None
+                
+            next_pts = next_pts[_mask.ravel() == 1]
+            prev_pts = prev_pts[_mask.ravel() == 1]
+            
+            if next_pts.ndim == 2:
+                next_pts = rearrange(next_pts, 'n s -> n 1 s')
+            if prev_pts.ndim == 2:
+                prev_pts = rearrange(prev_pts, 'n s -> n 1 s')
+            
+            # Recover pose using pixel coordinates with camera matrix
+            _, R, t, _ = cv2.recoverPose(E, prev_pts, next_pts, self.K)
+            
+            if self.is_debugging:
+                self.debugging_data = DebuggingData(
+                    prev_pts=rearrange(prev_pts, 'n 1 s -> n s') if prev_pts.ndim == 3 else prev_pts,
+                    next_pts=rearrange(next_pts, 'n 1 s -> n s') if next_pts.ndim == 3 else next_pts,
+                    mask=mask
+                )
 
         T = np.eye(4)
         T[:3, :3] = R
@@ -366,11 +426,13 @@ class MonocularVisualOdometry:
             logging.debug("No valid 3D points found after filtering.")
             return None
 
-        pts3d, next_pts = pts3d[valid], next_pts[valid]
+        # Filter ALL arrays by valid mask to maintain correspondence
+        pts3d, next_pts, prev_pts = pts3d[valid], next_pts[valid], prev_pts[valid]
         pts3d = pts3d.astype(np.float32)
         next_pts = next_pts.astype(np.float32)
+        prev_pts = prev_pts.astype(np.float32)
 
-        # Copy keypoints for debugging
+        # Copy keypoints for debugging - now they have matching lengths
         next_pts_cp = next_pts.copy()
         prev_pts_cp = prev_pts.copy()
 
@@ -378,8 +440,10 @@ class MonocularVisualOdometry:
         success, rvec, tvec, inliers = False, None, None, None
         try:
             for _ in range(5):
+                # Pass distortion coefficients for accurate reprojection during RANSAC
+                # Critical for EuRoC and other datasets with lens distortion
                 success, rvec, tvec, inliers = cv2.solvePnPRansac(
-                    pts3d, next_pts, self.K, None,
+                    pts3d, next_pts, self.K, self.distortion_coeffs,
                     reprojectionError=self.reprojection_error,
                     confidence=self.confidence,
                     iterationsCount=self.itterations_count,
@@ -403,11 +467,11 @@ class MonocularVisualOdometry:
                 
         except cv2.error as e:
             logging.debug(f"Error in solvePnPRansac: {e}")
-            return
+            return None
 
         if not success:
             logging.debug("Pose estimation failed due to insufficient points.")
-            return
+            return None
         
         if logging.getLogger().isEnabledFor(logging.DEBUG):
             logging.debug(f"Estimated rvec: {rvec}, tvec: {tvec}")
@@ -478,23 +542,36 @@ class MonocularVisualOdometry:
                 self.prev_kp = current_kp
                 self.prev_desc = desc
                 return response
+            
+            # Check if current descriptors are valid
+            if desc is None or len(desc) == 0:
+                logging.warning("No descriptors found in current frame. Skipping frame.")
+                response.prev_pts = None
+                response.next_pts = None
+                return response
+            
+            # Ensure descriptor types match (required for knnMatch)
+            if self.prev_desc.dtype != desc.dtype:
+                desc = desc.astype(self.prev_desc.dtype)
     
             matches = self.matcher.knnMatch(self.prev_desc, desc, k=2)
 
             good_points = []
-            for m, n in matches:
-                if m.distance < self.matching_threshold * n.distance:
-                    good_points.append(m)
+            for match in matches:
+                # knnMatch may return fewer than k matches for some descriptors
+                if len(match) == 2:
+                    m, n = match
+                    if m.distance < self.matching_threshold * n.distance:
+                        good_points.append(m)
 
             if len(good_points) < 5:
-                print("Not enough good matches")
+                logging.warning(f"Not enough good matches: {len(good_points)} matches found")
+                response.prev_pts = None
+                response.next_pts = None
                 return response
 
             prev_pts = np.float32([self.prev_kp[m.queryIdx].pt for m in good_points])
             next_pts = np.float32([current_kp[m.trainIdx].pt for m in good_points])
-
-            # prev_pts = cv2.undistortPoints(np.expand_dims(prev_pts, axis=2), self.K, self.distortion_coeffs)
-            # next_pts = cv2.undistortPoints(np.expand_dims(next_pts, axis=2), self.K, self.distortion_coeffs)
 
             self.prev_kp = current_kp
             self.prev_desc = desc
@@ -505,12 +582,18 @@ class MonocularVisualOdometry:
             prev_pts = cv2.goodFeaturesToTrack(self.prev_frame, maxCorners=1000, qualityLevel=0.01, minDistance=7, mask=mask)
             if prev_pts is None or len(prev_pts) < 4:
                 logging.warning("Not enough points to track. Skipping frame.")
-                return None, None, None
+                response.prev_pts = None
+                response.next_pts = None
+                return response
             next_pts, status, _ = cv2.calcOpticalFlowPyrLK(self.prev_frame, frame, prev_pts, None)
             prev_pts, next_pts = prev_pts[status.flatten() == 1], next_pts[status.flatten() == 1]
-
-            # prev_pts = cv2.undistortPoints(prev_pts, self.K, self.distortion_coeffs)
-            # next_pts = cv2.undistortPoints(next_pts, self.K, self.distortion_coeffs)
+            
+            # Check if optical flow tracking succeeded
+            if len(prev_pts) < 4 or len(next_pts) < 4:
+                logging.warning(f"Optical flow tracking failed: only {len(prev_pts)} points tracked")
+                response.prev_pts = None
+                response.next_pts = None
+                return response
 
         response.prev_pts = prev_pts
         response.next_pts = next_pts
@@ -530,6 +613,17 @@ class MonocularVisualOdometry:
 
         if self.prev_frame is None:
             self.initialize_frame(data)
+            return self._create_output(None, data.timestamp)
+
+        # Check if keypoint computation failed or insufficient points
+        if args.prev_pts is None or args.next_pts is None:
+            logging.warning("Failed to compute keypoints or insufficient matches. Skipping frame.")
+            self.prev_timestamp = data.timestamp
+            return self._create_output(None, data.timestamp)
+        
+        if len(args.prev_pts) < 5 or len(args.next_pts) < 5:
+            logging.warning(f"Insufficient keypoints ({len(args.prev_pts)} points). Skipping frame.")
+            self.prev_timestamp = data.timestamp
             return self._create_output(None, data.timestamp)
 
         logging.debug(f"prev_pts: {args.prev_pts.shape}, next_pts: {args.next_pts.shape}")
@@ -594,204 +688,3 @@ class VisualOdometry:
         elif self._vo_provider.dataset_config.type == "uav":
             return SensorType.UAV_VO
         return None
-
-if __name__ == "__main__":
-    import time
-    import sys
-    import os
-    import pykitti
-    from tqdm import tqdm
-    import matplotlib.pyplot as plt
-    from src.internal.visualizers.vo_visualizer import VO_Visualizer, VO_VisualizationData
-    from src.common.constants import KITTI_SEQUENCE_TO_DATE, KITTI_SEQUENCE_TO_DRIVE, EUROC_SEQUENCE_MAPS
-
-
-    logging.basicConfig(level=logging.INFO)
-    logging.getLogger('matplotlib.font_manager').disabled = True
-
-    use_kitti = True
-
-    if use_kitti:
-        rootpath = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/KITTI"
-        variant = "09"
-        date = KITTI_SEQUENCE_TO_DATE.get(variant, "2011_09_30")
-        drive = KITTI_SEQUENCE_TO_DRIVE.get(variant, "0033")
-        dataset_config = DatasetConfig(
-            type='kitti',
-            mode='stream',
-            root_path=rootpath,
-            variant=variant,
-        )
-        image_path = os.path.join(rootpath, f"{date}/{date}_drive_{drive}_sync/image_00/data")
-        image_files = sorted([f for f in os.listdir(image_path) if f.endswith('.png')])
-        date = KITTI_SEQUENCE_TO_DATE.get(variant)
-        drive = KITTI_SEQUENCE_TO_DRIVE.get(variant)
-        kitti_dataset = pykitti.raw(rootpath, date, drive)
-        image_timestamps = np.array([datetime.timestamp(ts) for ts in kitti_dataset.timestamps])
-        start = 0
-        image_files = image_files[start:]
-        image_timestamps = image_timestamps[start:]
-        logging.debug(f"Found {len(image_files)} image files.")
-        ground_truth_path = os.path.join(rootpath, f"ground_truth/{variant}.txt")
-        ground_truth = pd.read_csv(ground_truth_path, sep=' ', header=None, skiprows=1).values
-        ground_truth = ground_truth.reshape(-1, 3, 4)
-        gt_pos = ground_truth[start:, :3, 3]
-
-    else:
-        rootpath = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/data/EuRoC"
-        variant = "01"
-        sequence = EUROC_SEQUENCE_MAPS.get(variant, "MH_01_easy")
-        dataset_config = DatasetConfig(
-            type='euroc',
-            mode='stream',
-            root_path=rootpath,
-            variant=variant,
-        )
-        offset_start = 1000
-        end = offset_start + 100
-        image_path = os.path.join(rootpath, f"{sequence}/cam0/data")
-        image_timestamps = pd.read_csv(os.path.join(rootpath, f"{sequence}/cam0/data.csv"), names=["#timestamp [ns]", "filename"], skiprows=1)['#timestamp [ns]'].values[offset_start:end]
-        image_files = sorted([f for f in os.listdir(image_path) if f.endswith('.png')])[offset_start:end]
-        logging.debug(f"Found {len(image_files)} image files.")
-
-        ground_truth_path = os.path.join(rootpath, f"{sequence}/state_groundtruth_estimate0/data.csv")
-        columns = "#timestamp, p_RS_R_x [m], p_RS_R_y [m], p_RS_R_z [m], q_RS_w [], q_RS_x [], q_RS_y [], q_RS_z [], v_RS_R_x [m s^-1], v_RS_R_y [m s^-1], v_RS_R_z [m s^-1], b_w_RS_S_x [rad s^-1], b_w_RS_S_y [rad s^-1], b_w_RS_S_z [rad s^-1], b_a_RS_S_x [m s^-2], b_a_RS_S_y [m s^-2], b_a_RS_S_z [m s^-2]".split(", ")
-        df = pd.read_csv(ground_truth_path, names=columns, skiprows=1)
-        initial_timestamp = image_timestamps[0]
-        gt_pos = df[df["#timestamp [ns]"] > initial_timestamp][["p_RS_R_x [m]", "p_RS_R_y [m]", "p_RS_R_z [m]"]].values
-
-    config_filepath = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/configs/kitti_config.yaml"
-    with open(config_filepath, 'r') as f:
-        config = yaml.safe_load(f)
-        vo_json_config = config.get("visual_odometry", None)
-    
-    if vo_json_config is None:
-        logging.error("Visual Odometry configuration not found in the config file.")
-        exit(1)
-    
-    config = VisualOdometryConfig.from_json(vo_json_config)
-    config.type = "monocular"
-    config.estimator = "2d3d"
-
-    # config = VisualOdometryConfig(
-    #     type='monocular',
-    #     estimator='hybrid',
-    #     camera_id='left',
-    #     depth_estimator='dino_v2',
-    #     object_detector='segformer',
-    #     use_advanced_detector=True,
-    #     feature_detector='SIFT',
-    #     feature_matcher='BF',
-    #     export_vo_data=False,
-    #     export_vo_data_path='./data/EuRoC',
-    #     params={
-    #         'confidence': 0.90,
-    #         'ransac_reproj_threshold': 0.999,
-    #         'matching_threshold': 0.45,
-    #         'max_features': 1000,
-    #         'object_detection_confidence': 0.7,
-    #         'border_threshold': 30.0,
-    #         'response_threshold': 0.01,
-    #         'size_min': 3.0,
-    #         'size_max': 15.0,
-    #         'depth_min': 1.0,
-    #         'depth_max': 35.0,
-    #         'min_number_of_keypoints': 100,
-    #     },
-    #     dynamic_objects=['sky'],
-    # )
-
-    vo = VisualOdometry(config=config, dataset_config=dataset_config, debug=True)
-    logging.debug("Visual Odometry initialized.")
-
-    logging.debug(gt_pos.shape)
-    logging.debug(f"Loaded ground truth data with {len(gt_pos)} entries.")
-
-    # frame1 = cv2.imread(os.path.join(image_path, image_files[0]))
-    # frame2 = cv2.imread(os.path.join(image_path, image_files[1]))
-
-    # vo.compute_pose(ImageData(image=frame1, timestamp=time.time()))
-    # time.sleep(0.1)  # Simulate a delay between frames
-    # vo.compute_pose(ImageData(image=frame2, timestamp=time.time()))
-
-    ground_truth_position = []
-    estimated_position = []
-    estimated_pose = []
-    current_pose = np.eye(4)
-    if use_kitti:
-        current_pose[:3, 3] = np.array([gt_pos[0, 0], gt_pos[0, 1], gt_pos[0, 2]])
-    else:
-        current_pose[:3, 3] = np.array([-gt_pos[0, 1], -gt_pos[0, 2], gt_pos[0, 0]])
-    max_points = 200
-    if vo.is_debugging:
-        vis = VO_Visualizer(
-            save_path=f"/Volumes/Data_EXT/data/workspaces/sensor_fusion/outputs/vo_estimates/vo_debug/2d2d_{variant}",
-            save_frame=True
-        )
-        vis.start()
-
-    for i, (image_file, timestamp) in enumerate(tqdm(zip(image_files, image_timestamps), total=len(image_files))):
-        idx = i + 1
-        frame_path = os.path.join(image_path, image_file)
-        frame = cv2.imread(frame_path)
-        vo_data = vo.compute_pose(ImageData(image=frame, timestamp=timestamp))
-        if vo_data.success:
-            if idx >= len(gt_pos):
-                continue
-
-            pose = vo_data.relative_pose
-            current_pose = current_pose @ pose
-            estimated_pose.append(current_pose[:3, :].flatten())
-            estimated_position.append(current_pose[:3, 3])
-            ground_truth_position.append(gt_pos[idx])
-            debugging_data = vo.get_debugging_data()
-            if debugging_data.prev_pts is not None:
-                x, y, z = current_pose[:3, 3]
-                _est_pose = np.array([x, z])
-                px, py, pz = gt_pos[idx]
-                if use_kitti:
-                    _gt_pose = np.array([px, pz])
-                else:
-                    _gt_pose = np.array([-py, px])
-                vis_data = VO_VisualizationData(
-                    frame=frame, 
-                    mask=debugging_data.mask,
-                    pts_prev=debugging_data.prev_pts[:max_points], 
-                    pts_curr=debugging_data.next_pts[:max_points], 
-                    estimated_pose=_est_pose, 
-                    gt_pose=_gt_pose
-                )
-                vis.send(vis_data)
-                time.sleep(0.05)
-
-    estimated_pose = np.array(estimated_pose)
-    
-    ground_truth_position = np.array(ground_truth_position)
-    estimated_position = np.array(estimated_position)
-    min_len = min(len(ground_truth_position), len(estimated_position))
-    ground_truth_position = ground_truth_position[:min_len]
-    estimated_position = estimated_position[:min_len]
-
-
-    # logging.info(f"Estimated Positions shape: {ground_truth_position.shape}")
-    # logging.info(f"Estimated Pose shape: {estimated_position.shape}")
-
-    # mae = mean_absolute_error(ground_truth_position, estimated_position)
-    # logging.info(f"Mean Absolute Error (MAE) of the estimated positions: {mae:.4f}m")
-
-    vis.stop()
-
-    # # Plot the estimated trajectory
-    plt.figure(figsize=(10, 8))
-    px, py, pz = gt_pos.T
-    plt.plot(px, py, marker='o', markersize=1, label='Ground Truth Trajectory', color='black')
-    px, py, pz = estimated_position.T
-    plt.plot(pz, -px, marker='o', markersize=1, label='Estimated Trajectory', color='blue')
-    plt.title('Estimated Trajectory from Visual Odometry')
-    plt.xlabel('X Position (m)')
-    plt.ylabel('Y Position (m)')
-    plt.axis('equal')
-    plt.grid()
-    plt.legend()
-    # plt.show()
-    plt.savefig('estimated_trajectory.png')

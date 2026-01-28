@@ -23,10 +23,14 @@ class VO_Visualizer:
             self, 
             save_path: str, 
             save_frame: bool = False,
-            max_len=2000):
+            max_len=2000,
+            max_keypoints: int = 200
+            ):
         self.queue = Queue()
         self.process = Process(target=self._run, args=(self.queue, max_len))
         self.process.daemon = True
+
+        self.max_keypoints = max_keypoints
 
         self.save_frame = save_frame
         self.save_folder = save_path
@@ -77,7 +81,7 @@ class VO_Visualizer:
             # Draw tracked features
             tracked = frame.copy()
             if pts_prev is not None and pts_curr is not None:
-                for p1, p2 in zip(pts_prev, pts_curr):
+                for p1, p2 in zip(pts_prev[:self.max_keypoints], pts_curr[:self.max_keypoints]):
                     x1, y1 = map(int, p1)
                     x2, y2 = map(int, p2)
                     cv2.line(tracked, (x1, y1), (x2, y2), (255, 0, 0), 1)

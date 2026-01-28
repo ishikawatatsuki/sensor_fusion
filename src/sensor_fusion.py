@@ -324,6 +324,10 @@ class SensorFusion:
             f"Running time update for sensor: {sensor_data.type.name}")
         # NOTE: Apply IMU preprocessing if needed
         value = self.preprocessor.get_control_input(sensor_data=sensor_data)
+        if value is None:
+            logging.warning("Preprocessing IMU data failed. Skipping time update.")
+            return FusionResponse()
+        
         # NOTE: Transform Control input if needed
         u = self.geo_transformer.transform(fields=TransformationField(
                 state=self.kalman_filter.x,

@@ -4,12 +4,12 @@ general:
   save_sensor_data: True
   save_estimation: True
   save_output_debug_frames: True
-  sensor_data_output_filepath: ./.debugging/sensor_out.txt
-  sensor_data_save_path: ./outputs/sensor_data
+  sensor_data_output_filepath: /Volumes/Data_EXT/data/workspaces/sensor_fusion/.debugging/sensor_out.txt
+  sensor_data_save_path: /Volumes/Data_EXT/data/workspaces/sensor_fusion/outputs/sensor_data
 
 visualization:
   realtime: True
-  output_filepath: ./outputs/experiments/KITTI/visualization
+  output_filepath: /Volumes/Data_EXT/data/workspaces/sensor_fusion/outputs/experiments/KITTI/
   save_frames: False # Save frames for later video generation
   save_trajectory: True
   show_vo_trajectory: True
@@ -35,8 +35,8 @@ visualization:
 dataset:
   type: kitti
   mode: stream # NOTE: choose from (stream, live), and live is not implemented yet.
-  root_path: ./data/KITTI
-  variant: "07" #NOTE: variant for kitti
+  root_path: /Volumes/Data_EXT/data/workspaces/sensor_fusion/data/KITTI
+  variant: "09" #NOTE: variant for kitti
   sensors:
     oxts_imu:
       selected: True
@@ -98,7 +98,7 @@ dataset:
       
 report:
   export_error: False
-  error_output_root_path: ../outputs/KITTI
+  error_output_root_path: /Volumes/Data_EXT/data/workspaces/sensor_fusion/outputs/KITTI
   pose_result_dir: ""
   location_only: False 
 
@@ -154,7 +154,7 @@ filter:
       alpha: 0.3 # 0 < alpha <= 1
 
 visual_odometry:
-  type: monocular # Select from: monocular, static (saved vo data)
+  type: static # Select from: monocular, static (saved vo data)
   estimator: 2d3d # Select from: 2d2d, 2d3d, hybrid
   camera_id: left
   depth_estimator: dino_v2 # Select from: zoe_depth

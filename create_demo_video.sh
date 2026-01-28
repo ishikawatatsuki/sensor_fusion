@@ -1,6 +1,7 @@
 #!/bin/sh
 
-CONFIG_FILE=src/config_uav.yaml
+CONFIG_FILE=src/configs/euroc_config.yaml
+TIMESTAMP=1769424081810737
 
 function parse_yaml {
     local prefix=$2
@@ -21,12 +22,8 @@ function parse_yaml {
 
 eval $(parse_yaml $CONFIG_FILE "config_")
 
-echo "Start filtering process."
-
-python3 src/demo.py 
-
 echo "Start creating video."
 
-ffmpeg -r 30 -i $config_visualization_output_filepath/frames/%d.png -vcodec libx264 -crf 25 -pix_fmt yuv420p $config_visualization_output_filepath/frames/demo_video.mp4
+ffmpeg -r 30 -i $config_visualization_output_filepath/1769424081810737/frames/%d.png -vcodec libx264 -crf 25 -pix_fmt yuv420p $config_visualization_output_filepath/1769424081810737/frames/demo_video.mp4
 
 echo "Process finished!"

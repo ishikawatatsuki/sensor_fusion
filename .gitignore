@@ -15,6 +15,9 @@ data
 .DS_Store
 *.out
 *.stat
+*.npz
+*.npy
+*.pth
 
 .debugging
 _debugging
@@ -29,3 +32,5 @@ outputs/vo_estimates/vo_debug/*
 outputs/experiments/*
 outputs/sensor_data/*
 outputs/vo_estimates
+depth_anything_weights
+output_depth_estimation_color
