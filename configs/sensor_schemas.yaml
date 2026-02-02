@@ -1,0 +1,363 @@
+# Sensor Schema Definitions
+# This file defines the data structure for each sensor type across different datasets
+# Add new sensors here without modifying code
+
+sensor_schemas:
+  
+  # ============================================================================
+  # EuRoC Dataset Sensors
+  # ============================================================================
+  
+  euroc_imu:
+    sensor_type: "EuRoC_IMU"
+    data_source:
+      type: csv
+      path_template: "{root_path}/MH_{variant}_easy/imu0/data.csv"
+      delimiter: ","
+      skip_header: 1
+      encoding: utf-8
+    timestamp:
+      field: timestamp
+      unit: nanoseconds
+      divider: 1_000_000_000
+    fields:
+      - name: timestamp
+        columns: [0]
+        type: int
+        transform: timestamp_ns_to_s
+      - name: w  # Angular velocity
+        columns: [1, 2, 3]  # w_RS_S_x, w_RS_S_y, w_RS_S_z
+        type: array
+        transform: array_from_columns
+      - name: a  # Linear acceleration
+        columns: [4, 5, 6]  # a_RS_S_x, a_RS_S_y, a_RS_S_z
+        type: array
+        transform: array_from_columns
+    output_fields: [timestamp, a, w]
+  
+  euroc_leica:
+    sensor_type: "EuRoC_LEICA"
+    data_source:
+      type: csv
+      path_template: "{root_path}/MH_{variant}_easy/leica0/data.csv"
+      delimiter: ","
+      skip_header: 1
+    fields:
+      - name: timestamp
+        columns: [0]
+        type: int
+        transform: timestamp_ns_to_s
+      - name: p_x
+        columns: [1]
+        type: float
+      - name: p_y
+        columns: [2]
+        type: float
+      - name: p_z
+        columns: [3]
+        type: float
+    output_fields: [timestamp, p_x, p_y, p_z]
+  
+  euroc_stereo:
+    sensor_type: "EuRoC_STEREO"
+    data_source:
+      type: csv
+      path_template: "{root_path}/MH_{variant}_easy/cam0/data.csv"
+      delimiter: ","
+      skip_header: 1
+    fields:
+      - name: timestamp
+        columns: [0]
+        type: int
+        transform: timestamp_ns_to_s
+      - name: left_frame_id
+        columns: [1]
+        type: string
+        transform: build_left_frame_path
+      - name: right_frame_id
+        columns: [1]  # Same timestamp, different path
+        type: string
+        transform: build_right_frame_path
+    output_fields: [timestamp, left_frame_id, right_frame_id]
+  
+  euroc_ground_truth:
+    sensor_type: "GROUND_TRUTH"
+    data_source:
+      type: csv
+      path_template: "{root_path}/MH_{variant}_easy/state_groundtruth_estimate0/data.csv"
+      delimiter: ","
+      skip_header: 1
+    fields:
+      - name: timestamp
+        columns: [0]
+        type: int
+        transform: timestamp_ns_to_s
+      - name: p  # Position
+        columns: [1, 2, 3]
+        type: array
+      - name: q  # Quaternion
+        columns: [4, 5, 6, 7]
+        type: array
+      - name: v  # Velocity
+        columns: [8, 9, 10]
+        type: array
+      - name: b_w  # Gyro bias
+        columns: [11, 12, 13]
+        type: array
+      - name: b_a  # Accel bias
+        columns: [14, 15, 16]
+        type: array
+    output_fields: [timestamp, p, v, q, b_w, b_a]
+  
+  # ============================================================================
+  # KITTI Dataset Sensors (using PyKitti)
+  # ============================================================================
+  
+  kitti_oxts_imu:
+    sensor_type: "OXTS_IMU"
+    data_source:
+      type: pykitti
+      format:
+        pykitti_type: oxts
+    fields:
+      - name: timestamp
+        columns: [timestamp]  # Access timestamp attribute
+        type: float
+        transform: timestamp_to_unix
+      - name: a  # Acceleration
+        columns: [packet.ax, packet.ay, packet.az]  # Nested attribute access
+        type: array
+        noise: 8.333333333333333e-05  # From config
+      - name: w  # Angular velocity
+        columns: [packet.wx, packet.wy, packet.wz]
+        type: array
+        noise: 5.817764173314432e-05  # From config
+    output_fields: [timestamp, a, w]
+  
+  kitti_oxts_gps:
+    sensor_type: "OXTS_GPS"
+    data_source:
+      type: pykitti
+      format:
+        pykitti_type: oxts
+    fields:
+      - name: timestamp
+        columns: [timestamp]
+        type: float
+        transform: timestamp_to_unix
+      - name: lon
+        columns: [packet.lon]
+        type: float
+      - name: lat
+        columns: [packet.lat]
+        type: float
+      - name: alt
+        columns: [packet.alt]
+        type: float
+    output_fields: [timestamp, lon, lat, alt]
+  
+  kitti_ground_truth:
+    sensor_type: "GROUND_TRUTH"
+    data_source:
+      type: csv
+      path_template: "{root_path}/ground_truth/{sequence}.txt"
+      delimiter: " "
+      skip_header: 0
+    fields:
+      - name: timestamp
+        columns: [index]  # Use line index, will need custom handling
+        type: int
+        transform: kitti_index_to_timestamp
+      - name: R  # Rotation matrix (flattened)
+        columns: [0, 1, 2, 4, 5, 6, 8, 9, 10]
+        type: array
+      - name: t  # Translation
+        columns: [3, 7, 11]
+        type: array
+    output_fields: [timestamp, R, t]
+  
+  # ============================================================================
+  # UAV Dataset Sensors
+  # ============================================================================
+  
+  px4_imu:
+    sensor_type: "PX4_IMU"
+    data_source:
+      type: csv
+      path_template: "{root_path}/log{variant}/vehicle_imu_0.csv"
+      delimiter: ","
+      skip_header: 1
+    fields:
+      - name: timestamp
+        columns: [0]
+        type: int
+        transform: timestamp_ns_to_s
+      - name: a
+        columns: [3, 4, 5]  # accel_x, accel_y, accel_z
+        type: array
+      - name: w
+        columns: [6, 7, 8]  # gyro_x, gyro_y, gyro_z
+        type: array
+    output_fields: [timestamp, a, w]
+  
+  px4_gps:
+    sensor_type: "PX4_GPS"
+    data_source:
+      type: csv
+      path_template: "{root_path}/log{variant}/vehicle_gps_position_0.csv"
+      delimiter: ","
+      skip_header: 1
+    fields:
+      - name: timestamp
+        columns: [0]
+        type: int
+        transform: timestamp_ns_to_s
+      - name: lon
+        columns: [3]
+        type: float
+      - name: lat
+        columns: [2]
+        type: float
+      - name: alt
+        columns: [4]
+        type: float
+    output_fields: [timestamp, lon, lat, alt]
+
+  # ============================================================================
+  # UrbanNav Dataset Sensors
+  # ============================================================================
+  urban_nav_imu: # GPS TOW (s), GPS Week, Acceleration X (m/s^2), Acceleration Y (m/s^2), Acceleration Z (m/s^2), Angular rate X (rad/s), Angular rate Y (rad/s), Angular rate Z (rad/s), Wheel velocity (m/s)
+    sensor_type: "URBANNAV_IMU"
+    data_source:
+      type: csv
+      path_template: "{root_path}/{variant}/imu.csv"
+      delimiter: ","
+      skip_header: 1
+    fields:
+      - name: timestamp
+        columns: [0]
+        type: int
+        transform: timestamp_ns_to_s
+      - name: a
+        columns: [2, 3, 4]
+        type: array
+      - name: w
+        columns: [5, 6, 7]
+        type: array
+    output_fields: [timestamp, a, w]
+
+  urban_nav_wheel_odometry: # GPS TOW (s), GPS Week, Acceleration X (m/s^2), Acceleration Y (m/s^2), Acceleration Z (m/s^2), Angular rate X (rad/s), Angular rate Y (rad/s), Angular rate Z (rad/s), Wheel velocity (m/s)
+    sensor_type: "URBANNAV_WHEEL_ODOMETRY"
+    data_source:
+      type: csv
+      path_template: "{root_path}/{variant}/imu.csv"
+      delimiter: ","
+      skip_header: 1
+    fields:
+      - name: timestamp
+        columns: [0]
+        type: int
+        transform: timestamp_ns_to_s
+      - name: wheel_velocity
+        columns: [8]
+        type: float
+    output_fields: [timestamp, wheel_velocity]
+
+  urban_nav_gps: # GPS TOW (s), GPS Week, Latitude (deg), Longitude (deg), Ellipsoid Height (m), ECEF X (m), ECEF Y (m), ECEF Z (m), Roll (deg), Pitch (deg), Heading (deg), Velocity X (m/s), Velocity Y (m/s), Velocity Z (m/s), Acceleration X (m/s^2), Acceleration Y (m/s^2), Acceleration Z (m/s^2), Angular rate X (rad/s), Angular rate Y (rad/s), Angular rate Z (rad/s)
+    sensor_type: "URBANNAV_GPS"
+    data_source:
+      type: csv
+      path_template: "{root_path}/{variant}/reference.csv"
+      delimiter: ","
+      skip_header: 1
+    fields:
+      - name: timestamp
+        columns: [0]
+        type: int
+        transform: timestamp_ns_to_s
+      - name: lon
+        columns: [3]
+        type: float
+      - name: lat
+        columns: [2]
+        type: float
+      - name: alt
+        columns: [4]
+        type: float
+    output_fields: [timestamp, lon, lat, alt]
+  
+  urban_uav_ground_truth: # GPS TOW (s), GPS Week, Latitude (deg), Longitude (deg), Ellipsoid Height (m), ECEF X (m), ECEF Y (m), ECEF Z (m), Roll (deg), Pitch (deg), Heading (deg), Velocity X (m/s), Velocity Y (m/s), Velocity Z (m/s), Acceleration X (m/s^2), Acceleration Y (m/s^2), Acceleration Z (m/s^2), Angular rate X (rad/s), Angular rate Y (rad/s), Angular rate Z (rad/s)
+    sensor_type: "GROUND_TRUTH"
+    data_source:
+      type: csv
+      path_template: "{root_path}/{variant}/reference.csv"
+      delimiter: ","
+      skip_header: 1
+    fields:
+      - name: timestamp
+        columns: [0]
+        type: int
+        transform: timestamp_ns_to_s
+      - name: position  # Position
+        columns: [5, 6, 7]
+        type: array
+      - name: orientation  # Orientation
+        columns: [8, 9, 10]
+        type: array
+      - name: velocity  # Velocity
+        columns: [11, 12, 13]
+        type: array
+    output_fields: [timestamp, position, velocity, orientation]
+
+
+# ============================================================================
+# Custom Transformations
+# ============================================================================
+# Define custom transformation functions for specific use cases
+
+custom_transforms:
+  build_left_frame_path:
+    description: "Build full path for left camera frame"
+    code: |
+      def build_left_frame_path(filename, root_path=None, variant=None, **kwargs):
+          return os.path.join(root_path, f"MH_{variant}_easy", "cam0", "data", filename)
+  
+  build_right_frame_path:
+    description: "Build full path for right camera frame"
+    code: |
+      def build_right_frame_path(filename, root_path=None, variant=None, **kwargs):
+          return os.path.join(root_path, f"MH_{variant}_easy", "cam1", "data", filename)
+  
+  kitti_index_to_timestamp:
+    description: "Convert line index to KITTI timestamp using pykitti"
+    code: |
+      def kitti_index_to_timestamp(index, kitti_dataset=None, **kwargs):
+          from datetime import datetime
+          return datetime.timestamp(kitti_dataset.timestamps[index])
+
+# ============================================================================
+# Dataset Mappings
+# ============================================================================
+# Map dataset configurations to sensor schemas
+
+dataset_sensor_mapping:
+  euroc:
+    euroc_imu: euroc_imu
+    euroc_leica: euroc_leica
+    euroc_stereo: euroc_stereo
+    ground_truth: euroc_ground_truth
+  
+  kitti:
+    oxts_imu: kitti_oxts_imu
+    oxts_gps: kitti_oxts_gps
+    ground_truth: kitti_ground_truth
+  
+  uav:
+    px4_imu0: px4_imu
+    px4_gps: px4_gps
+
+  urban_nav:
+    urban_nav_imu: urban_nav_imu
+    urban_nav_wheel_odometry: urban_nav_wheel_odometry
+    urban_nav_gps: urban_nav_gps
+    ground_truth: urban_uav_ground_truth

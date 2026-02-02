@@ -36,7 +36,6 @@ def test_imu_reader():
             print(f"  Timestamp: {imu_data.timestamp:.3f} ms")
             print(f"  Linear Acceleration (m/s²): {imu_data.a}")
             print(f"  Angular Velocity (rad/s): {imu_data.w}")
-            print(f"  Wheel Velocity (m/s): {imu_data.wheel_velocity:.6f}")
             count += 1
         else:
             break

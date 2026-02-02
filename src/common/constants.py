@@ -79,6 +79,13 @@ UAV_SEQUENCE_MAPS = {
     "02": "log0002"
 }
 
+URBAN_NAV_SEQUENCE_MAPS = {
+    "01": "HK/TST",
+    "02": "HK/Tunnel",
+    "03": "TK/Odaiba",
+    "04": "TK/Shinjuku"
+}
+
 VO_POSE_ESTIMATION_MAP = {
     "epipolar": "vo_pose_estimates",
     "pnp": "vo_pose_estimates_2d3d",

@@ -81,12 +81,27 @@ class DatasetConfig:
         self.mode = mode
         self.root_path = root_path
         self.variant = variant
-        self.sensors = sensors
         self.imu_config_path = imu_config_path
         self.sensor_config_path = sensor_config_path
 
         self.run_visual_odometry = False
 
+        sensor_list = []
+        for sensor, value in sensors.items():
+            if value.get("selected", False):
+                sensor_list.append(
+                    SensorConfig(
+                        name=sensor,
+                        dropout_ratio=value["dropout_ratio"],
+                        window_size=value["window_size"],
+                        args=value.get("args", {}),
+                    )
+                )
+                if "vo" in sensor.lower():
+                    self.set_run_visual_odometry()
+
+        self.sensors = sensor_list
+        
     def __str__(self):
         return \
             f"DatasetConfig(\n"\
@@ -239,22 +254,6 @@ class ExtendedConfig:
         self.general = GeneralConfig(**self.parsed_config["general"])
         self.report = ReportConfig(**self.parsed_config["report"])
         self.dataset = DatasetConfig(**self.parsed_config["dataset"])
-        
-        sensors = []
-        for sensor, value in self.dataset.sensors.items():
-            if value.get("selected", False):
-                sensors.append(
-                    SensorConfig(
-                        name=sensor,
-                        dropout_ratio=value["dropout_ratio"],
-                        window_size=value["window_size"],
-                        args=value.get("args", {}),
-                    )
-                )
-                if "vo" in sensor.lower():
-                    self.dataset.set_run_visual_odometry()
-
-        self.dataset.sensors = sensors
         self.filter = FilterConfig(**self.parsed_config["filter"])
         self.filter.set_sensor_fields(self.dataset.type)
 
