@@ -13,6 +13,26 @@ from shapely.geometry import LineString
 from .datatypes import SensorConfig, VisualizationDataType, State, Pose, SensorType, FusionData
 
 @dataclass
+class SensorNoiseConfig:
+    """Configuration for sensor noise parameters and transformation."""
+    type: str  # 'process' or 'measurement'
+    transformation: str  # Name of transformation function
+    params: dict  # Parameters to pass to transformation function
+    
+    @classmethod
+    def from_json(cls, json_data: dict):
+        if json_data is None:
+            return None
+        return cls(
+            type=json_data.get("type", "measurement"),
+            transformation=json_data.get("transformation", None),
+            params=json_data.get("params", {})
+        )
+    
+    def __str__(self):
+        return f"SensorNoiseConfig(type={self.type}, transformation={self.transformation}, params={self.params})"
+
+@dataclass
 class FilterNoise:
     type: str
     params: dict
@@ -37,7 +57,7 @@ class FilterConfig:
     compensate_gravity: bool
     use_imu_preprocessing: bool
     sensors: dict
-    noise: FilterNoise
+    noise_management: FilterNoise
 
     def __init__(
         self,
@@ -51,7 +71,7 @@ class FilterConfig:
         compensate_gravity: bool = False,
         use_imu_preprocessing: bool = False,
         sensors: dict = {},
-        noise: dict = {},
+        noise_management: dict = {},
         ):
         self.type = type
         self.dimension = dimension
@@ -63,7 +83,7 @@ class FilterConfig:
         self.compensate_gravity = compensate_gravity
         self.use_imu_preprocessing = use_imu_preprocessing
         self.sensors = sensors
-        self.noise = FilterNoise.from_json(noise)
+        self.noise_management = FilterNoise.from_json(noise_management)
 
     def __str__(self):
         return \
@@ -78,7 +98,7 @@ class FilterConfig:
             f"\tcompensate_gravity={self.compensate_gravity}\n" \
             f"\tuse_imu_preprocessing={self.use_imu_preprocessing}\n" \
             f"\tsensors={self.sensors}\n" \
-            f"\tnoise={self.noise}\n" \
+            f"\tnoise_management={self.noise_management}\n" \
             f")"
 
     def set_sensor_fields(self, dataset_type: str):
@@ -88,12 +108,28 @@ class FilterConfig:
         for sensor_type_str, values in self.sensors.items():
             sensor_type = get_sensor_type_fn(sensor_type_str)
             fields = values.get("fields", [])
+            noise_config = values.get("noise", None)
+            
             if sensor_type is not None:
-                sensors[sensor_type] = [FusionData.get_type(field) for field in fields if field in fusion_data_fields]
+                sensors[sensor_type] = {
+                    'fields': [FusionData.get_type(field) for field in fields if field in fusion_data_fields],
+                    'noise': SensorNoiseConfig.from_json(noise_config)
+                }
 
         self.sensors = sensors
 
     def to_dict(self):
+        sensors_dict = {}
+        for sensor_type, config in self.sensors.items():
+            sensors_dict[sensor_type.name] = {
+                'fields': [field.name for field in config.get('fields', [])],
+                'noise': {
+                    'type': config['noise'].type,
+                    'transformation': config['noise'].transformation,
+                    'params': config['noise'].params
+                } if config.get('noise') else None
+            }
+        
         return {
             "type": self.type,
             "dimension": self.dimension,
@@ -103,10 +139,10 @@ class FilterConfig:
             "is_imu_preintegrated": self.is_imu_preintegrated,
             "compensate_gravity": self.compensate_gravity,
             "use_imu_preprocessing": self.use_imu_preprocessing,
-            "sensors": {sensor_type.name: [field.name for field in fields] for sensor_type, fields in self.sensors.items()},
-            "noise": {
-                "type": self.noise.type,
-                "params": self.noise.params
+            "sensors": sensors_dict,
+            "noise_management": {
+                "type": self.noise_management.type,
+                "params": self.noise_management.params
             }
         }
 

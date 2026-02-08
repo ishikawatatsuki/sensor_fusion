@@ -103,7 +103,7 @@ report:
   location_only: False 
 
 filter:
-  type: pf # Select from: ekf, ukf, pf, enkf, ckf
+  type: ckf # Select from: ekf, ukf, pf, enkf, ckf
   dimension: 2
   motion_model: velocity # kinematics or velocity
   innovation_masking: False
@@ -127,28 +127,69 @@ filter:
       fields: 
         - linear_acceleration
         - angular_velocity
+      noise:
+        type: process # Select from: process, measurement
+        transformation: imu_noise_to_process_noise # This function should be defined in the same file and will be called in the code to convert the noise values into process noise
+        params:
+          gyroscope_noise_density: 5.817764173314432e-05
+          accelerometer_noise_density: 8.333333333333333e-05
+          gyroscope_random_walk: 0.0005817764173314433
+          accelerometer_random_walk: 0.0008333333333333333
+          dt: 0.1
     oxts_imu_unsynced:
       fields: 
         - linear_acceleration
         - angular_velocity
+      noise:
+        type: process # Select from: process, measurement
+        transformation: imu_noise_to_process_noise # This function should be defined in the same file and will be called in the code to convert the noise values into process noise
+        params:
+          gyroscope_noise_density: 5.817764173314432e-05
+          accelerometer_noise_density: 8.333333333333333e-05
+          gyroscope_random_walk: 0.0005817764173314433
+          accelerometer_random_walk: 0.0008333333333333333
+          dt: 0.01
     oxts_gps: 
       fields: 
         - position
         # - heading_angle
+      noise:
+        type: measurement # Select from: process, measurement
+        transformation: gps_noise_to_measurement_noise  # This function should be defined in the same file and will be called in the code to convert the noise values into measurement noise
+        params:
+          gps_position_noise: 0.1 # meters
     oxts_gps_unsynced: 
       fields: 
         - position
         # - heading_angle
+      noise:
+        type: measurement # Select from: process, measurement
+        transformation: gps_noise_to_measurement_noise # This function should be defined in the same file and will be called in the code to convert the noise values into process noise
+        params:
+          gps_position_noise: 0.1 # meters
     kitti_vo:
       fields: 
         - position
         # - linear_velocity
         # - orientation
+      noise:
+        type: measurement # Select from: process, measurement
+        transformation: vo_noise_to_measurement_noise # This function should be defined in the same file and will be called in the code to convert the noise values into measurement noise
+        params:
+          vo_position_noise: 1.0 # meters
+          vo_velocity_noise: 1.0 # m/s
+          vo_orientation_noise: 0.1 # degrees
     kitti_upward_leftward_velocity:
       fields: 
         - upward_velocity
         - leftward_velocity
-  noise:
+      noise:
+        type: measurement # Select from: process, measurement
+        transformation: lateral_velocity_noise_to_measurement_noise # This function should be defined in the same file and will be called in the code to convert the noise values into measurement noise
+        params:
+          upward_velocity_noise: 0.1
+          leftward_velocity_noise: 0.1
+  noise_management:
     type: default # default, adaptive
     params:
       alpha: 0.3 # 0 < alpha <= 1
@@ -157,8 +198,8 @@ visual_odometry:
   type: monocular # Select from: monocular, static (saved vo data)
   estimator: 2d3d # Select from: 2d2d, 2d3d, hybrid
   camera_id: left
-  depth_estimator: dino_v2 # Select from: zoe_depth
-  object_detector: segformer # Select from: yolo11 or segformer
+  depth_estimator: zoe_depth # Select from: zoe_depth, dino_v2, depth_anything
+  object_detector: yolo11 # Select from: yolo11 or segformer
   feature_detector: SIFT # Select from: sift, orb, akaze, kaze, superpoint
   feature_matcher: BF # Select from: bf, flann
   use_advanced_detector: True
