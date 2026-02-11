@@ -340,7 +340,8 @@ class BaseFilter(abc.ABC):
             returns transition matrix H based on the equation below:
                 h(x) = H*x.T
         """
-        fusion_fields = self.config.sensors.get(sensor_type, [])
+        sensor = self.config.sensors.get(sensor_type, {})
+        fusion_fields = sensor.get('fields', [])
         match(sensor_type.name):
             case SensorType.KITTI_VO.name | SensorType.EuRoC_VO.name |\
                     SensorType.UAV_VO.name | SensorType.PX4_VO.name:

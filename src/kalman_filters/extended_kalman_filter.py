@@ -785,7 +785,8 @@ class ExtendedKalmanFilter(BaseFilter):
 
     def _get_measurement_jacobian(self, data: MeasurementUpdateField) -> np.ndarray:
         sensor_type = data.sensor_type
-        fusion_fields = self.config.sensors.get(sensor_type, [])
+        sensor = self.config.sensors.get(sensor_type, {})
+        fusion_fields = sensor.get('fields', [])
         match(sensor_type.name):
             case SensorType.KITTI_VO.name | SensorType.EuRoC_VO.name:
                 H = np.empty((0, self.P.shape[0])) # z_dim x 16
