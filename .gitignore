@@ -19,7 +19,7 @@ data
 *.npy
 *.pth
 
-.debugging
+.debugging/
 _debugging
 outputs/EuRoC/*
 outputs/KITTI/*
@@ -34,3 +34,4 @@ outputs/sensor_data/*
 outputs/vo_estimates
 depth_anything_weights
 output_depth_estimation_color
+configs/sensor_registry.yaml
