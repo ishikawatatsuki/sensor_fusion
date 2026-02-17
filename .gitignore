@@ -19,7 +19,7 @@ data
 *.npy
 *.pth
 
-.debugging/
+.debugging/*
 _debugging
 outputs/EuRoC/*
 outputs/KITTI/*
