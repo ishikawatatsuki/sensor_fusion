@@ -13,7 +13,8 @@ from ..common import (
     NoiseType,
     SensorType,
     SensorDataField,
-    FilterType
+    FilterType,
+    SensorNoiseConfig
 )
 from .noise_transforms import get_transform_function
 
@@ -50,7 +51,7 @@ class BaseNoise(abc.ABC):
             sensor_config = self.filter_config.sensors.get(sensor_type, None)
             
             if sensor_config and sensor_config.get('noise'):
-                noise_config = sensor_config['noise']
+                noise_config: SensorNoiseConfig = sensor_config['noise']
                 
                 # Only process measurement noise here
                 if noise_config.type == 'measurement' and noise_config.transformation:
@@ -67,8 +68,8 @@ class BaseNoise(abc.ABC):
                             params['fields'] = field_names
                         
                         noise_variance = transform_fn(**params)
-                        logging.debug(f"Using transformation '{noise_config.transformation}' for {sensor_type.name} measurement noise")
-                        return np.diag(noise_variance)
+                        logging.debug(f"Using transformation '{noise_config.transformation}' for {sensor_type.name} measurement noise with scale: {noise_config.scale}")
+                        return np.diag(noise_variance) * noise_config.scale
                     except Exception as e:
                         logging.error(f"Failed to apply transformation '{noise_config.transformation}' for {sensor_type.name}: {e}")
             
@@ -153,7 +154,7 @@ class BaseNoise(abc.ABC):
             sensor_config = self.filter_config.sensors.get(sensor_type, None)
             
             if sensor_config and sensor_config.get('noise'):
-                noise_config = sensor_config['noise']
+                noise_config: SensorNoiseConfig = sensor_config['noise']
                 
                 # Only process process noise here
                 if noise_config.type == 'process' and noise_config.transformation:
@@ -167,7 +168,8 @@ class BaseNoise(abc.ABC):
                             drone_noise = np.repeat(0.01**2, 3)
                             noise_variance = np.concatenate([noise_variance, drone_noise])
                         
-                        return np.diag(noise_variance)
+                        logging.debug(f"Using transformation '{noise_config.transformation}' for {sensor_type.name} process noise with scale: {noise_config.scale}")
+                        return np.diag(noise_variance) * noise_config.scale
                     except Exception as e:
                         logging.error(f"Failed to apply transformation '{noise_config.transformation}' for {sensor_type.name}: {e}")
             

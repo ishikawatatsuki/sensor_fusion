@@ -16,6 +16,7 @@ from .datatypes import SensorConfig, VisualizationDataType, State, Pose, SensorT
 class SensorNoiseConfig:
     """Configuration for sensor noise parameters and transformation."""
     type: str  # 'process' or 'measurement'
+    scale: float
     transformation: str  # Name of transformation function
     params: dict  # Parameters to pass to transformation function
     
@@ -25,12 +26,21 @@ class SensorNoiseConfig:
             return None
         return cls(
             type=json_data.get("type", "measurement"),
+            scale=json_data.get("scale", 1.0),
             transformation=json_data.get("transformation", None),
             params=json_data.get("params", {})
         )
     
+    def to_json(self):
+        return {
+            'type': self.type,
+            'scale': self.scale,
+            'transformation': self.transformation,
+            'params': self.params
+        }
+    
     def __str__(self):
-        return f"SensorNoiseConfig(type={self.type}, transformation={self.transformation}, params={self.params})"
+        return f"SensorNoiseConfig(type={self.type}, scale={self.scale}, transformation={self.transformation}, params={self.params})"
 
 @dataclass
 class FilterNoise:
@@ -109,13 +119,12 @@ class FilterConfig:
             sensor_type = get_sensor_type_fn(sensor_type_str)
             fields = values.get("fields", [])
             noise_config = values.get("noise", None)
-            
             if sensor_type is not None:
                 sensors[sensor_type] = {
                     'fields': [FusionData.get_type(field) for field in fields if field in fusion_data_fields],
                     'noise': SensorNoiseConfig.from_json(noise_config)
                 }
-
+        
         self.sensors = sensors
 
     def to_dict(self):

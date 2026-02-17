@@ -73,24 +73,24 @@ def imu_noise_to_process_noise(
     return process_noise
 
 
-def gps_noise_to_measurement_noise(
-    gps_position_noise: float,
-    gps_heading_noise: float = None
+def position_noise_to_measurement_noise(
+    position_noise: float,
+    heading_noise: float = None
 ) -> np.ndarray:
     """
     Convert GPS noise parameters to measurement noise covariance diagonal.
     
     Args:
-        gps_position_noise: GPS position uncertainty (meters)
-        gps_heading_noise: Optional GPS heading uncertainty (degrees)
+        position_noise: GPS position uncertainty (meters)
+        heading_noise: Optional GPS heading uncertainty (degrees)
     
     Returns:
         Measurement noise variance array for GPS measurements
     """
-    measurement_noise = np.repeat(gps_position_noise**2, 3)  # [x, y, z]
+    measurement_noise = np.repeat(position_noise**2, 3)  # [x, y, z]
     
-    if gps_heading_noise is not None:
-        heading_rad = np.deg2rad(gps_heading_noise)
+    if heading_noise is not None:
+        heading_rad = np.deg2rad(heading_noise)
         measurement_noise = np.append(measurement_noise, heading_rad**2)
     
     return measurement_noise
@@ -162,7 +162,7 @@ def lateral_velocity_noise_to_measurement_noise(
 # Registry of available transformation functions
 NOISE_TRANSFORMS = {
     'imu_noise_to_process_noise': imu_noise_to_process_noise,
-    'gps_noise_to_measurement_noise': gps_noise_to_measurement_noise,
+    'position_noise_to_measurement_noise': position_noise_to_measurement_noise,
     'vo_noise_to_measurement_noise': vo_noise_to_measurement_noise,
     'lateral_velocity_noise_to_measurement_noise': lateral_velocity_noise_to_measurement_noise,
 }

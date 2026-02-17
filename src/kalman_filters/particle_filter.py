@@ -4,6 +4,7 @@ import logging
 import numpy as np
 from enum import Enum, auto
 from scipy.stats import multivariate_normal, multivariate_t
+from scipy.special import logsumexp
 
 from .base_filter import BaseFilter
 from ..common import (
@@ -73,7 +74,11 @@ class ParticleFilter(BaseFilter):
         self.resampling_algorithm = ResamplingAlgorithms.get_resampling_algorithm_from_str(resampling_algorithm)
     
     def _create_gaussian_particles(self, mean, var):
-        return mean.reshape(-1) + np.array([np.random.randn(self.particle_size) for _ in range(var.shape[0])]).T @ var
+        return np.random.multivariate_normal(
+            mean=mean.reshape(-1),
+            cov=var,
+            size=self.particle_size
+        )
 
     def kinematics_motion_model(self, u: np.ndarray, dt: float, Q: np.ndarray):
         """ 
@@ -213,31 +218,27 @@ class ParticleFilter(BaseFilter):
         R = data.R
         sensor_type = data.sensor_type
         H = self.get_transition_matrix(sensor_type, z_dim=z.shape[0])
-        
-        if self.distribution is DistributionType.MULTIVARIATE_NORMAL:
-            target_distribution = multivariate_normal(mean=z.flatten(), cov=R) 
-        else:
-            target_distribution = multivariate_t(df=2, loc=z.flatten(), shape=R)
-
-        measurement_noise = np.random.multivariate_normal(
-            np.zeros(R.shape[0]), 
-            R, 
-            self.particle_size
-        )
-        
-        # residual calculation
-        x_, _ = self.estimate()
-        z_ = H @ x_
-        residual = z - z_
-        self.innovations.append(np.sum(residual))
+        z_dim = z.shape[0]
+        logw = np.log(self.weights + 1e-300) # avoid log(0)
         
         for i, particle in enumerate(self.particles):
-            y_hat = H @ particle + measurement_noise[i]
-            self.weights[i] = target_distribution.pdf(y_hat)
+            z_pred = H.dot(particle).reshape(-1, 1) # (3, 1)
+            innov = (z - z_pred).flatten() # (3,)
+            if self.distribution is DistributionType.MULTIVARIATE_NORMAL:
+                ll = multivariate_normal(mean=np.zeros(z_dim), cov=R).logpdf(innov)
+                # equivalently: multivariate_normal(mean=z_pred, cov=R).logpdf(z)
+            else:
+                nu = 5  # pick > 2 typically
+                ll = multivariate_t(df=nu, loc=np.zeros(z_dim), shape=R).logpdf(innov)
+                # equivalently: multivariate_t(df=nu, loc=z_pred, shape=R).logpdf(z)
 
-        self.weights += 1.e-300 # avoiding dividing by zero
-        self.weights /= sum(self.weights) # normalize
+            logw[i] += ll
         
+        
+        # normalize safely
+        logw -= logsumexp(logw)
+        self.weights = np.exp(logw) 
+
         # Resample when a sensor data is given and is allowed by importance resampling
         if self._allow_resampling():
             self._resample()
@@ -252,10 +253,17 @@ class ParticleFilter(BaseFilter):
                 When the ESS gets close to zero resulted from many particles having small weight, it indicates particle degeneracy meaning that many particles with small weight estimate the measurement poorly.
                 To prevent particle degeneracy, resampling comes into play.
         '''
-        def _calculate_ess():
-            return 1. / np.sum(np.square(self.weights))
+        w = self.weights
+        if not np.all(np.isfinite(w)):
+            return True 
         
-        N_eff = _calculate_ess()
+        w_sum = np.sum(w)
+        if w_sum <= 0:
+            return True
+        
+        w = w / w_sum
+        self.weights = w
+        N_eff = 1.0 / np.sum(w*w)
         return N_eff < self.particle_size * self.scale_for_ess_threshold
 
     def estimate(self):

@@ -201,7 +201,7 @@ class SensorFusion:
             value=relative_pose_in_camera_coord,
             coord_from=sensor_data.coordinate_frame,
             coord_to=CoordinateFrame.INERTIAL))
-        print(relative_pose_inertial)
+        
         relative_pose = Pose(R=relative_pose_inertial[:3, :3], t=relative_pose_inertial[:3, 3])
         self.vo_relative_pose_inertial = relative_pose
         self.independent_vo_pose = self.independent_vo_pose * relative_pose  # update vo pose estimation in inertial frame
@@ -231,10 +231,12 @@ class SensorFusion:
         """Construct a measurement update data for the Kalman Filter"""
 
         visualizing_data = None
-        fusion_fields = self.filter_config.sensors.get(sensor_data.type, [])
+        registered_sensor = self.filter_config.sensors.get(sensor_data.type, {})
+        fusion_fields = registered_sensor.get('fields', [])
+        
         if len(fusion_fields) == 0:
             logging.warning(f"Fusion field is not set for sensor: {sensor_data.type.name}")
-
+        
         if SensorType.is_vo_data(sensor_data.type):
             position, velocity, quaternion, _logging_data = self._get_vo_measurement_data(sensor_data=sensor_data)
 
