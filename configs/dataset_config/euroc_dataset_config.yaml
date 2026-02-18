@@ -1,0 +1,35 @@
+# KITTI Sequence 07 Dataset Configuration
+dataset:
+  type: euroc
+  mode: stream # NOTE: choose from (stream, live), and live is not implemented yet.
+  root_path: ./data/EuRoC
+  variant: "01" #NOTE: variant for kitti
+  sensors:
+    euroc_imu: # ADIS16448
+      selected: True
+      dropout_ratio: 0
+      window_size: 1
+      args:
+        frequency: 200
+        gyroscope_noise_density: 0.00023561944901923448 # [rad/s/√Hz] 0.0135 deg/s/√Hz
+        accelerometer_noise_density: 0.0022555294999999998 # [m/s²/√Hz] 0.23 mg/√Hz
+        gyroscope_random_walk: 0.0033321622036187747 #
+        accelerometer_random_walk: 0.03189800409232606 #
+    euroc_leica: 
+      selected: True
+      dropout_ratio: 0
+      window_size: 1
+      args:
+        frequency: 10 # Hz
+    euroc_stereo:
+      selected: True
+      dropout_ratio: 0
+      window_size: 1
+      args:
+        frequency: 30
+    euroc_vo:
+      selected: True
+      dropout_ratio: 0
+      window_size: 1
+      args:
+        frequency: 30

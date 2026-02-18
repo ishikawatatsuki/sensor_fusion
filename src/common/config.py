@@ -95,6 +95,17 @@ class FilterConfig:
         self.sensors = sensors
         self.noise_management = FilterNoise.from_json(noise_management)
 
+    @classmethod
+    def from_yaml(cls, yaml_file_path: str):
+        if isinstance(yaml_file_path, dict):
+            yaml_data = yaml_file_path
+        else:
+            with open(yaml_file_path, "r") as f:
+                yaml_data = yaml.safe_load(f)['filter']
+                f.close()
+        
+        return cls(**yaml_data)
+
     def __str__(self):
         return \
             f"FilterConfig(\n"\
@@ -454,6 +465,17 @@ class VisualOdometryConfig:
         logging.debug(f"VisualOdometryConfig initialized with: {self}")
 
     @classmethod
+    def from_yaml(cls, yaml_file_path: str):
+        if isinstance(yaml_file_path, dict):
+            yaml_data = yaml_file_path
+        else:
+            with open(yaml_file_path, "r") as f:
+                yaml_data = yaml.safe_load(f)['visual_odometry']
+                f.close()
+        
+        return cls(**yaml_data)
+    
+    @classmethod
     def from_json(cls, json_data: dict):
         """Load VO config from json data.
 
@@ -525,6 +547,9 @@ class VisualOdometryConfig:
 
 
 class Config:
+    
+    name: str
+    description: str
 
     def __init__(
         self,
@@ -540,13 +565,23 @@ class Config:
             config = yaml.safe_load(f)
             f.close()
 
-        self.filter = FilterConfig(**config["filter"])
-        self.vo_config = VisualOdometryConfig(**config['visual_odometry'])
+        self.name = config.get("name", "Sensor Fusion System")
+        self.description = config.get("description", "")
+
+        self.filter = FilterConfig.from_yaml(config["filter"])
+        self.vo_config = VisualOdometryConfig.from_yaml(config['visual_odometry'])
 
 
 if __name__ == "__main__":
-    config_file = "configs/kitti_config.yaml"
+    config_file = "configs/.legacy_configs/kitti_config.yaml"
     config = Config(config_file)
     
     config.filter.set_sensor_fields("kitti")
+    print(config.filter)
+
+
+    config_file = "configs/euroc_config_base.yaml"
+    config = Config(config_file)
+    
+    config.filter.set_sensor_fields("euroc")
     print(config.filter)

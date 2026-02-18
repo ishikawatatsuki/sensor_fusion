@@ -99,21 +99,45 @@ filter:
       fields: 
         - linear_acceleration
         - angular_velocity
+      noise:
+        type: process
+        scale: 1.0
+        transformation: imu_noise_to_process_noise
+        params:
+          gyroscope_noise_density: 0.00023561944901923448 # [rad/s/√Hz] 0.0135 deg/s/√Hz
+          accelerometer_noise_density: 0.0022555294999999998 # [m/s²/√Hz] 0.23 mg/√Hz
+          gyroscope_random_walk: 0.0033321622036187747 #
+          accelerometer_random_walk: 0.03189800409232606 #
+          dt: 0.005
     euroc_leica: 
       fields: 
         - position
+      noise:
+        type: measurement
+        scale: 1.0
+        transformation: position_noise_to_measurement_noise
+        params:
+          position_noise: 0.001
     euroc_vo:
       fields: 
         # - position
         - linear_velocity
         # - orientation
-  noise:
+      noise:
+        type: measurement
+        scale: 1.0
+        transformation: vo_noise_to_measurement_noise
+        params:
+          position_noise: 0.1 # meters
+          velocity_noise: 0.1 # m/s
+          orientation_noise: 1.0 # degrees
+  noise_management:
     type: default # default, adaptive
     params:
       alpha: 0.3 # 0 < alpha <= 1
 
 visual_odometry:
-  type: monocular # Select from: monocular or static (saved vo data)
+  type: static # Select from: monocular or static (saved vo data)
   estimator: 2d3d # Select from: 2d2d, 2d3d, hybrid
   camera_id: left
   depth_estimator: depth_anything # Select from: zoe_depth, dino_v2, depth_anything

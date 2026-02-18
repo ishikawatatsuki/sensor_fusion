@@ -18,9 +18,11 @@ data
 *.npz
 *.npy
 *.pth
+.DS_Store
 
 .debugging/*
 _debugging
+outputs/test/*
 outputs/EuRoC/*
 outputs/KITTI/*
 !outputs/KITTI/errors

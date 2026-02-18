@@ -1,0 +1,54 @@
+# Single Filter Experiment - CKF on KITTI Sequence 07
+# Example of running a single filter on a specific sequence
+
+name: "KITTI CKF - Sequence 07"
+description: "Cubature Kalman Filter on KITTI sequence 07 with Noise Stress Test"
+
+# Configuration references
+dataset: configs/.experiments/kitti_stress_test/dataset_config.yaml
+
+filter: configs/.experiments/kitti_stress_test/filter_config.yaml
+
+# Visualization settings
+visualization:
+  realtime: False
+  output_filepath: ./outputs/experiments/KITTI/seq07_ckf_noise_stress_test/visualization
+  save_frames: False
+  save_trajectory: True
+  show_vo_trajectory: True
+  show_angle_estimation: True
+  show_end_result: True
+  show_vio_frame: False
+  show_particles: False
+  show_innovation_history: False
+  set_lim_in_plot: False
+  fields:
+    accelerometer: True
+    gyroscope: True
+    estimation: True
+    image: True
+    gps: True
+    vo: True
+    velocity: True
+    angle: True
+    state: False
+    ground_truth: True
+
+# Visual odometry settings
+visual_odometry: configs/.experiments/kitti_stress_test/vo_config.yaml
+
+# General settings
+general:
+  log_level: debug
+  log_sensor_data: True
+  save_sensor_data: True
+  save_estimation: True
+  save_output_debug_frames: True
+  sensor_data_output_filepath: ./outputs/experiments/KITTI/seq07_ckf_noise_stress_test/sensor_out.txt
+  sensor_data_save_path: ./outputs/experiments/KITTI/seq07_ckf_noise_stress_test/sensor_data
+
+# Report settings
+report:
+  export_error: True
+  error_output_root_path: ./outputs/experiments/KITTI/seq07_ckf_noise_stress_test/report
+  location_only: False

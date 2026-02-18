@@ -156,7 +156,7 @@ class RealtimeVisualizer:
         t = int(time.time_ns() / 1000)
         self.output_frame_path = os.path.join(self.config.output_filepath, str(t), "frames")
         self.final_result_path = os.path.join(self.config.output_filepath, str(t), "final_result.png")
-        if self.config.save_frames or self.config.save_trajectory:
+        if self.config.save_frames:
             os.makedirs(self.output_frame_path, exist_ok=True)
             os.makedirs(os.path.dirname(self.final_result_path), exist_ok=True)
 
@@ -263,6 +263,7 @@ class RealtimeVisualizer:
 
     def _save_result(self):
         if self.config.save_trajectory:
+            os.makedirs(os.path.dirname(self.final_result_path), exist_ok=True)
             self.figure.savefig(self.final_result_path)
             logging.info(f"Final result saved to {self.final_result_path}")
 

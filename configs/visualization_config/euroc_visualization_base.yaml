@@ -1,0 +1,25 @@
+
+visualization:
+  realtime: True
+  output_filepath: ./outputs/experiments/EuRoC/visualization
+  save_frames: False # Save frames for later video generation
+  save_trajectory: True
+  show_vo_trajectory: True
+  show_angle_estimation: False
+  show_end_result: True
+  show_vio_frame: True
+  show_particles: False
+  show_innovation_history: True 
+  set_lim_in_plot: False
+  limits:
+  fields:
+    accelerometer: True
+    gyroscope: True
+    estimation: True
+    image: True
+    gps: False
+    vo: True
+    velocity: True
+    angle: True
+    state: False
+    ground_truth: True

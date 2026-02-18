@@ -1,0 +1,32 @@
+# Single Filter Experiment - EKF on KITTI Sequence 07
+# Example of running a single filter on a specific sequence
+
+name: "EuRoC sensor fusion"
+description: "Sensor fusion on EuRoC sequence"
+
+# Configuration references
+dataset: configs/dataset_config/euroc_dataset_config.yaml
+
+filter: configs/filter_config/euroc/filter_base.yaml
+
+# Visualization settings
+visualization: configs/visualization_config/euroc_visualization_base.yaml
+
+# Visual odometry settings
+visual_odometry: configs/visual_odometry_config/euroc_vo_base.yaml
+
+# General settings
+general:
+  log_level: debug
+  log_sensor_data: True
+  save_sensor_data: True
+  save_estimation: True
+  save_output_debug_frames: True
+  sensor_data_output_filepath: ./outputs/test/EuRoC/seq01_ekf/sensor_out.txt
+  sensor_data_save_path: ./outputs/test/EuRoC/seq01_ekf/sensor_data
+
+# Report settings
+report:
+  export_error: True
+  error_output_root_path: ./outputs/test/EuRoC/seq01_ekf
+  location_only: False

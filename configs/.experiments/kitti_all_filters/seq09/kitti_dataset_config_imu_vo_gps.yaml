@@ -1,0 +1,62 @@
+# KITTI Sequence 09 Dataset Configuration
+dataset:
+  type: kitti
+  mode: stream
+  root_path: ./data/KITTI
+  variant: "09"
+  sensors:
+    oxts_imu:
+      selected: True
+      dropout_ratio: 0
+      window_size: 1
+      args:
+        frequency: 10
+        gyroscope_noise_density: 5.817764173314432e-05
+        accelerometer_noise_density: 8.333333333333333e-05
+        gyroscope_random_walk: 0.0005817764173314433
+        accelerometer_random_walk: 0.0008333333333333333
+    oxts_imu_unsynced:
+      selected: False
+      dropout_ratio: 0
+      window_size: 1
+      args:
+        frequency: 100
+    oxts_ins: 
+      selected: False
+      dropout_ratio: 0
+      window_size: 1
+      args:
+        frequency: 10
+    oxts_gps: 
+      selected: True
+      dropout_ratio: 0
+      window_size: 1
+      args:
+        frequency: 10
+    oxts_gps_unsynced: 
+      selected: False
+      dropout_ratio: 0
+      window_size: 1
+      args:
+        frequency: 100
+    kitti_stereo:
+      selected: False
+      dropout_ratio: 0
+      window_size: 1
+      args:
+        frequency: 10
+    kitti_vo:
+      selected: True
+      dropout_ratio: 0
+      window_size: 1
+      args: {}
+    kitti_color_image:
+      selected: False
+      dropout_ratio: 0
+      window_size: 1
+      args: {}
+    kitti_upward_leftward_velocity:
+      selected: False
+      dropout_ratio: 0
+      window_size: 1
+      args: {}
