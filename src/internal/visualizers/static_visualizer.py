@@ -233,7 +233,7 @@ class StaticVisualizer:
             particles (np.ndarray): < 100 to save computation
             weights (np.ndarray): same size as particles
         """
-        if not self.config.show_particles or self.realtime_window is None:
+        if self.realtime_window is None:
             return
         
         if not FilterType.is_probabilistic_filter(filter_type=filter_type.value):
@@ -370,7 +370,6 @@ if __name__ == "__main__":
         save_frames=False,
         show_vo_trajectory=False,
         show_vio_frame=False,
-        show_particles=False,
         set_lim_in_plot=False,
         show_innovation_history=False,
         show_angle_estimation=False,

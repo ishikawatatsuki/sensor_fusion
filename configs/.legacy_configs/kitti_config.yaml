@@ -16,7 +16,6 @@ visualization:
   show_angle_estimation: False
   show_end_result: True
   show_vio_frame: True
-  show_particles: False
   show_innovation_history: True 
   set_lim_in_plot: False
   limits:

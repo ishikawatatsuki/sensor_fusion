@@ -37,6 +37,10 @@ XY_GRAPH_TYPES = [
     VisualizationDataType.GROUND_TRUTH
     ]
 
+XY_SAMPLES = [
+    VisualizationDataType.ENSEMBLE, 
+    ]
+
 COLOR_MAP = {
     VisualizationDataType.GROUND_TRUTH: "black",
     VisualizationDataType.GPS: "gray",
@@ -160,7 +164,7 @@ class RealtimeVisualizer:
             os.makedirs(self.output_frame_path, exist_ok=True)
             os.makedirs(os.path.dirname(self.final_result_path), exist_ok=True)
 
-        self.data_points = {t: [] for t in VisualizationDataType if t in LINE_GRAPH_TYPES + XY_GRAPH_TYPES}
+        self.data_points = {t: [] for t in VisualizationDataType if t in LINE_GRAPH_TYPES + XY_GRAPH_TYPES + XY_SAMPLES}
         self.state = None
         self.initial_pose = Pose(R=np.eye(3), t=np.zeros(3))
 
@@ -257,6 +261,18 @@ class RealtimeVisualizer:
             )
             self.data_points[t] = self.data_points[t][-1:]
 
+        # Visualize samples for probabilistic filters
+        data = np.array(self.data_points[VisualizationDataType.ENSEMBLE])
+        if data.shape[0] > 0:
+            for sample_set in data:
+                self.windows[VisualizationDataType.ESTIMATION].scatter(
+                    sample_set[:, 0], 
+                    sample_set[:, 1], 
+                    s=10, 
+                    alpha=0.3,
+                    color='cyan'
+                )
+            self.data_points[VisualizationDataType.ENSEMBLE] = []
 
         plt.draw()
         plt.pause(interval=0.01)
@@ -312,6 +328,8 @@ class RealtimeVisualizer:
             case VisualizationDataType.GPS | VisualizationDataType.VO | VisualizationDataType.LEICA |\
                 VisualizationDataType.ESTIMATION | VisualizationDataType.GROUND_TRUTH:
                 self._set_estimation(message)
+            case VisualizationDataType.ENSEMBLE:
+                self.data_points[VisualizationDataType.ENSEMBLE].append(message.data.data[:, :2])
             case _:
                 logging.warning(f"Unknown data type received: {message.type}")
 
@@ -397,7 +415,6 @@ if __name__ == "__main__":
         save_frames=False,
         show_vo_trajectory=False,
         show_vio_frame=False,
-        show_particles=False,
         set_lim_in_plot=False,
         show_innovation_history=False,
         show_angle_estimation=False,
@@ -411,7 +428,8 @@ if __name__ == "__main__":
             VisualizationDataType.GYROSCOPE,
             VisualizationDataType.VELOCITY,
             VisualizationDataType.ANGLE,
-            VisualizationDataType.GROUND_TRUTH
+            VisualizationDataType.GROUND_TRUTH,
+            VisualizationDataType.ENSEMBLE
         ])
 
     def _main():

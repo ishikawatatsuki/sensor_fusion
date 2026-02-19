@@ -84,7 +84,7 @@ class DatasetConfig:
                  mode: str = 'stream',
                  root_path: str = '../data/KITTI',
                  variant: str = '0033',
-                 sensors: List[SensorConfig] = [],
+                 sensors: dict = {},
                  imu_config_path: str = None,
                  sensor_config_path: str = None
                  ):
@@ -92,11 +92,26 @@ class DatasetConfig:
         self.mode = mode
         self.root_path = root_path
         self.variant = variant
-        self.sensors = sensors
         self.imu_config_path = imu_config_path
         self.sensor_config_path = sensor_config_path
 
         self.run_visual_odometry = False
+
+        _sensors = []
+        for sensor, value in sensors.items():
+            if value.get("selected", False):
+                _sensors.append(
+                    SensorConfig(
+                        name=sensor,
+                        dropout_ratio=value["dropout_ratio"],
+                        window_size=value["window_size"],
+                        args=value.get("args", {}),
+                    )
+                )
+                if "vo" in sensor.lower():
+                    self.set_run_visual_odometry()
+
+        self.sensors = _sensors
 
     def __str__(self):
         return \
@@ -153,7 +168,6 @@ class VisualizationConfig:
     show_angle_estimation: bool
     show_end_result: bool
     show_vio_frame: bool
-    show_particles: bool
     set_lim_in_plot: bool
     show_innovation_history: bool
     limits: GeometricLimit
@@ -169,7 +183,6 @@ class VisualizationConfig:
         show_angle_estimation: bool = False,
         show_end_result: bool = False,
         show_vio_frame: bool = False,
-        show_particles: bool = False,
         set_lim_in_plot: bool = False,
         show_innovation_history: bool = False,
         limits: Union[GeometricLimit | None] = None,
@@ -183,7 +196,6 @@ class VisualizationConfig:
         self.show_angle_estimation = show_angle_estimation
         self.show_end_result = show_end_result
         self.show_vio_frame = show_vio_frame
-        self.show_particles = show_particles
         self.set_lim_in_plot = set_lim_in_plot
         self.show_innovation_history = show_innovation_history
         self.limits = limits
@@ -282,23 +294,9 @@ class ExtendedConfig:
 
         self.general = GeneralConfig(**self.parsed_config["general"])
         self.report = ReportConfig(**self.parsed_config["report"])
-        self.dataset = DatasetConfig.from_yaml(self.parsed_config["dataset"])
-        
-        sensors = []
-        for sensor, value in self.dataset.sensors.items():
-            if value.get("selected", False):
-                sensors.append(
-                    SensorConfig(
-                        name=sensor,
-                        dropout_ratio=value["dropout_ratio"],
-                        window_size=value["window_size"],
-                        args=value.get("args", {}),
-                    )
-                )
-                if "vo" in sensor.lower():
-                    self.dataset.set_run_visual_odometry()
+        self.dataset = DatasetConfig.from_yaml(self.parsed_config["dataset"])        
 
-        self.dataset.sensors = sensors
+        # self.dataset.sensors = sensors
         self.filter = FilterConfig.from_yaml(self.parsed_config["filter"])
         self.filter.set_sensor_fields(self.dataset.type)
 
@@ -496,8 +494,6 @@ class ExtendedConfig:
         def _get_imu_config() -> ImuConfig:
             
             get_sensor_from_str = SensorType.get_sensor_from_str_func(d=self.dataset.type)
-            for s in self.dataset.sensors:
-                print(s.name)
             imu = [sensor for sensor in self.dataset.sensors if SensorType.is_imu_data(get_sensor_from_str(sensor.name))]
             frequency = imu[0].args.get("frequency", 100) if len(imu) != 0 else 100
             if frequency < 100:

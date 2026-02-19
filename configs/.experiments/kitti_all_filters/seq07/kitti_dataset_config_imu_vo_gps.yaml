@@ -40,7 +40,7 @@ dataset:
       args:
         frequency: 100
     kitti_stereo:
-      selected: False
+      selected: True
       dropout_ratio: 0
       window_size: 1
       args:

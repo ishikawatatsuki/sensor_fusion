@@ -131,6 +131,11 @@ class BaseFilter(abc.ABC):
                 sensor_type (SensorType): state transformation matrix, which transform state vector x to measurement space
         """
         pass
+
+    @abc.abstractmethod
+    def set_ensembles(self):
+        """Set samples in sampling based Kalman Filter."""
+        pass
     
     def _get_gravitational_vector(self, type: str) -> np.ndarray:
         match (type):

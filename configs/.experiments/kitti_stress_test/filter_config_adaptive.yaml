@@ -1,23 +1,13 @@
+# Cubature Kalman Filter Configuration
 filter:
-  type: pf # Select from: ekf, ukf, pf, enkf, ckf
+  type: ckf
   dimension: 2
-  motion_model: velocity # kinematics or velocity
+  motion_model: velocity
   innovation_masking: False
   is_imu_preintegrated: False
   compensate_gravity: True
   use_imu_preprocessing: False
-  params:
-    # ukf
-    alpha: 0.5
-    beta: 2.0
-    kappa: 0.
-    # pf
-    particle_size: 2048
-    resampling_algorithm: stratified # Select from: multinomial, residual, systematic, stratified
-    scale_for_ess_threshold: 0.5 # from 0. to 1.
-    distribution: multivariate_normal # Select from multivariate_normal, multivariate_student_t
-    # enkf
-    ensemble_size: 128
+  params: {}
   sensors: # Sensor fields to be fused
     oxts_imu:
       fields: 
@@ -53,10 +43,10 @@ filter:
         # - heading_angle
       noise:
         type: measurement # Select from: process, measurement
-        scale: 100.0
+        scale: 1.0
         transformation: position_noise_to_measurement_noise  # This function should be defined in the same file and will be called in the code to convert the noise values into measurement noise
         params:
-          position_noise: 0.1 # meters
+          position_noise: 0.01 # meters
     oxts_gps_unsynced: 
       fields: 
         - position
@@ -66,11 +56,11 @@ filter:
         scale: 1.0
         transformation: position_noise_to_measurement_noise # This function should be defined in the same file and will be called in the code to convert the noise values into process noise
         params:
-          position_noise: 0.1 # meters
+          position_noise: 0.01 # meters
     kitti_vo:
       fields: 
         - position
-        - linear_velocity
+        # - linear_velocity
         # - orientation
       noise:
         type: measurement # Select from: process, measurement
@@ -92,6 +82,6 @@ filter:
           upward_velocity_noise: 0.01
           leftward_velocity_noise: 0.01
   noise_management:
-    type: default # default, adaptive
+    type: adaptive # default, adaptive
     params:
       alpha: 0.3 # 0 < alpha <= 1

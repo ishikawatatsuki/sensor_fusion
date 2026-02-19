@@ -294,7 +294,7 @@ class SensorFusion:
 
         self._log_data(sensor_type=sensor_data.type, data=_logging_data, timestamp=sensor_data.timestamp)
 
-        return MeasurementUpdateField(z=z, R=R, sensor_type=sensor_data.type), response
+        return MeasurementUpdateField(z=z.copy(), R=R, sensor_type=sensor_data.type), response
     
     def _store_current_vo_estimate(self, sensor_data: SensorDataField):
         """After fusing VO estimate, store current state estimate in camera coordinate"""
@@ -318,6 +318,12 @@ class SensorFusion:
         #     state_in_camera[3:])
         self.last_vo_pose = pose_in_inertial * self.vo_relative_pose_inertial
         return
+    
+    def _query_ensembles_if_needed(self):
+        """Query samples in sampling based Kalman Filter if needed"""
+        if isinstance(self.kalman_filter, (ParticleFilter, EnsembleKalmanFilter)):
+            return self.kalman_filter.set_ensembles()
+        return None
         
     @time_reporter
     def run_time_update(self, sensor_data: SensorDataField) -> FusionResponse:
@@ -340,7 +346,7 @@ class SensorFusion:
         # NOTE: Get process noise covariance matrix Q
         Q = self.noise_manager.get_process_noise(sensor_data=sensor_data)
 
-        data = TimeUpdateField(u=u, dt=sensor_data.data.dt, Q=Q)
+        data = TimeUpdateField(u=u.copy(), dt=sensor_data.data.dt, Q=Q)
 
         self.kalman_filter.time_update(data)
 
@@ -383,6 +389,7 @@ class SensorFusion:
         # # NOTE: Store current state corrected by VO
         self._store_current_vo_estimate(sensor_data)
 
+        response.ensembles = self._query_ensembles_if_needed()
         response.timestamp = sensor_data.timestamp
         return response
 

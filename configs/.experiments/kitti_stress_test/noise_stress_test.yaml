@@ -19,7 +19,6 @@ visualization:
   show_angle_estimation: True
   show_end_result: True
   show_vio_frame: False
-  show_particles: False
   show_innovation_history: False
   set_lim_in_plot: False
   fields:

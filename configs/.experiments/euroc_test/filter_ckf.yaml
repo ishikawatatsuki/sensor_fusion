@@ -7,17 +7,7 @@ filter:
   is_imu_preintegrated: False
   compensate_gravity: True
   use_imu_preprocessing: True
-  params:
-    #ukf
-    alpha: 1.0
-    beta: 2.0
-    kappa: 0.
-    #pf
-    particle_size: 2048
-    resampling_algorithm: stratified # Select from: multinomial, redidual, systematic, stratified
-    scale_for_ess_threshold: .5 # from 0. to 1.
-    #enkf
-    ensemble_size: 128
+  params: {}
   sensors: # Sensor fields to be fused
     euroc_imu:
       fields: 
@@ -44,14 +34,14 @@ filter:
       fields: 
         # - position
         - linear_velocity
-        - orientation
+        # - orientation
       noise:
         type: measurement
         transformation: vo_noise_to_measurement_noise
         params:
-          vo_position_noise: 0.2 # meters
-          vo_velocity_noise: 0.1 # m/s
-          vo_orientation_noise: 1.0 # degrees
+          position_noise: 0.1 # meters
+          velocity_noise: 0.1 # m/s
+          orientation_noise: 1.0 # degrees
   noise_management:
     type: default # default, adaptive
     params:

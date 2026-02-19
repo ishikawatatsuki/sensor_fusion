@@ -202,7 +202,6 @@ if __name__ == "__main__":
         save_frames=False,
         show_vo_trajectory=False,
         show_vio_frame=False,
-        show_particles=False,
         set_lim_in_plot=False,
         show_innovation_history=False,
         show_angle_estimation=False,

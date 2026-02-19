@@ -177,6 +177,17 @@ class SingleThreadedPipeline(abc.ABC):
                 )
             )
 
+        if response.ensembles is not None:
+            self._visualize_data(
+                message=VisualizationMessage(
+                    type=VisualizationDataType.ENSEMBLE,
+                    timestamp=response.timestamp,
+                    data=VisualizationData(
+                        data=response.ensembles
+                    )
+                )
+            )
+
     def run(self):
         
         self.dataset.start()

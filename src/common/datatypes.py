@@ -799,6 +799,7 @@ class VisualizationDataType(IntEnum):
 
 
     STATE = auto()
+    ENSEMBLE = auto()
 
     GROUND_TRUTH = auto()
 
@@ -882,6 +883,9 @@ class FusionResponse:
     geo_fencing_data: np.ndarray
     leica_data: np.ndarray
 
+    # PF, ENKF, UKF, CKF debugging purposes
+    ensembles: np.ndarray
+
 
     def __init__(
             self,
@@ -894,7 +898,8 @@ class FusionResponse:
             vo_data: np.ndarray = None,
             gps_data: np.ndarray = None,
             geo_fencing_data: np.ndarray = None,
-            leica_data: np.ndarray = None
+            leica_data: np.ndarray = None,
+            ensembles: np.ndarray = None
     ):
         self.pose = pose
         self.timestamp = timestamp
@@ -907,7 +912,7 @@ class FusionResponse:
         self.gps_data = gps_data
         self.geo_fencing_data = geo_fencing_data
         self.leica_data = leica_data
-
+        self.ensembles = ensembles
 
 class GimbalCondition(IntEnum):
     LEVEL = 0
