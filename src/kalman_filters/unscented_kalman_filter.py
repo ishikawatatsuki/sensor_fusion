@@ -1,5 +1,6 @@
 import os
 import sys
+import logging
 import numpy as np
 
 from .base_filter import BaseFilter
@@ -103,13 +104,14 @@ class UnscentedKalmanFilter(BaseFilter):
         # Take into account the IMU sensor error
         imu_sensor_error = self.get_imu_sensor_error()
 
-        a -=  imu_sensor_error.acc_bias + self.x.b_a + imu_sensor_error.acc_noise
+        a -= imu_sensor_error.acc_bias + self.x.b_a + imu_sensor_error.acc_noise
         w -= imu_sensor_error.gyro_bias + self.x.b_w + imu_sensor_error.gyro_noise
         
         R = np.array([self.x.get_rotation_matrix(q_) for q_ in q])
         omega = self.get_quaternion_update_matrix(w)
         norm_w = self.compute_norm_w(w)
-        
+        # Shape: R:(33, 3, 3), q:(33, 4), omega:(4, 4), norm:0.0005630721583017353 (unscented_kalman_filter.py:113)
+        # logging.warning(f"Shape: R:{R.shape}, q:{q.shape}, omega:{omega.shape}, norm:{norm_w}")
         A = np.cos(norm_w*dt/2) * np.eye(4)
         B = (1/norm_w)*np.sin(norm_w*dt/2) * omega
         
@@ -130,6 +132,9 @@ class UnscentedKalmanFilter(BaseFilter):
         
         dp = np.vstack([dpx, dpy, dpz]).T
         
+        # Shape: dp:(33, 3), a_world:(33, 3, 1), vf:(33,) (unscented_kalman_filter.py:135)
+        # logging.warning(f"Shape: dp:{dp.shape}, a_world:{a_world.shape}, vf:{vf.shape}")
+
         p_k = p + dp
         v_k = v + acc_val_reshaped * dt
         q_k = (np.array(A + B) @ q.T).T # 21x4
@@ -203,3 +208,6 @@ class UnscentedKalmanFilter(BaseFilter):
         self.P = self.P - self.K @ P_y @ self.K.T
 
         # self.innovations.append(np.sum(self.innovation))
+
+    def set_ensembles(self):
+        return None

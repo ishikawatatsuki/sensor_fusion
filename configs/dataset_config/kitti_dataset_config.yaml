@@ -46,7 +46,7 @@ dataset:
       args:
         frequency: 10
     kitti_vo:
-      selected: False
+      selected: True
       dropout_ratio: 0
       window_size: 1
       args: {}

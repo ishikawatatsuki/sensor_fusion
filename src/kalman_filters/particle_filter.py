@@ -10,6 +10,7 @@ from .base_filter import BaseFilter
 from ..common import (
     State, MotionModel, Pose,
     MeasurementUpdateField,
+    MAX_NUM_PARTICLES_TO_VISUALIZE
 )
 
 from filterpy.monte_carlo import (
@@ -74,11 +75,13 @@ class ParticleFilter(BaseFilter):
         self.resampling_algorithm = ResamplingAlgorithms.get_resampling_algorithm_from_str(resampling_algorithm)
     
     def _create_gaussian_particles(self, mean, var):
-        return np.random.multivariate_normal(
+        particles = np.random.multivariate_normal(
             mean=mean.reshape(-1),
             cov=var,
             size=self.particle_size
         )
+        particles[:, 6:10] = np.repeat(mean[6:10].reshape(1, -1), self.particle_size, axis=0) # Initialize quaternions without noise
+        return particles
 
     def kinematics_motion_model(self, u: np.ndarray, dt: float, Q: np.ndarray):
         """ 
@@ -219,8 +222,8 @@ class ParticleFilter(BaseFilter):
         sensor_type = data.sensor_type
         H = self.get_transition_matrix(sensor_type, z_dim=z.shape[0])
         z_dim = z.shape[0]
+
         logw = np.log(self.weights + 1e-300) # avoid log(0)
-        
         for i, particle in enumerate(self.particles):
             z_pred = H.dot(particle).reshape(-1, 1) # (3, 1)
             innov = (z - z_pred).flatten() # (3,)
@@ -234,10 +237,23 @@ class ParticleFilter(BaseFilter):
 
             logw[i] += ll
         
-        
         # normalize safely
         logw -= logsumexp(logw)
         self.weights = np.exp(logw) 
+
+        # ll = np.zeros(self.weights.shape[0])
+        # for i, particle in enumerate(self.particles):
+        #     z_pred = H.dot(particle).reshape(-1, 1) # (3, 1)
+        #     innov = (z - z_pred) # (3,)
+        #     if self.distribution is DistributionType.MULTIVARIATE_NORMAL:
+        #         ll[i] = multivariate_normal(mean=np.zeros(z_dim), cov=R).pdf(innov.flatten())
+        #     else:
+        #         nu = 5  # pick > 2 typically
+        #         ll[i] = multivariate_t(df=nu, loc=np.zeros(z_dim), shape=R).pdf(innov.flatten())
+
+        # self.weights *= ll
+        # self.weights += 1e-300 # avoid round-off to zero
+        # self.weights /= np.sum(self.weights) # normalize
 
         # Resample when a sensor data is given and is allowed by importance resampling
         if self._allow_resampling():
@@ -254,16 +270,7 @@ class ParticleFilter(BaseFilter):
                 To prevent particle degeneracy, resampling comes into play.
         '''
         w = self.weights
-        if not np.all(np.isfinite(w)):
-            return True 
-        
-        w_sum = np.sum(w)
-        if w_sum <= 0:
-            return True
-        
-        w = w / w_sum
-        self.weights = w
-        N_eff = 1.0 / np.sum(w*w)
+        N_eff = 1.0 / np.sum(w**2)
         return N_eff < self.particle_size * self.scale_for_ess_threshold
 
     def estimate(self):
@@ -301,3 +308,8 @@ class ParticleFilter(BaseFilter):
         x, _ = self.estimate()
         state = State.get_new_state_from_array(x)
         return Pose.from_state(state=state)
+
+    def set_ensembles(self):
+        sample_size = min(self.particle_size, MAX_NUM_PARTICLES_TO_VISUALIZE)
+        random_indices = np.random.choice(self.particle_size, size=sample_size, replace=False)
+        return self.particles[random_indices, :3] # return particles' position for visualization

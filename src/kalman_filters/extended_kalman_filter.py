@@ -808,3 +808,6 @@ class ExtendedKalmanFilter(BaseFilter):
                 # NOTE: all transition matrix for GPS, UWB, and any position update is handled by this.
                 # [I_3x3, 0_3x3, 0_3x4, 0_3x3, 0_3x3]
                 return self._get_position_update_H() 
+            
+    def set_ensembles(self):
+        return None

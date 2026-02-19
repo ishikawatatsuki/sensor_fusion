@@ -14,7 +14,7 @@ filter:
     # pf
     particle_size: 2048
     resampling_algorithm: stratified # Select from: multinomial, residual, systematic, stratified
-    scale_for_ess_threshold: 0.5 # from 0. to 1.
+    scale_for_ess_threshold: 0.8 # from 0. to 1.
     distribution: multivariate_normal # Select from multivariate_normal, multivariate_student_t
     # enkf
     ensemble_size: 128
@@ -53,7 +53,7 @@ filter:
         # - heading_angle
       noise:
         type: measurement # Select from: process, measurement
-        scale: 100.0
+        scale: 1.0
         transformation: position_noise_to_measurement_noise  # This function should be defined in the same file and will be called in the code to convert the noise values into measurement noise
         params:
           position_noise: 0.1 # meters

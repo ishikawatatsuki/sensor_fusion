@@ -215,5 +215,6 @@ class EnsembleKalmanFilter(BaseFilter):
         return Pose.from_state(state=state)
     
     def set_ensembles(self):
-        random_indices = np.random.choice(self.ensemble_size, size=MAX_NUM_PARTICLES_TO_VISUALIZE, replace=False)
+        sample_size = min(self.particle_size, MAX_NUM_PARTICLES_TO_VISUALIZE)
+        random_indices = np.random.choice(self.ensemble_size, size=sample_size, replace=False)
         return self.samples[random_indices, :3] # return particles' position for visualization
