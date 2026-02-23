@@ -1,6 +1,9 @@
 import os
 import sys
+import logging
 import numpy as np
+
+from common.constants import MAX_NUM_PARTICLES_TO_VISUALIZE
 
 from .base_filter import BaseFilter
 
@@ -25,11 +28,14 @@ class EnsembleKalmanFilter(BaseFilter):
         self.samples = self._generate_ensembles(mean=x)
         
     def _generate_ensembles(self, mean: np.ndarray):
-        return np.random.multivariate_normal(
+        
+        ensembles = np.random.multivariate_normal(
             mean=mean.reshape(-1), 
             cov=self.P,
             size=self.ensemble_size
             )
+        ensembles[:, 6:10] = np.repeat(mean[6:10].reshape(1, -1), self.ensemble_size, axis=0) # Initialize quaternions without noise
+        return ensembles
 
     def kinematics_motion_model(self, u: np.ndarray, dt: float, Q: np.ndarray):
         
@@ -106,23 +112,23 @@ class EnsembleKalmanFilter(BaseFilter):
         # Take into account the IMU sensor error
         imu_sensor_error = self.get_imu_sensor_error()
 
-        a -=  imu_sensor_error.acc_bias + self.x.b_a + imu_sensor_error.acc_noise
+        a -= imu_sensor_error.acc_bias + self.x.b_a + imu_sensor_error.acc_noise
         w -= imu_sensor_error.gyro_bias + self.x.b_w + imu_sensor_error.gyro_noise
 
+        R = np.array([self.x.get_rotation_matrix(q_) for q_ in q])
         omega = self.get_quaternion_update_matrix(w)
         norm_w = self.compute_norm_w(w)
-        phi, _, psi = np.array([self.get_euler_angle_from_quaternion(q_row.reshape(-1, 1)) for q_row in q]).T
-        R = np.array([self.x.get_rotation_matrix(q_) for q_ in q])
 
         A = np.cos(norm_w*dt/2) * np.eye(4)
         B = (1/norm_w)*np.sin(norm_w*dt/2) * omega
-        
+
+        phi, _, psi = np.array([self.get_euler_angle_from_quaternion(q_row.reshape(-1, 1)) for q_row in q]).T
+
         vf = self.get_forward_velocity(v)
         
         a_world = (R @ a + self.g)
         acc_val_reshaped = a_world.reshape(a_world.shape[0], a_world.shape[1])
 
-        
         rx = vf / wx  # turning radius for x axis
         rz = vf / wz  # turning radius for z axis
         
@@ -155,7 +161,7 @@ class EnsembleKalmanFilter(BaseFilter):
             b_w_k,
             b_a_k
         ], axis=1) + process_noise
-        
+
         x = np.mean(self.samples, axis=0)
         self.x = State.get_new_state_from_array(x)
     
@@ -208,3 +214,7 @@ class EnsembleKalmanFilter(BaseFilter):
         state = State.get_new_state_from_array(x)
         return Pose.from_state(state=state)
     
+    def set_ensembles(self):
+        sample_size = min(self.ensemble_size, MAX_NUM_PARTICLES_TO_VISUALIZE)
+        random_indices = np.random.choice(self.ensemble_size, size=sample_size, replace=False)
+        return self.samples[random_indices, :3] # return particles' position for visualization

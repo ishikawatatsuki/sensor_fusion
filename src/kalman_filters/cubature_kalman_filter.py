@@ -212,3 +212,6 @@ class CubatureKalmanFilter(BaseFilter):
         self.P = self.P - self.K @ P_y @ self.K.T
 
         # self.innovations.append(np.sum(self.innovation))
+    
+    def set_ensembles(self):
+        return None

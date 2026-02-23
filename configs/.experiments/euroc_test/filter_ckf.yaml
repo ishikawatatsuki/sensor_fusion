@@ -1,0 +1,48 @@
+
+filter:
+  type: ckf # Select from: ekf, ukf, pf, enkf, ckf
+  dimension: 2
+  motion_model: kinematics # kinematics or velocity
+  innovation_masking: False
+  is_imu_preintegrated: False
+  compensate_gravity: True
+  use_imu_preprocessing: False
+  params: {}
+  sensors: # Sensor fields to be fused
+    euroc_imu:
+      fields: 
+        - linear_acceleration
+        - angular_velocity
+      noise:
+        type: process
+        transformation: imu_noise_to_process_noise
+        params:
+          gyroscope_noise_density: 0.00023561944901923448 # [rad/s/√Hz] 0.0135 deg/s/√Hz
+          accelerometer_noise_density: 0.0022555294999999998 # [m/s²/√Hz] 0.23 mg/√Hz
+          gyroscope_random_walk: 0.0033321622036187747 #
+          accelerometer_random_walk: 0.03189800409232606 #
+          dt: 0.005
+    euroc_leica: 
+      fields: 
+        - position
+      noise:
+        type: measurement
+        transformation: position_noise_to_measurement_noise
+        params:
+          position_noise: 0.02 # meters
+    euroc_vo:
+      fields: 
+        # - position
+        - linear_velocity
+        # - orientation
+      noise:
+        type: measurement
+        transformation: vo_noise_to_measurement_noise
+        params:
+          position_noise: 0.1 # meters
+          velocity_noise: 0.1 # m/s
+          orientation_noise: 1.0 # degrees
+  noise_management:
+    type: default # default, adaptive
+    params:
+      alpha: 0.3 # 0 < alpha <= 1

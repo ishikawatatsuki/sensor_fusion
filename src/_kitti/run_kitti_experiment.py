@@ -190,7 +190,7 @@ class KittiExperimentalPipeline(SingleThreadedPipeline):
             inference_time_update=inference_time_update_step,
             inference_measurement_update=inference_measurement_update_step
         )
-    
+# EDIT: load modular configurations and construct pipeline config based on the experimental setting
 def create_config(
         config_file: str, 
         sequence: str, 

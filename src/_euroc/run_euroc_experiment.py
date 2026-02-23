@@ -249,7 +249,7 @@ if __name__ == "__main__":
         "ate", "rpe_m", "rpe_deg", "avg_inference_time_prediction_step", "avg_inference_time_correction_step"
     ])
     
-    config_file_path = "./configs/euroc_config_experiments.yaml"
+    config_file_path = "./configs/.experiments/euroc_test/euroc_experiment.yaml"
 
     experiment_config = ExtendedConfig(config_file_path)
 

@@ -56,12 +56,23 @@ class GeneralConfig:
             f"\tsensor_data_save_path={self.sensor_data_save_path})"
 
 
+    @classmethod
+    def from_yaml(cls, yaml_path: str):
+        if isinstance(yaml_path, dict):
+            parsed_config = yaml_path
+        else:
+            with open(yaml_path, 'r') as f:
+                parsed_config = yaml.safe_load(f)['general']
+                f.close()
+        
+        return cls(**parsed_config)
+    
 @dataclass
 class DatasetConfig:
     type: str
-    mode: float
-    root_path: int
-    variant: bool
+    mode: str
+    root_path: str
+    variant: str
     sensors: List[SensorConfig]
     imu_config_path: str
     sensor_config_path: str
@@ -73,7 +84,7 @@ class DatasetConfig:
                  mode: str = 'stream',
                  root_path: str = '../data/KITTI',
                  variant: str = '0033',
-                 sensors: List[SensorConfig] = [],
+                 sensors: dict = {},
                  imu_config_path: str = None,
                  sensor_config_path: str = None
                  ):
@@ -81,11 +92,26 @@ class DatasetConfig:
         self.mode = mode
         self.root_path = root_path
         self.variant = variant
-        self.sensors = sensors
         self.imu_config_path = imu_config_path
         self.sensor_config_path = sensor_config_path
 
         self.run_visual_odometry = False
+
+        _sensors = []
+        for sensor, value in sensors.items():
+            if value.get("selected", False):
+                _sensors.append(
+                    SensorConfig(
+                        name=sensor,
+                        dropout_ratio=value["dropout_ratio"],
+                        window_size=value["window_size"],
+                        args=value.get("args", {}),
+                    )
+                )
+                if "vo" in sensor.lower():
+                    self.set_run_visual_odometry()
+
+        self.sensors = _sensors
 
     def __str__(self):
         return \
@@ -116,6 +142,18 @@ class DatasetConfig:
     @property
     def should_run_visual_odometry(self) -> bool:
         return self.run_visual_odometry
+    
+    @classmethod
+    def from_yaml(cls, yaml_path: str):
+        if isinstance(yaml_path, dict):
+            parsed_config = yaml_path
+        else:
+            with open(yaml_path, 'r') as f:
+                parsed_config = yaml.safe_load(f)["dataset"]
+                f.close()
+        
+        dataset_config = cls(**parsed_config)
+        return dataset_config
 
 GeometricLimit = namedtuple('GeometricLimit', ['min', 'max'])
 
@@ -130,7 +168,6 @@ class VisualizationConfig:
     show_angle_estimation: bool
     show_end_result: bool
     show_vio_frame: bool
-    show_particles: bool
     set_lim_in_plot: bool
     show_innovation_history: bool
     limits: GeometricLimit
@@ -146,7 +183,6 @@ class VisualizationConfig:
         show_angle_estimation: bool = False,
         show_end_result: bool = False,
         show_vio_frame: bool = False,
-        show_particles: bool = False,
         set_lim_in_plot: bool = False,
         show_innovation_history: bool = False,
         limits: Union[GeometricLimit | None] = None,
@@ -160,12 +196,21 @@ class VisualizationConfig:
         self.show_angle_estimation = show_angle_estimation
         self.show_end_result = show_end_result
         self.show_vio_frame = show_vio_frame
-        self.show_particles = show_particles
         self.set_lim_in_plot = set_lim_in_plot
         self.show_innovation_history = show_innovation_history
         self.limits = limits
         self.fields = fields
 
+    @classmethod
+    def from_yaml(cls, yaml_path: str):
+        if isinstance(yaml_path, dict):
+            parsed_config = yaml_path
+        else:
+            with open(yaml_path, 'r') as f:
+                parsed_config = yaml.safe_load(f)['visualization']
+                f.close()
+        
+        return cls(**parsed_config)
 
 @dataclass
 class ReportConfig:
@@ -193,6 +238,17 @@ class ReportConfig:
             f"\terror_output_root_path={self.error_output_root_path}\n" \
             f"\tpose_result_dir={self.pose_result_dir}\n" \
             f"\tlocation_only={self.location_only})"
+            
+    @classmethod
+    def from_yaml(cls, yaml_path: str):
+        if isinstance(yaml_path, dict):
+            parsed_config = yaml_path
+        else:
+            with open(yaml_path, 'r') as f:
+                parsed_config = yaml.safe_load(f)['report']
+                f.close()
+        
+        return cls(**parsed_config)
 
 
 GyroSpecification = namedtuple("GyroSpecification", ['noise', 'offset'])
@@ -238,30 +294,15 @@ class ExtendedConfig:
 
         self.general = GeneralConfig(**self.parsed_config["general"])
         self.report = ReportConfig(**self.parsed_config["report"])
-        self.dataset = DatasetConfig(**self.parsed_config["dataset"])
-        
-        sensors = []
-        for sensor, value in self.dataset.sensors.items():
-            if value.get("selected", False):
-                sensors.append(
-                    SensorConfig(
-                        name=sensor,
-                        dropout_ratio=value["dropout_ratio"],
-                        window_size=value["window_size"],
-                        args=value.get("args", {}),
-                    )
-                )
-                if "vo" in sensor.lower():
-                    self.dataset.set_run_visual_odometry()
+        self.dataset = DatasetConfig.from_yaml(self.parsed_config["dataset"])        
 
-        self.dataset.sensors = sensors
-        self.filter = FilterConfig(**self.parsed_config["filter"])
+        # self.dataset.sensors = sensors
+        self.filter = FilterConfig.from_yaml(self.parsed_config["filter"])
         self.filter.set_sensor_fields(self.dataset.type)
 
-        self.report = ReportConfig(**self.parsed_config["report"])
-        self.visual_odometry = VisualOdometryConfig(**self.parsed_config['visual_odometry'])
+        self.visual_odometry = VisualOdometryConfig.from_yaml(self.parsed_config['visual_odometry'])
 
-        self.visualization = VisualizationConfig(**self.parsed_config['visualization'])
+        self.visualization = VisualizationConfig.from_yaml(self.parsed_config['visualization'])
         fields = [
             VisualizationDataType.get_type(key)
             for (key, value) in self.visualization.fields.items()
@@ -453,8 +494,6 @@ class ExtendedConfig:
         def _get_imu_config() -> ImuConfig:
             
             get_sensor_from_str = SensorType.get_sensor_from_str_func(d=self.dataset.type)
-            for s in self.dataset.sensors:
-                print(s.name)
             imu = [sensor for sensor in self.dataset.sensors if SensorType.is_imu_data(get_sensor_from_str(sensor.name))]
             frequency = imu[0].args.get("frequency", 100) if len(imu) != 0 else 100
             if frequency < 100:
@@ -515,7 +554,22 @@ def dump_config(filter_config: FilterConfig, dataset_config: DatasetConfig, vo_c
     logging.info(f"Configuration dumped to {output_filepath}")
 
 if __name__ == "__main__":
-    config_file = "configs/kitti_config.yaml"
+    config_file = "configs/kitti_config_base.yaml"
+    config = ExtendedConfig(config_file)
+    
+    print(config.filter)
+
+    config_file = "configs/.legacy_configs/kitti_config.yaml"
+    config = ExtendedConfig(config_file)
+    
+    print(config.filter)
+
+    config_file = "configs/.experiments/kitti_all_filters/seq09/all_filters_config.yaml"
+    config = ExtendedConfig(config_file)
+    
+    print(config.filter)
+
+    config_file = "configs/.experiments/kitti_stress_test/noise_stress_test.yaml"
     config = ExtendedConfig(config_file)
     
     print(config.filter)

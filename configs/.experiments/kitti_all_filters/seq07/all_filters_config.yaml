@@ -1,0 +1,52 @@
+# Multi-Filter Experiment on KITTI Sequence 07
+# This config runs all filter variants (EKF, UKF, PF, EnKF, CKF) on sequence 07
+
+name: "KITTI All Filters - Sequence 07"
+description: "Comparison of all filter variants on KITTI sequence 07"
+
+# Configuration references
+dataset: configs/.experiments/kitti_all_filters/seq07/kitti_dataset_config_imu_vo.yaml
+
+# Filters to test
+filter: configs/.experiments/kitti_all_filters/seq07/filter_base.yaml
+
+visual_odometry: configs/.experiments/kitti_all_filters/seq07/kitti_vo_base.yaml
+
+visualization:
+  realtime: False
+  output_filepath: ./outputs/experiments/KITTI/all_filter_seq07/visualization
+  save_frames: False # Save frames for later video generation
+  save_trajectory: True
+  show_vo_trajectory: True
+  show_angle_estimation: False
+  show_end_result: True
+  show_vio_frame: True
+  show_innovation_history: True 
+  set_lim_in_plot: False
+  limits:
+  fields:
+    accelerometer: True
+    gyroscope: True
+    estimation: True
+    image: True
+    gps: True
+    vo: True
+    velocity: True
+    angle: True
+    state: False
+    ground_truth: True
+
+general:
+  log_level: info
+  log_sensor_data: True
+  save_sensor_data: False
+  save_estimation: False
+  save_output_debug_frames: False
+  sensor_data_output_filepath: ./outputs/test/KITTI/all_filter_seq07/sensor_out.txt
+  sensor_data_save_path: ./outputs/test/KITTI/all_filter_seq07/sensor_data
+
+report:
+  export_error: False
+  error_output_root_path: ./outputs/experiments/KITTI/experiment_results
+  pose_result_dir: ""
+  location_only: False 

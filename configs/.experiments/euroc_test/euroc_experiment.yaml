@@ -1,0 +1,54 @@
+# Single Filter Experiment - CKF on EuRoC Sequence MH_01
+# Example of running a single filter on a specific sequence
+
+name: "EuRoC sensor fusion"
+description: "Sensor fusion on EuRoC sequence"
+
+# Configuration references
+dataset: configs/.experiments/euroc_test/dataset_config.yaml
+
+filter: configs/.experiments/euroc_test/filter_ckf.yaml
+
+# Visual odometry settings
+visualization:
+  realtime: True
+  output_filepath: ./outputs/experiments/EuRoC/seq01_ckf/visualization
+  save_frames: False
+  save_trajectory: True
+  show_vo_trajectory: True
+  show_angle_estimation: True
+  show_end_result: True
+  show_vio_frame: False
+  show_innovation_history: False
+  set_lim_in_plot: False
+  fields:
+    accelerometer: True
+    gyroscope: True
+    estimation: True
+    image: True
+    gps: True
+    vo: True
+    velocity: True
+    angle: True
+    state: False
+    ground_truth: True
+
+
+# Visual odometry settings
+visual_odometry: configs/.experiments/euroc_test/vo_config.yaml
+
+# General settings
+general:
+  log_level: debug
+  log_sensor_data: True
+  save_sensor_data: True
+  save_estimation: True
+  save_output_debug_frames: True
+  sensor_data_output_filepath: ./outputs/test/EuRoC/seq01_ckf/sensor_out.txt
+  sensor_data_save_path: ./outputs/test/EuRoC/seq01_ckf/sensor_data
+
+# Report settings
+report:
+  export_error: True
+  error_output_root_path: ./outputs/test/EuRoC/seq01_ckf
+  location_only: False

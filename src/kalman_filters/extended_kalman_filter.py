@@ -785,7 +785,8 @@ class ExtendedKalmanFilter(BaseFilter):
 
     def _get_measurement_jacobian(self, data: MeasurementUpdateField) -> np.ndarray:
         sensor_type = data.sensor_type
-        fusion_fields = self.config.sensors.get(sensor_type, [])
+        sensor = self.config.sensors.get(sensor_type, {})
+        fusion_fields = sensor.get('fields', [])
         match(sensor_type.name):
             case SensorType.KITTI_VO.name | SensorType.EuRoC_VO.name:
                 H = np.empty((0, self.P.shape[0])) # z_dim x 16
@@ -807,3 +808,6 @@ class ExtendedKalmanFilter(BaseFilter):
                 # NOTE: all transition matrix for GPS, UWB, and any position update is handled by this.
                 # [I_3x3, 0_3x3, 0_3x4, 0_3x3, 0_3x3]
                 return self._get_position_update_H() 
+            
+    def set_ensembles(self):
+        return None

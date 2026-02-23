@@ -160,7 +160,7 @@ class SignalProcessor:
         motor_speed = sensor_data.data.u.flatten()
         self.uav_buffer.append(motor_speed)
         
-        if self._detect_anomaly(data=motor_speed, buffer=self.uav_buffer, threshold=3.0):
+        if self._detect_anomaly(data=motor_speed, buffer=self.uav_buffer, threshold=5.0):
             logging.warning("Anomaly detected in motor speed data")
             return None
             
@@ -187,8 +187,8 @@ class SignalProcessor:
         imu = sensor_data.data.u
         a, w = imu[:3], imu[3:]
         
-        if self._detect_anomaly(data=a, buffer=self.buffer[SignalType.ACC], threshold=3.0) or \
-            self._detect_anomaly(data=w, buffer=self.buffer[SignalType.GYRO], threshold=3.0):
+        if self._detect_anomaly(data=a, buffer=self.buffer[SignalType.ACC], threshold=5.0) or \
+            self._detect_anomaly(data=w, buffer=self.buffer[SignalType.GYRO], threshold=5.0):
             logging.warning("Anomaly detected in IMU data")
             return None
         
