@@ -1,7 +1,7 @@
 filter:
   type: pf # Select from: ekf, ukf, pf, enkf, ckf
   dimension: 2
-  motion_model: velocity # kinematics or velocity
+  motion_model: kinematics # kinematics or velocity
   innovation_masking: False
   is_imu_preintegrated: False
   compensate_gravity: True

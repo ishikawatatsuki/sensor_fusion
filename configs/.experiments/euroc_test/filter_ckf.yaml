@@ -6,7 +6,7 @@ filter:
   innovation_masking: False
   is_imu_preintegrated: False
   compensate_gravity: True
-  use_imu_preprocessing: True
+  use_imu_preprocessing: False
   params: {}
   sensors: # Sensor fields to be fused
     euroc_imu:
@@ -29,7 +29,7 @@ filter:
         type: measurement
         transformation: position_noise_to_measurement_noise
         params:
-          position_noise: 0.001
+          position_noise: 0.02 # meters
     euroc_vo:
       fields: 
         # - position

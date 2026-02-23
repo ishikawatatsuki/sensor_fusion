@@ -145,6 +145,7 @@ class FilterConfig:
                 'fields': [field.name for field in config.get('fields', [])],
                 'noise': {
                     'type': config['noise'].type,
+                    'scale': config['noise'].scale,
                     'transformation': config['noise'].transformation,
                     'params': config['noise'].params
                 } if config.get('noise') else None

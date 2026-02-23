@@ -46,7 +46,7 @@ filter:
         scale: 1.0
         transformation: position_noise_to_measurement_noise  # This function should be defined in the same file and will be called in the code to convert the noise values into measurement noise
         params:
-          position_noise: 0.01 # meters
+          position_noise: 0.1 # meters
     oxts_gps_unsynced: 
       fields: 
         - position
@@ -56,7 +56,7 @@ filter:
         scale: 1.0
         transformation: position_noise_to_measurement_noise # This function should be defined in the same file and will be called in the code to convert the noise values into process noise
         params:
-          position_noise: 0.01 # meters
+          position_noise: 0.1 # meters
     kitti_vo:
       fields: 
         - position

@@ -8,13 +8,13 @@ filter:
   use_imu_preprocessing: False
   params:
     # ukf
-    alpha: 0.2
+    alpha: 1.0
     beta: 2.0
     kappa: 0.
     # pf
     particle_size: 2048
     resampling_algorithm: stratified # Select from: multinomial, residual, systematic, stratified
-    scale_for_ess_threshold: .8 # from 0. to 1.
+    scale_for_ess_threshold: .5 # from 0. to 1.
     distribution: multivariate_normal # Select from multivariate_normal, multivariate_student_t
     # enkf
     ensemble_size: 128
@@ -66,7 +66,7 @@ filter:
     kitti_vo:
       fields: 
         - position
-        - linear_velocity
+        # - linear_velocity
         # - orientation
       noise:
         type: measurement # Select from: process, measurement
