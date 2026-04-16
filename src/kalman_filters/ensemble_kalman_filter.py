@@ -36,6 +36,60 @@ class EnsembleKalmanFilter(BaseFilter):
             )
         ensembles[:, 6:10] = np.repeat(mean[6:10].reshape(1, -1), self.ensemble_size, axis=0) # Initialize quaternions without noise
         return ensembles
+    
+    def _average_quaternions(self, quaternions):
+        """
+        Compute unweighted average of quaternions using the eigenvector method.
+        This preserves the unit norm constraint and finds the geodesic mean.
+        
+        Args:
+            quaternions: (N, 4) array of quaternions
+            
+        Returns:
+            (4,) array representing the mean quaternion
+        """
+        # Build covariance matrix (unweighted for EnKF)
+        M = np.zeros((4, 4))
+        for q in quaternions:
+            q = q.reshape(4, 1)
+            M += (q @ q.T)
+        M /= len(quaternions)
+        
+        # The mean quaternion is the eigenvector with largest eigenvalue
+        eigenvalues, eigenvectors = np.linalg.eigh(M)
+        mean_quat = eigenvectors[:, -1]  # eigenvector for largest eigenvalue
+        
+        # Ensure consistent sign (optional, but helps with continuity)
+        if np.dot(mean_quat, quaternions[0]) < 0:
+            mean_quat = -mean_quat
+            
+        return mean_quat
+    
+    def _compute_mean_state(self):
+        """
+        Compute the mean state from ensemble samples.
+        Handles quaternions specially to preserve unit norm constraint.
+        
+        Returns:
+            (state_dim,) array representing the mean state
+        """
+        p = self.samples[:, :3]       # position
+        v = self.samples[:, 3:6]      # velocity
+        q = self.samples[:, 6:10]     # quaternion
+        b_w = self.samples[:, 10:13]  # gyro bias
+        b_a = self.samples[:, 13:16]  # accel bias
+        
+        # Standard mean for Euclidean components
+        p_mean = np.mean(p, axis=0)
+        v_mean = np.mean(v, axis=0)
+        b_w_mean = np.mean(b_w, axis=0)
+        b_a_mean = np.mean(b_a, axis=0)
+        
+        # Proper quaternion averaging (geodesic mean)
+        q_mean = self._average_quaternions(q)
+        
+        # Reconstruct full state
+        return np.concatenate([p_mean, v_mean, q_mean, b_w_mean, b_a_mean])
 
     def kinematics_motion_model(self, u: np.ndarray, dt: float, Q: np.ndarray):
         
@@ -87,7 +141,7 @@ class EnsembleKalmanFilter(BaseFilter):
             b_a_k
         ], axis=1) + process_noise_cov # Nx10
         
-        x = np.mean(self.samples, axis=0)
+        x = self._compute_mean_state()
         self.x = State.get_new_state_from_array(x)
         
     def velocity_motion_model(self, u: np.ndarray, dt: float, Q: np.ndarray):
@@ -162,7 +216,7 @@ class EnsembleKalmanFilter(BaseFilter):
             b_a_k
         ], axis=1) + process_noise
 
-        x = np.mean(self.samples, axis=0)
+        x = self._compute_mean_state()
         self.x = State.get_new_state_from_array(x)
     
     
@@ -183,7 +237,7 @@ class EnsembleKalmanFilter(BaseFilter):
         H = self.get_transition_matrix(sensor_type, z_dim=z_dim)
         mask = self.get_innovation_mask(sensor_type=sensor_type, z_dim=z_dim)
         
-        mean = np.mean(self.samples, axis=0)
+        mean = self._compute_mean_state()
         P = np.zeros((self.x_dim, self.x_dim))
         for sample in self.samples:
             x_var = (sample - mean).reshape(-1, 1)
@@ -202,15 +256,16 @@ class EnsembleKalmanFilter(BaseFilter):
         innovation *= mask
         self.samples += innovation
         
-        x = np.mean(self.samples, axis=0)
+        x = self._compute_mean_state()
         self.x = State.get_new_state_from_array(x)
         
         self.innovations.append(np.sum(np.average(residuals, axis=1)))
     
+
         
     def get_current_estimate(self) -> Pose:
         # NOTE: Overwrite parent's method 
-        x = np.mean(self.samples, axis=0)
+        x = self._compute_mean_state()
         state = State.get_new_state_from_array(x)
         return Pose.from_state(state=state)
     

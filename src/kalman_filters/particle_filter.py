@@ -273,13 +273,61 @@ class ParticleFilter(BaseFilter):
         N_eff = 1.0 / np.sum(w**2)
         return N_eff < self.particle_size * self.scale_for_ess_threshold
 
+    def _average_quaternions(self, quaternions, weights):
+        """
+        Compute weighted average of quaternions using the eigenvector method.
+        This preserves the unit norm constraint and finds the geodesic mean.
+        
+        Args:
+            quaternions: (N, 4) array of quaternions
+            weights: (N,) array of weights
+            
+        Returns:
+            (4,) array representing the mean quaternion
+        """
+        # Build weighted covariance matrix
+        M = np.zeros((4, 4))
+        for q, w in zip(quaternions, weights):
+            q = q.reshape(4, 1)
+            M += w * (q @ q.T)
+        
+        # The mean quaternion is the eigenvector with largest eigenvalue
+        eigenvalues, eigenvectors = np.linalg.eigh(M)
+        mean_quat = eigenvectors[:, -1]  # eigenvector for largest eigenvalue
+        
+        # Ensure consistent sign (optional, but helps with continuity)
+        # Align with the first quaternion's hemisphere
+        if np.dot(mean_quat, quaternions[0]) < 0:
+            mean_quat = -mean_quat
+            
+        return mean_quat
+    
     def estimate(self):
         """ 
-            computer posterior of the system by calcurating the weighted average
+            Compute posterior of the system by calculating the weighted average.
+            Handles quaternions specially to preserve unit norm constraint.
         """
-        pos = self.particles
-        mu = np.average(pos, weights=self.weights, axis=0)
-        var = np.average((pos - mu)**2, weights=self.weights, axis=0)
+        # Extract state components
+        p = self.particles[:, :3]       # position
+        v = self.particles[:, 3:6]      # velocity
+        q = self.particles[:, 6:10]     # quaternion
+        b_w = self.particles[:, 10:13]  # gyro bias
+        b_a = self.particles[:, 13:16]  # accel bias
+        
+        # Standard weighted average for Euclidean components
+        p_mean = np.average(p, weights=self.weights, axis=0)
+        v_mean = np.average(v, weights=self.weights, axis=0)
+        b_w_mean = np.average(b_w, weights=self.weights, axis=0)
+        b_a_mean = np.average(b_a, weights=self.weights, axis=0)
+        
+        # Proper quaternion averaging (geodesic mean)
+        q_mean = self._average_quaternions(q, self.weights)
+        
+        # Reconstruct full state
+        mu = np.concatenate([p_mean, v_mean, q_mean, b_w_mean, b_a_mean])
+        
+        # Compute variance for all components
+        var = np.average((self.particles - mu)**2, weights=self.weights, axis=0)
 
         return mu, var
 
