@@ -17,8 +17,8 @@ from ..common import (
     GimbalCondition,
     Pose, State, MotionModel, TimeUpdateField, MeasurementUpdateField,
     MeasurementUpdateField,
-    DECLINATION_OFFSET_RADIAN_IN_ESTONIA
 )
+from .helper.transition_matrix_helper import TransitionMatrixHelper
 
 class BaseFilter(abc.ABC):
     mu_x = None
@@ -53,6 +53,8 @@ class BaseFilter(abc.ABC):
         
         self.config = config
         self.hardware_config = hardware_config
+
+        self.transition_matrix_helper = TransitionMatrixHelper(filter_config=config)
 
         self.residual = None
         self.innovation = None

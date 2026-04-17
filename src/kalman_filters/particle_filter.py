@@ -107,20 +107,20 @@ class ParticleFilter(BaseFilter):
         a -=  imu_sensor_error.acc_bias + self.x.b_a + imu_sensor_error.acc_noise
         w -= imu_sensor_error.gyro_bias + self.x.b_w + imu_sensor_error.gyro_noise
         
-        R = np.array([self.x.get_rotation_matrix(q_) for q_ in q]) #Nx3x3
-        omega = self.get_quaternion_update_matrix(w)
+        omega = State.get_quaternion_update_matrix(w)
         norm_w = self.compute_norm_w(w)
 
         A = np.cos(norm_w*dt/2) * np.eye(4)
         B = (1/norm_w)*np.sin(norm_w*dt/2) * omega
-        
-        a_world = (R @ a + self.g)
-        acc_val_reshaped = a_world.reshape(a_world.shape[0], a_world.shape[1])
-        # v = np.array([Ri @ vi for Ri, vi in zip(R, v)])
-        p_k = p + v * dt # + acc_val_reshaped*dt**2 / 2 # Nx3
-        v_k = v + acc_val_reshaped * dt # Nx3
         q_k = (np.array(A + B) @ q.T).T # Nx4
         q_k = np.array([q_ / np.linalg.norm(q_) if np.linalg.norm(q_) > 0 else q_  for q_ in q_k])
+
+        R = np.array([self.x.get_rotation_matrix(q_) for q_ in q_k]) #Nx3x3
+        a_world = (R @ a + self.g)
+        acc_val_reshaped = a_world.reshape(a_world.shape[0], a_world.shape[1])
+        v_k = v + acc_val_reshaped * dt # Nx3
+
+        p_k = p + v_k * dt # Nx3
 
         b_w_k = b_w + imu_sensor_error.gyro_bias.flatten()
         b_a_k = b_a + imu_sensor_error.acc_bias.flatten()
@@ -162,18 +162,22 @@ class ParticleFilter(BaseFilter):
         a -=  imu_sensor_error.acc_bias + self.x.b_a + imu_sensor_error.acc_noise
         w -= imu_sensor_error.gyro_bias + self.x.b_w + imu_sensor_error.gyro_noise
 
-        omega = self.get_quaternion_update_matrix(w)
+        omega = State.get_quaternion_update_matrix(w)
         norm_w = self.compute_norm_w(w)
-        phi, _, psi = np.array([self.get_euler_angle_from_quaternion(q_row.reshape(-1, 1)) for q_row in q]).T
-        R = np.array([self.x.get_rotation_matrix(q_) for q_ in q])
-        
+
         A = np.cos(norm_w*dt/2) * np.eye(4)
         B = (1/norm_w)*np.sin(norm_w*dt/2) * omega
-        
-        vf = self.get_forward_velocity(v)
+        q_k = (np.array(A + B) @ q.T).T # Nx4
+        q_k = np.array([q_ / np.linalg.norm(q_) if np.linalg.norm(q_) > 0 else q_  for q_ in q_k])
+
+        phi, _, psi = np.array([State.get_euler_angle_from_quaternion_vector(q_row.reshape(-1, 1)) for q_row in q_k]).T
+        R = np.array([self.x.get_rotation_matrix(q_) for q_ in q_k])
         
         a_world = (R @ a + self.g)
         acc_val_reshaped = a_world.reshape(a_world.shape[0], a_world.shape[1])
+        v_k = v + acc_val_reshaped * dt
+        
+        vf = self.get_forward_velocity(v_k)
         
         rx = vf / wx  # turning radius for x axis
         rz = vf / wz  # turning radius for z axis
@@ -183,13 +187,9 @@ class ParticleFilter(BaseFilter):
         dpx = - rz * np.sin(psi) + rz * np.sin(psi + dpsi)
         dpy = + rz * np.cos(psi) - rz * np.cos(psi + dpsi)
         dpz = + rx * np.cos(phi) - rx * np.cos(phi + dphi)
-        
         dp = np.vstack([dpx, dpy, dpz]).T
 
         p_k = p + dp
-        v_k = v + acc_val_reshaped * dt
-        q_k = (np.array(A + B) @ q.T).T # Nx4
-        q_k = np.array([q_ / np.linalg.norm(q_) if np.linalg.norm(q_) > 0 else q_  for q_ in q_k])
         
         b_w_k = b_w + imu_sensor_error.gyro_bias.flatten()
         b_a_k = b_a + imu_sensor_error.acc_bias.flatten()
@@ -219,8 +219,7 @@ class ParticleFilter(BaseFilter):
         """
         z = data.z
         R = data.R
-        sensor_type = data.sensor_type
-        H = self.get_transition_matrix(sensor_type, z_dim=z.shape[0])
+        H = self.transition_matrix_helper.get_transition_matrix(state=self.x, data=data)
         z_dim = z.shape[0]
 
         logw = np.log(self.weights + 1e-300) # avoid log(0)
@@ -240,20 +239,6 @@ class ParticleFilter(BaseFilter):
         # normalize safely
         logw -= logsumexp(logw)
         self.weights = np.exp(logw) 
-
-        # ll = np.zeros(self.weights.shape[0])
-        # for i, particle in enumerate(self.particles):
-        #     z_pred = H.dot(particle).reshape(-1, 1) # (3, 1)
-        #     innov = (z - z_pred) # (3,)
-        #     if self.distribution is DistributionType.MULTIVARIATE_NORMAL:
-        #         ll[i] = multivariate_normal(mean=np.zeros(z_dim), cov=R).pdf(innov.flatten())
-        #     else:
-        #         nu = 5  # pick > 2 typically
-        #         ll[i] = multivariate_t(df=nu, loc=np.zeros(z_dim), shape=R).pdf(innov.flatten())
-
-        # self.weights *= ll
-        # self.weights += 1e-300 # avoid round-off to zero
-        # self.weights /= np.sum(self.weights) # normalize
 
         # Resample when a sensor data is given and is allowed by importance resampling
         if self._allow_resampling():

@@ -110,21 +110,21 @@ class EnsembleKalmanFilter(BaseFilter):
         a -=  imu_sensor_error.acc_bias + self.x.b_a + imu_sensor_error.acc_noise
         w -= imu_sensor_error.gyro_bias + self.x.b_w + imu_sensor_error.gyro_noise
 
-        R = np.array([self.x.get_rotation_matrix(q_) for q_ in q]) #Nx3x3
-        omega = self.get_quaternion_update_matrix(w) 
         norm_w = self.compute_norm_w(w)
+        omega = State.get_quaternion_update_matrix(w) 
 
         A = np.cos(norm_w*dt/2) * np.eye(4)
         B = (1/norm_w)*np.sin(norm_w*dt/2) * omega
-
-        a_world = (R @ a + self.g)
-        acc_val_reshaped = a_world.reshape(a_world.shape[0], a_world.shape[1])
-        # v = np.array([Ri @ vi for Ri, vi in zip(R, v)])
-        p_k = p + v * dt # + acc_val_reshaped*dt**2 / 2 # Nx3
-        v_k = v + acc_val_reshaped * dt # Nx3
         q_k = (np.array(A + B) @ q.T).T # Nx4
         q_k = np.array([q_ / np.linalg.norm(q_) if np.linalg.norm(q_) > 0 else q_  for q_ in q_k])
 
+        R = np.array([self.x.get_rotation_matrix(q_) for q_ in q_k]) #Nx3x3
+        a_world = (R @ a + self.g)
+        acc_val_reshaped = a_world.reshape(a_world.shape[0], a_world.shape[1])
+        v_k = v + acc_val_reshaped * dt # Nx3
+
+        p_k = p + v_k * dt # + acc_val_reshaped*dt**2 / 2 # Nx3
+        
         b_w_k = b_w + imu_sensor_error.gyro_bias.flatten()
         b_a_k = b_a + imu_sensor_error.acc_bias.flatten()
 
@@ -141,7 +141,7 @@ class EnsembleKalmanFilter(BaseFilter):
             b_a_k
         ], axis=1) + process_noise_cov # Nx10
         
-        x = self._compute_mean_state()
+        x = np.mean(self.samples, axis=0)
         self.x = State.get_new_state_from_array(x)
         
     def velocity_motion_model(self, u: np.ndarray, dt: float, Q: np.ndarray):
@@ -169,19 +169,24 @@ class EnsembleKalmanFilter(BaseFilter):
         a -= imu_sensor_error.acc_bias + self.x.b_a + imu_sensor_error.acc_noise
         w -= imu_sensor_error.gyro_bias + self.x.b_w + imu_sensor_error.gyro_noise
 
-        R = np.array([self.x.get_rotation_matrix(q_) for q_ in q])
-        omega = self.get_quaternion_update_matrix(w)
+        omega = State.get_quaternion_update_matrix(w)
         norm_w = self.compute_norm_w(w)
 
         A = np.cos(norm_w*dt/2) * np.eye(4)
         B = (1/norm_w)*np.sin(norm_w*dt/2) * omega
+        q_k = (np.array(A + B) @ q.T).T # Nx4
+        q_k = np.array([q_ / np.linalg.norm(q_) if np.linalg.norm(q_) > 0 else q_  for q_ in q_k])
 
-        phi, _, psi = np.array([self.get_euler_angle_from_quaternion(q_row.reshape(-1, 1)) for q_row in q]).T
+        phi, _, psi = np.array([State.get_euler_angle_from_quaternion_vector(q_row.reshape(-1, 1)) for q_row in q_k]).T
+        R = np.array([self.x.get_rotation_matrix(q_) for q_ in q_k])
 
-        vf = self.get_forward_velocity(v)
         
         a_world = (R @ a + self.g)
         acc_val_reshaped = a_world.reshape(a_world.shape[0], a_world.shape[1])
+        v_k = v + acc_val_reshaped * dt
+
+
+        vf = self.get_forward_velocity(v_k)
 
         rx = vf / wx  # turning radius for x axis
         rz = vf / wz  # turning radius for z axis
@@ -193,11 +198,7 @@ class EnsembleKalmanFilter(BaseFilter):
         dpz = + rx * np.cos(phi) - rx * np.cos(phi + dphi)
         
         dp = np.vstack([dpx, dpy, dpz]).T
-        
         p_k = p + dp
-        v_k = v + acc_val_reshaped * dt
-        q_k = (np.array(A + B) @ q.T).T # Nx4
-        q_k = np.array([q_ / np.linalg.norm(q_) if np.linalg.norm(q_) > 0 else q_  for q_ in q_k])
         
         b_w_k = b_w + imu_sensor_error.gyro_bias.flatten()
         b_a_k = b_a + imu_sensor_error.acc_bias.flatten()
@@ -216,7 +217,7 @@ class EnsembleKalmanFilter(BaseFilter):
             b_a_k
         ], axis=1) + process_noise
 
-        x = self._compute_mean_state()
+        x = np.mean(self.samples, axis=0)
         self.x = State.get_new_state_from_array(x)
     
     

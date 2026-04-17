@@ -10,6 +10,7 @@ from ..common import (
     MeasurementUpdateField,
     GimbalCondition
 )
+from .helper.transition_matrix_helper import PartialDerivativeIMUBasedModelArgs
 
 class ExtendedKalmanFilter(BaseFilter):
     
@@ -639,24 +640,37 @@ class ExtendedKalmanFilter(BaseFilter):
         a -= b_a_k + imu_sensor_error.acc_noise
         w -= b_w_k + imu_sensor_error.gyro_noise
 
-        R = self.x.get_rotation_matrix()
-        omega = self.get_quaternion_update_matrix(w)
+        omega = State.get_quaternion_update_matrix(w)
         norm_w = self.compute_norm_w(w)
 
         A = np.cos(norm_w*dt/2) * np.eye(4)
         B = (1/norm_w)*np.sin(norm_w*dt/2) * omega
-        
-        a_world = (R @ a + self.g)
-        p_k = p + v * dt + a_world*dt**2 / 2
-        v_k = v + a_world * dt
         q_k = np.array(A + B) @ q
         q_k /= np.linalg.norm(q_k)
 
+        R = self.x.get_rotation_matrix_from_quaternion_vector(q_k)
+        
+        a_world = (R @ a + self.g)
+        v_k = v + a_world * dt
+        p_k = p + v_k * dt
+
         self.x = State(p=p_k, v=v_k, q=q_k, b_w=b_w_k, b_a=b_a_k)
 
-        F, G = self._get_kinematics_jacobian(u, q, dt, norm_w)
-        # predict state covariance matrix P
-        self.P = F @ self.P @ F.T + Q #+ G @ Q @ G.T
+        state = self.x.get_state_vector().flatten().copy()
+        _u = u.flatten().copy()
+        vals = PartialDerivativeIMUBasedModelArgs(
+            px=state[0], py=state[1], pz=state[2],
+            vx=state[3], vy=state[4], vz=state[5],
+            qw=state[6], qx=state[7], qy=state[8], qz=state[9],
+            b_ax=state[10], b_ay=state[11], b_az=state[12],
+            b_wx=state[13], b_wy=state[14], b_wz=state[15],
+            a_x=_u[0], a_y=_u[1], a_z=_u[2],
+            w_x=_u[3], w_y=_u[4], w_z=_u[5],
+            dt=dt,
+        )
+        F_jacobian = self.transition_matrix_helper.get_F_jacobian(vals)
+        # G_jacobian = self.transition_matrix_helper.get_G_jacobian(vals)
+        self.P = F_jacobian @ self.P @ F_jacobian.T + Q #+ G_jacobian @ Q @ G_jacobian.T
 
     def velocity_motion_model(self, u: np.ndarray, dt: float, Q: np.ndarray):
         """estimate x and P based on previous stete of x and control input u
@@ -685,16 +699,22 @@ class ExtendedKalmanFilter(BaseFilter):
         a -= b_a_k + imu_sensor_error.acc_noise
         w -= b_w_k + imu_sensor_error.gyro_noise
         
-        vf = self.get_forward_velocity(v)
-        
-        omega = self.get_quaternion_update_matrix(w)
+        omega = State.get_quaternion_update_matrix(w)
         norm_w = self.compute_norm_w(w)
-        phi, _, psi = self.get_euler_angle_from_quaternion(q)
-        R = self.x.get_rotation_matrix()
+        phi, _, psi = State.get_euler_angle_from_quaternion_vector(q)
+
+        A = np.cos(norm_w*dt/2) * np.eye(4)
+        B = (1/norm_w)*np.sin(norm_w*dt/2) * omega
+        
+        q_k = np.array(A + B) @ q
+        q_k /= np.linalg.norm(q_k)
+        R = self.x.get_rotation_matrix_from_quaternion_vector(q_k)
         
         a_world = (R @ a + self.g)
         v_k = v + a_world * dt
         
+        vf = self.get_forward_velocity(v_k)
+
         rx = vf / wx  # turning radius for x axis
         rz = vf / wz  # turning radius for z axis
         
@@ -705,20 +725,26 @@ class ExtendedKalmanFilter(BaseFilter):
         dpz = + rx * np.cos(phi) - rx * np.cos(phi + dphi)
         
         dp = np.array([dpx, dpy, dpz]).reshape(-1, 1)
-        
         p_k = p + dp
         
-        A = np.cos(norm_w*dt/2) * np.eye(4)
-        B = (1/norm_w)*np.sin(norm_w*dt/2) * omega
-        
-        q_k = np.array(A + B) @ q
-        q_k /= np.linalg.norm(q_k)
-
         self.x = State(p=p_k, v=v_k, q=q_k, b_w=b_w_k, b_a=b_a_k)
-        
-        F, G = self._get_velocity_jacobian(a, w, q_k, dt, norm_w, vf, v)
 
-        self.P = F @ self.P @ F.T + Q #+ G @ Q @ G.T
+        state = self.x.get_state_vector().flatten().copy()
+        _u = u.flatten().copy()
+        vals = PartialDerivativeIMUBasedModelArgs(
+            px=state[0], py=state[1], pz=state[2],
+            vx=state[3], vy=state[4], vz=state[5],
+            qw=state[6], qx=state[7], qy=state[8], qz=state[9],
+            b_ax=state[10], b_ay=state[11], b_az=state[12],
+            b_wx=state[13], b_wy=state[14], b_wz=state[15],
+            a_x=_u[0], a_y=_u[1], a_z=_u[2],
+            w_x=_u[3], w_y=_u[4], w_z=_u[5],
+            dt=dt,
+        )
+        F_jacobian = self.transition_matrix_helper.get_F_jacobian(vals)
+        G_jacobian = self.transition_matrix_helper.get_G_jacobian(vals)
+
+        self.P = F_jacobian @ self.P @ F_jacobian.T + Q
 
     def measurement_update(self, data: MeasurementUpdateField):
         z = data.z
@@ -726,23 +752,24 @@ class ExtendedKalmanFilter(BaseFilter):
         sensor_type = data.sensor_type
         z_dim = z.shape[0]
         x = self.x.get_state_vector()
-        self.H = self.get_transition_matrix(sensor_type, z_dim=z_dim)
-        H_j = self._get_measurement_jacobian(data)
+        H_j = self.transition_matrix_helper.get_transition_matrix(state=self.x, data=data)
         mask = self.get_innovation_mask(sensor_type=sensor_type, z_dim=z_dim).reshape(-1, 1)
 
         # compute Kalman gain
         self.K = self.P @ H_j.T @ np.linalg.inv(H_j @ self.P @ H_j.T + R)
         # update state x
-        z_ = np.dot(self.H, x)  # expected observation from the estimated state
+        z_ = np.dot(H_j, x)  # expected observation from the estimated state
         self.innovation = z - z_
-        innovation = self.K @ self.innovation
-        innovation *= mask
+        _innovation = self.K @ self.innovation
+        _innovation *= mask  # apply mask to the innovation
 
-        x = x + innovation
+        x += _innovation
+
+        x[6:10] /= np.linalg.norm(x[6:10])  # Normalize quaternion part of the state vector
 
         self.x = State.get_new_state_from_array(x)
 
-        z_ = np.dot(self.H, x)  # expected observation from the estimated state
+        z_ = np.dot(H_j, x)  # expected observation from the estimated state
         self.residual = z - z_
 
         # update covariance P
@@ -750,64 +777,6 @@ class ExtendedKalmanFilter(BaseFilter):
 
         # self.innovations.append(np.sum(residuals))
         # self.innovations.append(self.innovation[:3])
-
-    def _get_velocity_update_jacobian_H(self) -> np.ndarray:
-        """Jacobian of the velocity update for KITTI upward and leftward velocity sensor."""
-        qw, qx, qy, qz = self.x.q.flatten()
-        vx, vy, vz = self.x.v.flatten()
-
-        H = np.zeros((3, self.P.shape[0]))  # 3 x 16
-        H[0, 3] = qw**2 + qx**2 - qy**2 - qz**2
-        H[0, 4] = 2*qw*qz + 2*qx*qy
-        H[0, 5] = -2*qw*qz + 2*qx*qy
-        H[0, 6] = 2*qw*vx - 2*qy*vz + 2*qz*vy
-        H[0, 7] = 2*qx*vx + 2*qy*vy + 2*qz*vz
-        H[0, 8] = -2*qw*vz + 2*qx*vy - 2*qy*vx
-        H[0, 9] = 2*qw*vy + 2*qx*vz - 2*qz*vx
-
-        H[1, 3] = -2*qw*qz + 2*qx*qy
-        H[1, 4] = qw**2 - qx**2 + qy**2 - qz**2
-        H[1, 5] = 2*qw*qx + 2*qy*qz
-        H[1, 6] = 2*qw*vy + 2*qx*vz - 2*qz*vx
-        H[1, 7] = 2*qw*vz - 2*qx*vy + 2*qy*vx
-        H[1, 8] = 2*qx*vx + 2*qy*vy + 2*qz*vz
-        H[1, 9] = -2*qw*vx + 2*qy*vz - 2*qz*vy
-
-        H[2, 3] = 2*qw*qy + 2*qx*qz
-        H[2, 4] = -2*qw*qx + 2*qy*qz
-        H[2, 5] = qw**2 - qx**2 - qy**2 + qz**2
-        H[2, 6] = 2*qw*vz - 2*qx*vy + 2*qy*vx
-        H[2, 7] = -2*qw*vy - 2*qx*vz + 2*qz*vx
-        H[2, 8] = 2*qw*vx - 2*qy*vz + 2*qz*vy
-        H[2, 9] = 2*qx*vx + 2*qy*vy + 2*qz*vz
-
-        return H
-
-    def _get_measurement_jacobian(self, data: MeasurementUpdateField) -> np.ndarray:
-        sensor_type = data.sensor_type
-        sensor = self.config.sensors.get(sensor_type, {})
-        fusion_fields = sensor.get('fields', [])
-        match(sensor_type.name):
-            case SensorType.KITTI_VO.name | SensorType.EuRoC_VO.name:
-                H = np.empty((0, self.P.shape[0])) # z_dim x 16
-                if FusionData.POSITION in fusion_fields:
-                    # [I_3x3, 0_3x3, 0_3x4, 0_3x3, 0_3x3]
-                    H = np.vstack((H, self._get_position_update_H()))
-                if FusionData.LINEAR_VELOCITY in fusion_fields:
-                    # [0_3x3, 0_3x3, {Hj}_3x4, 0_3x3, 0_3x3]
-                    H = np.vstack((H, self._get_velocity_update_jacobian_H()))
-                if FusionData.ORIENTATION in fusion_fields:
-                    # [0_4x3, 0_4x3, I_4x4, 0_4x3, 0_4x3]
-                    H = np.vstack((H, self._get_quaternion_update_H()))
-                return H
-            
-            case SensorType.KITTI_UPWARD_LEFTWARD_VELOCITY.name:
-                # [0_2x3, 0_2x3, I_2x4, 0_2x3, 0_2x3]
-                return self._get_velocity_update_jacobian_H()[:2, :] 
-            case _:
-                # NOTE: all transition matrix for GPS, UWB, and any position update is handled by this.
-                # [I_3x3, 0_3x3, 0_3x4, 0_3x3, 0_3x3]
-                return self._get_position_update_H() 
             
     def set_ensembles(self):
         return None
