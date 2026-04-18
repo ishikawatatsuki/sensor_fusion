@@ -32,16 +32,16 @@ filter:
           position_noise: 0.02 # meters
     euroc_vo:
       fields: 
-        # - position
+        - position
         - linear_velocity
-        # - orientation
+        - orientation
       noise:
         type: measurement
         transformation: vo_noise_to_measurement_noise
         params:
-          position_noise: 0.1 # meters
-          velocity_noise: 0.1 # m/s
-          orientation_noise: 1.0 # degrees
+          vo_position_noise: 5.0 # meters
+          vo_velocity_noise: 2.0 # m/s
+          vo_orientation_noise: 3.0 # degrees
   noise_management:
     type: default # default, adaptive
     params:

@@ -25,6 +25,7 @@ filter:
         - angular_velocity
       noise:
         type: process
+        scale: 1.0
         transformation: imu_noise_to_process_noise
         params:
           gyroscope_noise_density: 0.00023561944901923448 # [rad/s/√Hz] 0.0135 deg/s/√Hz
@@ -37,21 +38,23 @@ filter:
         - position
       noise:
         type: measurement
+        scale: 1.0
         transformation: position_noise_to_measurement_noise
         params:
-          position_noise: 0.001
+          position_noise: 0.01
     euroc_vo:
       fields: 
-        # - position
+        - position
         - linear_velocity
         - orientation
       noise:
         type: measurement
+        scale: 1.0
         transformation: vo_noise_to_measurement_noise
         params:
-          vo_position_noise: 0.2 # meters
-          vo_velocity_noise: 0.1 # m/s
-          vo_orientation_noise: 1.0 # degrees
+          vo_position_noise: 5.0 # meters
+          vo_velocity_noise: 2.0 # m/s
+          vo_orientation_noise: 3.0 # degrees
   noise_management:
     type: default # default, adaptive
     params:

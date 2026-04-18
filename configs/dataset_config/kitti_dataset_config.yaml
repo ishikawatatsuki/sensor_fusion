@@ -28,7 +28,7 @@ dataset:
       args:
         frequency: 10
     oxts_gps: 
-      selected: True
+      selected: False
       dropout_ratio: 0
       window_size: 1
       args:

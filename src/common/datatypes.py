@@ -399,16 +399,7 @@ class State:
         return s
 
     @classmethod
-    def get_initial_state_from_config(cls, filter_config):
-        """create initial state object
-
-        Args:
-            config (dict): configuration dictionary
-
-        Returns:
-            State: new state object
-        """
-        
+    def get_initial_state_from_config(cls):
         p = np.zeros((3, 1))
         v = np.zeros((3, 1))
         q = np.array([1.0, 0.0, 0.0, 0.0]).reshape(-1, 1)
@@ -459,131 +450,46 @@ class State:
             [0, z, -y],
             [-z, 0, x],
             [y, -x, 0]])
-
+    
+    @staticmethod
+    def get_quaternion_update_matrix(w: np.ndarray) -> np.ndarray:
+        wx, wy, wz = w.flatten()
+        return np.array([ # w, x, y, z
+            [0, -wx, -wy, -wz],
+            [wx, 0, wz, -wy],
+            [wy, -wz, 0, wx],
+            [wz, wy, -wx, 0]
+        ])
+    
     def get_rotation_matrix(self, q=None):
         if q is None:
             q = self.q
-        
-        # w, x, y, z = q.flatten()
-        # # return Rotation.from_quat([x, y, z, w]).as_matrix()
-        # R = np.array([
-        #     [1 - 2*(y**2 + z**2),     2*(x*y - w*z),       2*(x*z + w*y)],
-        #     [2*(x*y + w*z),           1 - 2*(x**2 + z**2), 2*(y*z - w*x)],
-        #     [2*(x*z - w*y),           2*(y*z + w*x),       1 - 2*(x**2 + y**2)]
-        # ])
-        # return R
-        # q = q / np.linalg.norm(q)
-        # q = q.flatten()
-        # vec = q[1:]
-        # w = q[0]
-
-        # R = (2*w*w-1)*np.identity(3) - 2*w*self.skew(vec) + 2*vec[:, None]*vec
-        # return R
         return State.get_rotation_matrix_from_quaternion_vector(q.flatten())
     
     def get_euler_angle_from_quaternion(self, q=None):
         if q is None:
-            q = self.q.flatten()
-            
-        # w, x, y, z = q.flatten()
-        # return np.array([
-        #     [1 - 2*(y**2 + z**2), 2*(x*y - w*z),     2*(x*z + w*y)],
-        #     [2*(x*y + w*z),       1 - 2*(x**2 + z**2), 2*(y*z - w*x)],
-        #     [2*(x*z - w*y),       2*(y*z + w*x),     1 - 2*(x**2 + y**2)]
-        # ])
-        return State.get_euler_angle_from_quaternion_vector(q.flatten())
+            q = self.q.copy().flatten()
+        return State.get_euler_angle_from_quaternion_vector(q)
 
     @staticmethod
-    def get_euler_angle_from_quaternion_vector(q) -> np.ndarray:
-        w, x, y, z = q
-        
-        t0 = +2.0 * (w * x + y * z)
-        t1 = +1.0 - 2.0 * (x**2 + y**2)
-        phi = np.arctan2(t0, t1)
-    
-        t2 = +2.0 * (w * y - z * x)
-        t2 = +1.0 if t2 > +1.0 else t2
-        t2 = -1.0 if t2 < -1.0 else t2
-        theta = np.arcsin(t2)
-    
-        t3 = +2.0 * (w * z + x * y)
-        t4 = +1.0 - 2.0 * (y**2 + z**2)
-        psi = np.arctan2(t3, t4)
-        
-        return np.array([phi, theta, psi])
+    def get_euler_angle_from_quaternion_vector(q: np.ndarray) -> np.ndarray:
+        _q = q.copy().flatten()
+        r = Rotation.from_quat([_q[1], _q[2], _q[3], _q[0]])
+        return r.as_euler('xyz', degrees=False)
         
     @staticmethod
-    def get_rotation_matrix_from_quaternion_vector(q) -> np.ndarray:
-        q0, q1, q2, q3 = q
-        # https://ahrs.readthedocs.io/en/latest/filters/ekf.html
-        # https://www.iri.upc.edu/people/jsola/JoanSola/objectes/notes/kinematics.pdf
-        return np.array([
-            [q0**2 + q1**2 - q2**2 - q3**2, 2*(q1*q2 - q0*q3), 2*(q1*q3 + q0*q2)],
-            [2*(q1*q2 + q0*q3), q0**2 - q1**2 + q2**2 - q3**2, 2*(q2*q3 - q0*q1)],
-            [2*(q1*q3 - q0*q2), 2*(q2*q3 + q0*q1), q0**2 - q1**2 - q2**2 + q3**2]
-        ])
+    def get_rotation_matrix_from_quaternion_vector(q: np.ndarray) -> np.ndarray:
+        _q = q.flatten()
+        R = Rotation.from_quat([_q[1], _q[2], _q[3], _q[0]]).as_matrix()
+        return R
 
     @staticmethod
     def get_quaternion_from_rotation_matrix(R: np.ndarray) -> np.ndarray:
         assert R.shape == np.eye(3).shape, "Please provide 3x3 matrix"
-        trace = np.trace(R)
-
-        if trace > 0:
-            S = 2.0 * np.sqrt(trace + 1.0)
-            w = 0.25 * S
-            x = (R[2, 1] - R[1, 2]) / S
-            y = (R[0, 2] - R[2, 0]) / S
-            z = (R[1, 0] - R[0, 1]) / S
-        elif (R[0, 0] > R[1, 1]) and (R[0, 0] > R[2, 2]):
-            S = 2.0 * np.sqrt(1.0 + R[0, 0] - R[1, 1] - R[2, 2])
-            w = (R[2, 1] - R[1, 2]) / S
-            x = 0.25 * S
-            y = (R[0, 1] + R[1, 0]) / S
-            z = (R[0, 2] + R[2, 0]) / S
-        elif R[1, 1] > R[2, 2]:
-            S = 2.0 * np.sqrt(1.0 + R[1, 1] - R[0, 0] - R[2, 2])
-            w = (R[0, 2] - R[2, 0]) / S
-            x = (R[0, 1] + R[1, 0]) / S
-            y = 0.25 * S
-            z = (R[1, 2] + R[2, 1]) / S
-        else:
-            S = 2.0 * np.sqrt(1.0 + R[2, 2] - R[0, 0] - R[1, 1])
-            w = (R[1, 0] - R[0, 1]) / S
-            x = (R[0, 2] + R[2, 0]) / S
-            y = (R[1, 2] + R[2, 1]) / S
-            z = 0.25 * S
-
-        return np.array([w, x, y, z]).reshape(-1, 1)
-        
-        # r11, r12, r13 = R[0, :]
-        # r21, r22, r23 = R[1, :]
-        # r31, r32, r33 = R[2, :]
-        # _q0 = np.sqrt((1+r11+r22+r33)/4)
-        # _q1 = np.sqrt((1+r11-r22-r33)/4)
-        # _q2 = np.sqrt((1-r11+r22-r33)/4)
-        # _q3 = np.sqrt((1-r11-r22+r33)/4)
-        # if _q0 > _q1 and _q0 > _q2 and _q0 > _q3:
-        #   div = 4*_q0
-        #   _q1 = (r31-r23)/div
-        #   _q2 = (r13-r31)/div
-        #   _q3 = (r21-r12)/div
-        # elif _q1 > _q0 and _q1 > _q2 and _q1 > _q3:
-        #   div = 4*_q1
-        #   _q0 = (r32-r23)/div
-        #   _q2 = (r12-r21)/div
-        #   _q3 = (r13-r31)/div
-        # elif _q2 > _q0 and _q2 > _q1 and _q2 > _q3:
-        #   div = 4*_q2
-        #   _q0 = (r13-r31)/div
-        #   _q1 = (r12-r21)/div
-        #   _q3 = (r23-r32)/div
-        # else:
-        #   div = 4*_q3
-        #   _q0 = (r21-r12)/div
-        #   _q1 = (r13-r31)/div
-        #   _q2 = (r23-r32)/div
-            
-        # return np.array([_q0, _q1, _q2, _q3]).reshape(-1, 1)
+        r = Rotation.from_matrix(R)
+        q = r.as_quat()  # returns in (x, y, z, w) order
+        q = np.array([q[3], q[0], q[1], q[2]])  # convert to (w, x, y, z) order
+        return q.reshape(-1, 1)
         
     @staticmethod
     def get_euler_angle_from_rotation_matrix(R: np.ndarray) -> np.ndarray:
@@ -591,36 +497,18 @@ class State:
         
         r = Rotation.from_matrix(R)
         angles = r.as_euler('xyz', degrees=False)
-        
-        return angles.reshape(-1, 1)
+        return np.array(angles).reshape(-1, 1)
         
     @staticmethod
     def get_quaternion_from_euler_angle(w: np.ndarray) -> np.ndarray:
-        w = w.flatten()
+        w = w.copy().flatten()
         assert w.shape[0] == 3, "Please provide 3d vector"
         
-        normalize_euler = lambda angle: (angle + np.pi) % (2 * np.pi) - np.pi
-        
-        roll, pitch, yaw = w
-        
-        roll = normalize_euler(roll)
-        pitch = normalize_euler(pitch)
-        yaw = normalize_euler(yaw)
-            
-        cr = np.cos(roll * 0.5)
-        sr = np.sin(roll * 0.5)
-        cp = np.cos(pitch * 0.5)
-        sp = np.sin(pitch * 0.5)
-        cy = np.cos(yaw * 0.5)
-        sy = np.sin(yaw * 0.5)
-
-        w = cr * cp * cy + sr * sp * sy
-        x = sr * cp * cy - cr * sp * sy
-        y = cr * sp * cy + sr * cp * sy
-        z = cr * cp * sy - sr * sp * cy
-
-        return np.array([w, x, y, z]).reshape(-1, 1)
+        r = Rotation.from_euler('xyz', w, degrees=False)
+        _q = r.as_quat()  # returns in (x, y, z, w) order
+        return np.array([_q[3], _q[0], _q[1], _q[2]]).reshape(-1, 1)
     
+
 
 class Pose:
     """

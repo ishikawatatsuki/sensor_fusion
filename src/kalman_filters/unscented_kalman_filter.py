@@ -51,20 +51,21 @@ class UnscentedKalmanFilter(BaseFilter):
         a -=  imu_sensor_error.acc_bias + self.x.b_a + imu_sensor_error.acc_noise
         w -= imu_sensor_error.gyro_bias + self.x.b_w + imu_sensor_error.gyro_noise
 
-        R = np.array([self.x.get_rotation_matrix(q_) for q_ in q]) #21x3x3
-        Omega = self.get_quaternion_update_matrix(w)
+        Omega = State.get_quaternion_update_matrix(w)
         norm_w = self.compute_norm_w(w)
 
         A = np.cos(norm_w*dt/2) * np.eye(4)
         B = (1/norm_w)*np.sin(norm_w*dt/2) * Omega
+        q_k = (np.array(A + B) @ q.T).T # 21x4
+        q_k = np.array([q_ / np.linalg.norm(q_) if np.linalg.norm(q_) > 0 else q_  for q_ in q_k])
 
+        R = np.array([self.x.get_rotation_matrix(q_) for q_ in q_k]) #21x3x3
         a_world = (R @ a + self.g)
         acc_val_reshaped = a_world.reshape(a_world.shape[0], a_world.shape[1])
         # v = np.array([Ri @ vi for Ri, vi in zip(R, v)])
-        p_k = p + v * dt # + acc_val_reshaped*dt**2 / 2 # 21x3
         v_k = v + acc_val_reshaped * dt # 21x3
-        q_k = (np.array(A + B) @ q.T).T # 21x4
-        q_k = np.array([q_ / np.linalg.norm(q_) if np.linalg.norm(q_) > 0 else q_  for q_ in q_k])
+
+        p_k = p + v_k * dt # + acc_val_reshaped*dt**2 / 2 # 21x3
         
         b_w_k = b_w + imu_sensor_error.gyro_bias.flatten()
         b_a_k = b_a + imu_sensor_error.acc_bias.flatten()
@@ -107,21 +108,23 @@ class UnscentedKalmanFilter(BaseFilter):
         a -= imu_sensor_error.acc_bias + self.x.b_a + imu_sensor_error.acc_noise
         w -= imu_sensor_error.gyro_bias + self.x.b_w + imu_sensor_error.gyro_noise
         
-        R = np.array([self.x.get_rotation_matrix(q_) for q_ in q])
-        omega = self.get_quaternion_update_matrix(w)
+        omega = State.get_quaternion_update_matrix(w)
         norm_w = self.compute_norm_w(w)
-        # Shape: R:(33, 3, 3), q:(33, 4), omega:(4, 4), norm:0.0005630721583017353 (unscented_kalman_filter.py:113)
-        # logging.warning(f"Shape: R:{R.shape}, q:{q.shape}, omega:{omega.shape}, norm:{norm_w}")
+        
         A = np.cos(norm_w*dt/2) * np.eye(4)
         B = (1/norm_w)*np.sin(norm_w*dt/2) * omega
+        q_k = (np.array(A + B) @ q.T).T # 21x4
+        q_k = np.array([q_ / np.linalg.norm(q_) if np.linalg.norm(q_) > 0 else q_  for q_ in q_k])
         
-        phi, _, psi = np.array([self.get_euler_angle_from_quaternion(q_row.reshape(-1, 1)) for q_row in q]).T
+        R = np.array([self.x.get_rotation_matrix(q_) for q_ in q])
+        phi, _, psi = np.array([State.get_euler_angle_from_quaternion_vector(q_row.reshape(-1, 1)) for q_row in q]).T
         
-        vf = self.get_forward_velocity(v)
         
         a_world = (R @ a + self.g)
         acc_val_reshaped = a_world.reshape(a_world.shape[0], a_world.shape[1])
-        
+        v_k = v + acc_val_reshaped * dt
+
+        vf = self.get_forward_velocity(v_k)
         rx = vf / wx  # turning radius for x axis
         rz = vf / wz  # turning radius for z axis
         dphi = wx * dt
@@ -131,14 +134,8 @@ class UnscentedKalmanFilter(BaseFilter):
         dpz = + rx * np.cos(phi) - rx * np.cos(phi + dphi)
         
         dp = np.vstack([dpx, dpy, dpz]).T
-        
-        # Shape: dp:(33, 3), a_world:(33, 3, 1), vf:(33,) (unscented_kalman_filter.py:135)
-        # logging.warning(f"Shape: dp:{dp.shape}, a_world:{a_world.shape}, vf:{vf.shape}")
 
         p_k = p + dp
-        v_k = v + acc_val_reshaped * dt
-        q_k = (np.array(A + B) @ q.T).T # 21x4
-        q_k = np.array([q_ / np.linalg.norm(q_) if np.linalg.norm(q_) > 0 else q_  for q_ in q_k])
 
         b_w_k = b_w + imu_sensor_error.gyro_bias.flatten()
         b_a_k = b_a + imu_sensor_error.acc_bias.flatten()
@@ -167,7 +164,7 @@ class UnscentedKalmanFilter(BaseFilter):
         
         z_dim = z.shape[0]
         x = self.x.get_state_vector()
-        self.H = self.get_transition_matrix(sensor_type, z_dim=z_dim)
+        self.H = self.transition_matrix_helper.get_transition_matrix(state=self.x, data=data)
         mask = self.get_innovation_mask(sensor_type=sensor_type, z_dim=z_dim).reshape(-1, 1)
         
         sigma_points = self._compute_sigma_points()

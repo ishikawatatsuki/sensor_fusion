@@ -46,7 +46,7 @@ filter:
         scale: 1.0
         transformation: position_noise_to_measurement_noise  # This function should be defined in the same file and will be called in the code to convert the noise values into measurement noise
         params:
-          position_noise: 0.1 # meters
+          position_noise: 2.0 # meters
     oxts_gps_unsynced: 
       fields: 
         - position
@@ -56,20 +56,20 @@ filter:
         scale: 1.0
         transformation: position_noise_to_measurement_noise # This function should be defined in the same file and will be called in the code to convert the noise values into process noise
         params:
-          position_noise: 0.1 # meters
+          position_noise: 2.0 # meters
     kitti_vo:
       fields: 
         - position
-        # - linear_velocity
+        - linear_velocity
         # - orientation
       noise:
         type: measurement # Select from: process, measurement
         scale: 1.0
         transformation: vo_noise_to_measurement_noise # This function should be defined in the same file and will be called in the code to convert the noise values into measurement noise
         params:
-          vo_position_noise: 0.2 # meters
-          vo_velocity_noise: 0.1 # m/s
-          vo_orientation_noise: 1.0 # degrees
+          vo_position_noise: 5.0 # meters
+          vo_velocity_noise: 2.0 # m/s
+          vo_orientation_noise: 3.0 # degrees
     kitti_upward_leftward_velocity:
       fields: 
         - upward_velocity

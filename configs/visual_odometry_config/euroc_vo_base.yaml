@@ -14,15 +14,15 @@ visual_odometry:
     # 2d2d
     confidence: 0.90
     ransac_reproj_threshold: 0.999
-    matching_threshold: 0.45
+    matching_threshold: 0.3
     max_features: 1000
     object_detection_confidence: 0.7
     # Keypoints filtering
     border_threshold: 10
     response_threshold: 0.01
-    size_min: 2.0
-    size_max: 10.0
-    depth_min: 1.0
+    size_min: 5.0
+    size_max: 50.0
+    depth_min: 2.0
     depth_max: 35.0
     min_number_of_keypoints: 300
   dynamic_objects:

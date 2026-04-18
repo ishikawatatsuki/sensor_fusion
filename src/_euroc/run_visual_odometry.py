@@ -32,6 +32,12 @@ def parse_args():
         default="config.yaml", 
         help="Path to the configuration file"
     )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        required=True,
+        help="Path to export computed result"
+    )
     
     return parser.parse_args()
 
@@ -159,8 +165,7 @@ if __name__ == "__main__":
         logging.error("Visual Odometry configuration not found in the config file.")
         exit(1)
 
-    output_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/outputs/vo_estimates/pose_estimates_2d2d_euroc_test"
-    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(args.output_dir, exist_ok=True)
 
     variants = [
         "01",
@@ -173,6 +178,6 @@ if __name__ == "__main__":
         run_vo(
             rootpath=args.dataset_path,
             variant=variant,
-            output_dir=output_dir,
+            output_dir=args.output_dir,
             config=config
         )

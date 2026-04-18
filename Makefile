@@ -81,17 +81,20 @@ run_vo_pose_hybrid_experiment:
 run_vo_pose_euroc_experiment:
 	python -m src._euroc.run_visual_odometry \
 		--dataset_path ./data/EuRoC \
+		--output_dir ./outputs/vo_estimates/euroc/pose_estimation_2d2d \
 		--config_file ./configs/euroc_config_base.yaml
 
 
 run_vo_pose_euroc_2d3d_experiment:
 	python -m src._euroc.run_visual_odometry_2d3d \
 		--dataset_path ./data/EuRoC \
+		--output_dir ./outputs/vo_estimates/euroc/pose_estimation_2d3d \
 		--config_file ./configs/euroc_config_base.yaml
 
 run_vo_pose_euroc_hybrid_experiment:
 	python -m src._euroc.run_visual_odometry_hybrid \
 		--dataset_path ./data/EuRoC \
+		--output_dir ./outputs/vo_estimates/euroc/pose_estimation_hybrid \
 		--config_file ./configs/euroc_config_base.yaml
 
 run_kitti_experiments:

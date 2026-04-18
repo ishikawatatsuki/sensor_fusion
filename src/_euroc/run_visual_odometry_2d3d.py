@@ -32,6 +32,12 @@ def parse_args():
         default="config.yaml", 
         help="Path to the configuration file"
     )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        required=True,
+        help="Path to export computed result"
+    )
     
     return parser.parse_args()
 
@@ -171,15 +177,14 @@ if __name__ == "__main__":
 
     with open(args.config_file, 'r') as f:
         config = yaml.safe_load(f)
-        vo_json_config = config.get("visual_odometry", None)
+        vo_yaml_file_path = config.get("visual_odometry", None)
 
-    if vo_json_config is None:
+    if vo_yaml_file_path is None:
         logging.error("Visual Odometry configuration not found in the config file.")
         exit(1)
 
-
-    output_dir = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/outputs/vo_estimates/pose_estimates_2d3d_euroc_improved"
-    os.makedirs(output_dir, exist_ok=True)
+    
+    os.makedirs(args.output_dir, exist_ok=True)
 
     variants = [
         "01",
@@ -187,12 +192,12 @@ if __name__ == "__main__":
 
     for variant in variants:
 
-        config = VisualOdometryConfig.from_json(vo_json_config)
+        config = VisualOdometryConfig.from_yaml(vo_yaml_file_path)
         config.type = "monocular"
         config.estimator = "2d3d"
         run_vo(
             rootpath=args.dataset_path,
             variant=variant,
-            output_dir=output_dir,
+            output_dir=args.output_dir,
             config=config
         )

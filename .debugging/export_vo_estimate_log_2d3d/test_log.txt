@@ -3,9 +3,18 @@
 [91mERROR[0m:root:Error message
 [95mCRITICAL[0m:root:Critical error
 [92mINFO[0m:root:Starting Visual Odometry experiment.
+[93mWARNING[0m:root:Unknown object detector type: yolo11, defaulting to YOLO
+[93mWARNING[0m:root:Unknown object detector type: yolo11, defaulting to YOLO
 [92mINFO[0m:root:Visual Odometry initialized.
 [92mINFO[0m:root:Found 3682 image files.
 [92mINFO[0m:root:Loaded ground truth data with 36382 entries.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
@@ -14,6 +23,8 @@
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
@@ -23,6 +34,8 @@
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
@@ -36,6 +49,12 @@
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
@@ -44,6 +63,8 @@
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
@@ -56,6 +77,8 @@
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
@@ -98,160 +121,28 @@
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
-[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
@@ -318,6 +209,21 @@
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
 [93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
 [93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
 [93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
 [93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
@@ -326,6 +232,15 @@
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
@@ -334,4 +249,658 @@
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
 [93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Suspicious mask detected, overriding with all valid mask.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to filter by depth. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
+[93mWARNING[0m:root:Not enough keypoints to sample uniformly. Returning original keypoints.
 [92mINFO[0m:root:Estimated Pose shape: (3682, 3)
