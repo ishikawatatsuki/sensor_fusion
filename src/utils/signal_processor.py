@@ -187,8 +187,8 @@ class SignalProcessor:
         imu = sensor_data.data.u
         a, w = imu[:3], imu[3:]
         
-        if self._detect_anomaly(data=a, buffer=self.buffer[SignalType.ACC], threshold=5.0) or \
-            self._detect_anomaly(data=w, buffer=self.buffer[SignalType.GYRO], threshold=5.0):
+        if self._detect_anomaly(data=a, buffer=self.buffer[SignalType.ACC], threshold=4.0) or \
+            self._detect_anomaly(data=w, buffer=self.buffer[SignalType.GYRO], threshold=4.0):
             logging.warning("Anomaly detected in IMU data")
             return None
         

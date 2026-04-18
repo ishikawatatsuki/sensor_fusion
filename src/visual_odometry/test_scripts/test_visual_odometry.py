@@ -82,17 +82,17 @@ else:
     initial_timestamp = image_timestamps[0]
     gt_pos = df[df["#timestamp"] > initial_timestamp][["p_RS_R_x [m]", "p_RS_R_y [m]", "p_RS_R_z [m]"]].values
 
-    config_filepath = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/configs/euroc_config.yaml"
+    config_filepath = "/Volumes/Data_EXT/data/workspaces/sensor_fusion/configs/euroc_config_base.yaml"
 
 with open(config_filepath, 'r') as f:
     config = yaml.safe_load(f)
-    vo_json_config = config.get("visual_odometry", None)
+    vo_json_config_path = config.get("visual_odometry", None)
 
-if vo_json_config is None:
+if vo_json_config_path is None:
     logging.error("Visual Odometry configuration not found in the config file.")
     exit(1)
 
-config = VisualOdometryConfig.from_json(vo_json_config)
+config = VisualOdometryConfig.from_yaml(vo_json_config_path)
 config.type = "monocular"
 config.estimator = "2d3d"
 

@@ -81,7 +81,7 @@ class SensorFusion:
     def _get_kalman_filter(self):
         filter_type = str(self.filter_config.type).lower()
         coordinate_system = DatasetType.get_coordinate_system(self.hardware_config.type)
-        initial_state = State.get_initial_state_from_config(filter_config=self.filter_config)
+        initial_state = State.get_initial_state_from_config()
         
         kwargs = {
             'config': self.filter_config,
